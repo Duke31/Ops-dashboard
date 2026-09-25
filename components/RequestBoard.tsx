@@ -13,6 +13,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Toast } from "@/components/Toast";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { rpcMessage } from "@/lib/rpc-error";
 
 function needsDriver(toStatus: string) {
   return toStatus.toLowerCase().includes("driver assigned");
@@ -75,18 +76,14 @@ export function RequestBoard({
     setBusyId(request.id);
     try {
       if (needsHospital(toStatus) && hospitalId !== request.hospital_id) {
-        const { data: hospRow, error: hospErr } = await supabase
-          .from("emergency_requests")
-          .update({ hospital_id: hospitalId })
-          .eq("id", request.id)
-          .select("id, hospital_id")
-          .maybeSingle();
+        const { error: hospErr } = await supabase.rpc(
+          "assign_emergency_hospital",
+          {
+            p_request_id: request.id,
+            p_hospital_id: hospitalId,
+          },
+        );
         if (hospErr) throw hospErr;
-        if (!hospRow) {
-          throw new Error(
-            "Could not save hospital_id (RLS blocked). Set it in SQL, then retry.",
-          );
-        }
       }
 
       if (needsDriver(toStatus) && !request.driver_id) {
@@ -125,10 +122,7 @@ export function RequestBoard({
       setOk(`Moved to “${toStatus}”.`);
       router.refresh();
     } catch (e: unknown) {
-      const msg =
-        e && typeof e === "object" && "message" in e
-          ? String((e as { message: string }).message)
-          : "Transition failed.";
+      const msg = rpcMessage(e) || "Transition failed.";
       setError(msg);
     } finally {
       setBusyId(null);
@@ -193,12 +187,24 @@ export function RequestBoard({
                         <select
                           className="select"
                           value={selectedHospital}
-                          onChange={(e) =>
+                          onChange={async (e) => {
+                            const value = e.target.value;
                             setHospitalDraft((h) => ({
                               ...h,
-                              [r.id]: e.target.value,
-                            }))
-                          }
+                              [r.id]: value,
+                            }));
+                            if (!value) return;
+                            setError(null);
+                            const { error: err } = await supabase.rpc(
+                              "assign_emergency_hospital",
+                              {
+                                p_request_id: r.id,
+                                p_hospital_id: value,
+                              },
+                            );
+                            if (err) setError(rpcMessage(err));
+                            else router.refresh();
+                          }}
                         >
                           <option value="">Select hospital</option>
                           {hospitals.map((h) => (

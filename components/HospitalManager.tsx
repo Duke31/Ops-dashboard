@@ -5,57 +5,77 @@ import type { Hospital } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { Toast } from "@/components/Toast";
+import { rpcMessage } from "@/lib/rpc-error";
+
+type FormState = {
+  id: string | null;
+  name: string;
+  address: string;
+  lat: string;
+  lng: string;
+  intake_phone: string;
+};
+
+const empty: FormState = {
+  id: null,
+  name: "",
+  address: "",
+  lat: "",
+  lng: "",
+  intake_phone: "",
+};
 
 export function HospitalManager({ hospitals }: { hospitals: Hospital[] }) {
   const supabase = createClient();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState({
-    name: "",
-    address: "",
-    available_capacity: 0,
-  });
-  const [editing, setEditing] = useState<Hospital | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState<FormState>(empty);
 
-  async function onCreate(e: FormEvent) {
-    e.preventDefault();
-    setError(null);
-    const { error: err } = await supabase.from("hospitals").insert({
-      name: form.name,
-      address: form.address || null,
-      available_capacity: form.available_capacity,
+  function fill(h: Hospital) {
+    setForm({
+      id: h.id,
+      name: h.name ?? "",
+      address: h.address ?? "",
+      lat: h.lat != null ? String(h.lat) : "",
+      lng: h.lng != null ? String(h.lng) : "",
+      intake_phone: (h as Hospital & { intake_phone?: string }).intake_phone ?? "",
     });
-    if (err) {
-      setError(err.message);
-      return;
-    }
-    setForm({ name: "", address: "", available_capacity: 0 });
-    router.refresh();
+    setError(null);
   }
 
-  async function onSaveEdit(e: FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!editing) return;
     setError(null);
-    const { error: err } = await supabase
-      .from("hospitals")
-      .update({
-        name: editing.name,
-        address: editing.address,
-        available_capacity: editing.available_capacity,
-      })
-      .eq("id", editing.id);
-    if (err) {
-      setError(err.message);
-      return;
+    setOk(null);
+    setBusy(true);
+    try {
+      const { error: err } = await supabase.rpc("admin_save_hospital", {
+        p_id: form.id,
+        p_name: form.name.trim(),
+        p_address: form.address.trim() || null,
+        p_lat: form.lat === "" ? null : Number(form.lat),
+        p_lng: form.lng === "" ? null : Number(form.lng),
+        p_intake_phone: form.intake_phone.trim() || null,
+      });
+      if (err) throw err;
+      setOk(form.id ? "Hospital updated." : "Hospital created.");
+      setForm(empty);
+      router.refresh();
+    } catch (e) {
+      setError(rpcMessage(e));
+    } finally {
+      setBusy(false);
     }
-    setEditing(null);
-    router.refresh();
   }
 
   return (
     <div className="space-y-6">
-      <form onSubmit={onCreate} className="card p-4 grid md:grid-cols-4 gap-3">
+      <form onSubmit={onSubmit} className="card p-4 grid md:grid-cols-2 gap-3">
+        <div className="md:col-span-2 text-sm font-semibold">
+          {form.id ? "Edit hospital" : "New hospital"}
+        </div>
         <input
           className="input"
           placeholder="Name"
@@ -65,21 +85,46 @@ export function HospitalManager({ hospitals }: { hospitals: Hospital[] }) {
         />
         <input
           className="input"
+          placeholder="Intake phone"
+          value={form.intake_phone}
+          onChange={(e) => setForm({ ...form, intake_phone: e.target.value })}
+        />
+        <input
+          className="input md:col-span-2"
           placeholder="Address"
           value={form.address}
           onChange={(e) => setForm({ ...form, address: e.target.value })}
         />
         <input
           className="input"
-          type="number"
-          min={0}
-          placeholder="Capacity"
-          value={form.available_capacity}
-          onChange={(e) =>
-            setForm({ ...form, available_capacity: Number(e.target.value) })
-          }
+          placeholder="Latitude"
+          inputMode="decimal"
+          value={form.lat}
+          onChange={(e) => setForm({ ...form, lat: e.target.value })}
+          required
         />
-        <button className="btn btn-primary">Add hospital</button>
+        <input
+          className="input"
+          placeholder="Longitude"
+          inputMode="decimal"
+          value={form.lng}
+          onChange={(e) => setForm({ ...form, lng: e.target.value })}
+          required
+        />
+        <div className="md:col-span-2 flex gap-2">
+          <button className="btn btn-primary" disabled={busy}>
+            {form.id ? "Save hospital" : "Add hospital"}
+          </button>
+          {form.id && (
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => setForm(empty)}
+            >
+              Cancel edit
+            </button>
+          )}
+        </div>
       </form>
 
       <div className="table-wrap">
@@ -88,18 +133,34 @@ export function HospitalManager({ hospitals }: { hospitals: Hospital[] }) {
             <tr>
               <th>Name</th>
               <th>Address</th>
-              <th>Capacity</th>
+              <th>Phone</th>
+              <th>Lat / lng</th>
               <th />
             </tr>
           </thead>
           <tbody>
+            {hospitals.length === 0 && (
+              <tr>
+                <td colSpan={5} className="text-[var(--muted)]">
+                  No hospitals yet.
+                </td>
+              </tr>
+            )}
             {hospitals.map((h) => (
               <tr key={h.id}>
                 <td className="font-medium">{h.name}</td>
                 <td>{h.address || "—"}</td>
-                <td>{h.available_capacity ?? "—"}</td>
                 <td>
-                  <button className="btn btn-ghost" onClick={() => setEditing(h)}>
+                  {(h as Hospital & { intake_phone?: string }).intake_phone ||
+                    "—"}
+                </td>
+                <td className="whitespace-nowrap text-[var(--muted)]">
+                  {h.lat != null && h.lng != null
+                    ? `${h.lat}, ${h.lng}`
+                    : "—"}
+                </td>
+                <td>
+                  <button className="btn btn-ghost" onClick={() => fill(h)}>
                     Edit
                   </button>
                 </td>
@@ -108,46 +169,8 @@ export function HospitalManager({ hospitals }: { hospitals: Hospital[] }) {
           </tbody>
         </table>
       </div>
-
-      {editing && (
-        <form onSubmit={onSaveEdit} className="card p-4 space-y-3">
-          <div className="text-sm font-semibold">Edit {editing.name}</div>
-          <input
-            className="input"
-            value={editing.name}
-            onChange={(e) => setEditing({ ...editing, name: e.target.value })}
-          />
-          <input
-            className="input"
-            value={editing.address ?? ""}
-            onChange={(e) =>
-              setEditing({ ...editing, address: e.target.value })
-            }
-          />
-          <input
-            className="input"
-            type="number"
-            value={editing.available_capacity ?? 0}
-            onChange={(e) =>
-              setEditing({
-                ...editing,
-                available_capacity: Number(e.target.value),
-              })
-            }
-          />
-          <div className="flex gap-2">
-            <button className="btn btn-primary">Save</button>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={() => setEditing(null)}
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      )}
       <Toast message={error} onClose={() => setError(null)} />
+      <Toast message={ok} kind="ok" onClose={() => setOk(null)} />
     </div>
   );
 }

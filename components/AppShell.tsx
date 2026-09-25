@@ -12,6 +12,8 @@ const NAV: Record<string, { href: string; label: string }[]> = {
   admin: [
     { href: "/admin", label: "Network queue" },
     { href: "/admin/hospitals", label: "Hospitals" },
+    { href: "/admin/approvals", label: "Approvals" },
+    { href: "/admin/drivers", label: "Drivers" },
     { href: "/admin/staff", label: "Staff" },
     { href: "/admin/analytics", label: "Analytics" },
   ],

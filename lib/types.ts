@@ -17,6 +17,7 @@ export type Hospital = {
   available_capacity: number | null;
   lat?: number | null;
   lng?: number | null;
+  intake_phone?: string | null;
   created_at?: string;
 };
 
@@ -25,6 +26,7 @@ export type Driver = {
   display_name: string | null;
   vehicle_label: string | null;
   hospital_id: string | null;
+  active?: boolean | null;
   status?: string | null;
 };
 
