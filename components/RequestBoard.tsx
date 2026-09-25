@@ -71,11 +71,18 @@ export function RequestBoard({
     setBusyId(request.id);
     try {
       if (needsHospital(toStatus) && hospitalId !== request.hospital_id) {
-        const { error: hospErr } = await supabase
+        const { data: hospRow, error: hospErr } = await supabase
           .from("emergency_requests")
           .update({ hospital_id: hospitalId })
-          .eq("id", request.id);
+          .eq("id", request.id)
+          .select("id, hospital_id")
+          .maybeSingle();
         if (hospErr) throw hospErr;
+        if (!hospRow) {
+          throw new Error(
+            "Could not save hospital_id (RLS blocked). Set it in SQL, then retry.",
+          );
+        }
       }
 
       if (needsDriver(toStatus)) {
