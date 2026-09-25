@@ -56,7 +56,11 @@ export function RequestBoard({
     setOk(null);
 
     const draft = driverDraft[request.id] ?? { name: "", phone: "" };
-    if (needsDriver(toStatus) && (!draft.name.trim() || !draft.phone.trim())) {
+    if (
+      needsDriver(toStatus) &&
+      !request.driver_id &&
+      (!draft.name.trim() || !draft.phone.trim())
+    ) {
       setError("Enter driver name and phone before assigning a driver.");
       return;
     }
