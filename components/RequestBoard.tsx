@@ -153,7 +153,7 @@ export function RequestBoard({
           <tbody>
             {requests.map((r) => {
               const targets = allowedTargets(rules, r.status, actorRole);
-              const showDriver = targets.some(needsDriver);
+              const showDriver = targets.some(needsDriver) && !r.driver_id;
               const showHospital = targets.some(needsHospital);
               const draft = driverDraft[r.id] ?? { name: "", phone: "" };
               const selectedHospital =
