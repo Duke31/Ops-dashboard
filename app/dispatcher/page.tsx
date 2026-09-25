@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/AppShell";
 import { RequestBoard } from "@/components/RequestBoard";
+import { LogEmergencyForm } from "@/components/LogEmergencyForm";
 import { requireProfile } from "@/lib/auth";
 import { fetchRequests, fetchTransitionRules } from "@/lib/queries";
 
@@ -20,6 +21,7 @@ export default async function DispatcherPage() {
           does not hardcode the state machine.
         </p>
       </div>
+      <LogEmergencyForm />
       <RequestBoard
         requests={requests}
         rules={rules}

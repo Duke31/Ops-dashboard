@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/AppShell";
 import { RequestBoard } from "@/components/RequestBoard";
+import { LogEmergencyForm } from "@/components/LogEmergencyForm";
 import { requireProfile } from "@/lib/auth";
 import { fetchRequests, fetchTransitionRules } from "@/lib/queries";
 
@@ -23,6 +24,7 @@ export default async function AdminQueuePage() {
           match your profile). Buttons follow dispatcher rules.
         </p>
       </div>
+      <LogEmergencyForm />
       <RequestBoard
         requests={requests}
         rules={[...adminRules, ...dispatcherRules, ...hospitalRules]}
