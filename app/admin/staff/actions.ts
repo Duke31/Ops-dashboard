@@ -67,7 +67,7 @@ export async function createStaffAccount(
     };
   }
 
-  const { error: rpcErr } = await admin.rpc("assign_profile_role", {
+  const { error: rpcErr } = await admin.rpc("admin_finish_staff_role", {
     p_user_id: data.user.id,
     p_role: role,
     p_hospital_id: input.hospital_id || null,
@@ -79,7 +79,7 @@ export async function createStaffAccount(
   if (rpcErr) {
     return {
       ok: false,
-      error: `User created (${data.user.id}) but assign_profile_role failed: ${rpcErr.message}`,
+      error: `User created (${data.user.id}) but role assign failed: ${rpcErr.message}`,
     };
   }
 
