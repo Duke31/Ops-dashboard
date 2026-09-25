@@ -17,7 +17,7 @@ const TYPES = [
   "Other",
 ] as const;
 
-const AGE_BANDS = ["unknown", "infant", "child", "adult", "older_adult"] as const;
+const AGE_BANDS = ["unknown", "0-1", "2-12", "13-17", "18-39", "40-64", "65+"] as const;
 
 export function LogEmergencyForm() {
   const router = useRouter();
