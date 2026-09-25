@@ -1,5 +1,8 @@
 import { AppShell } from "@/components/AppShell";
-import { DriverActivation } from "@/components/DriverActivation";
+import {
+  DriverActivation,
+  type DriverRow,
+} from "@/components/DriverActivation";
 import { requireProfile } from "@/lib/auth";
 
 export default async function DriversPage() {
@@ -10,6 +13,12 @@ export default async function DriversPage() {
       "id, display_name, vehicle_label, hospital_id, active, hospital:hospitals(name)",
     )
     .order("display_name");
+
+  const drivers = ((data ?? []) as Record<string, unknown>[]).map((r) => {
+    const hospital = r.hospital as { name: string } | { name: string }[] | null;
+    const name = Array.isArray(hospital) ? hospital[0]?.name : hospital?.name;
+    return { ...r, hospital: name ? { name } : null } as DriverRow;
+  });
 
   return (
     <AppShell profile={profile}>
@@ -23,7 +32,7 @@ export default async function DriversPage() {
           <p className="text-sm text-[#b42318] mt-1">{error.message}</p>
         )}
       </div>
-      <DriverActivation drivers={data ?? []} />
+      <DriverActivation drivers={drivers} />
     </AppShell>
   );
 }

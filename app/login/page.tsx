@@ -42,7 +42,7 @@ export default function LoginPage() {
       );
       return;
     }
-    router.replace(homeForRole(profile.role as AppRole));
+    router.replace(homeForRole(String(profile.role)));
     router.refresh();
   }
 

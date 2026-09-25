@@ -1,5 +1,5 @@
 import { AppShell } from "@/components/AppShell";
-import { RoleRequests } from "@/components/RoleRequests";
+import { RoleRequests, type RoleRequestRow } from "@/components/RoleRequests";
 import { requireProfile } from "@/lib/auth";
 
 export default async function ApprovalsPage() {
@@ -12,6 +12,12 @@ export default async function ApprovalsPage() {
     .eq("status", "pending")
     .order("created_at", { ascending: true });
 
+  const rows = ((data ?? []) as Record<string, unknown>[]).map((r) => {
+    const hospital = r.hospital as { name: string } | { name: string }[] | null;
+    const name = Array.isArray(hospital) ? hospital[0]?.name : hospital?.name;
+    return { ...r, hospital: name ? { name } : null } as RoleRequestRow;
+  });
+
   return (
     <AppShell profile={profile}>
       <div className="mb-4">
@@ -23,7 +29,7 @@ export default async function ApprovalsPage() {
           <p className="text-sm text-[#b42318] mt-1">{error.message}</p>
         )}
       </div>
-      <RoleRequests rows={data ?? []} />
+      <RoleRequests rows={rows} />
     </AppShell>
   );
 }
