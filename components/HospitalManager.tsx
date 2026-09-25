@@ -32,6 +32,7 @@ export function HospitalManager({ hospitals }: { hospitals: Hospital[] }) {
   const [ok, setOk] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState<FormState>(empty);
+  const [rows, setRows] = useState<Hospital[]>(hospitals);
 
   function fill(h: Hospital) {
     setForm({
@@ -51,7 +52,7 @@ export function HospitalManager({ hospitals }: { hospitals: Hospital[] }) {
     setOk(null);
     setBusy(true);
     try {
-      const { error: err } = await supabase.rpc("admin_save_hospital", {
+      const { data, error: err } = await supabase.rpc("admin_save_hospital", {
         p_id: form.id,
         p_name: form.name.trim(),
         p_address: form.address.trim() || null,
@@ -60,6 +61,14 @@ export function HospitalManager({ hospitals }: { hospitals: Hospital[] }) {
         p_intake_phone: form.intake_phone.trim() || null,
       });
       if (err) throw err;
+      const saved = (Array.isArray(data) ? data[0] : data) as Hospital | null;
+      if (saved?.id) {
+        setRows((cur) => {
+          const next = cur.filter((h) => h.id !== saved.id);
+          next.push(saved);
+          return next.sort((a, b) => a.name.localeCompare(b.name));
+        });
+      }
       setOk(form.id ? "Hospital updated." : "Hospital created.");
       setForm(empty);
       router.refresh();
@@ -139,14 +148,14 @@ export function HospitalManager({ hospitals }: { hospitals: Hospital[] }) {
             </tr>
           </thead>
           <tbody>
-            {hospitals.length === 0 && (
+            {rows.length === 0 && (
               <tr>
                 <td colSpan={5} className="text-[var(--muted)]">
                   No hospitals yet.
                 </td>
               </tr>
             )}
-            {hospitals.map((h) => (
+            {rows.map((h) => (
               <tr key={h.id}>
                 <td className="font-medium">{h.name}</td>
                 <td>{h.address || "—"}</td>
