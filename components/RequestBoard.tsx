@@ -1,7 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { AppRole, EmergencyRequest, TransitionRule } from "@/lib/types";
+import type {
+  AppRole,
+  EmergencyRequest,
+  Hospital,
+  TransitionRule,
+} from "@/lib/types";
 import { allowedTargets, formatLocation } from "@/lib/queries";
 import { timeSince } from "@/lib/format";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -13,15 +18,22 @@ function needsDriver(toStatus: string) {
   return toStatus.toLowerCase().includes("driver assigned");
 }
 
+function needsHospital(toStatus: string) {
+  const s = toStatus.toLowerCase();
+  return s.includes("hospital confirmed") || s.includes("hospital matched");
+}
+
 export function RequestBoard({
   requests,
   rules,
   actorRole,
+  hospitals = [],
   empty = "No active requests.",
 }: {
   requests: EmergencyRequest[];
   rules: TransitionRule[];
   actorRole: AppRole;
+  hospitals?: Pick<Hospital, "id" | "name">[];
   empty?: string;
 }) {
   const router = useRouter();
@@ -30,6 +42,9 @@ export function RequestBoard({
   const [driverDraft, setDriverDraft] = useState<
     Record<string, { name: string; phone: string }>
   >({});
+  const [hospitalDraft, setHospitalDraft] = useState<Record<string, string>>(
+    {},
+  );
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
@@ -46,8 +61,23 @@ export function RequestBoard({
       return;
     }
 
+    const hospitalId =
+      hospitalDraft[request.id] || request.hospital_id || "";
+    if (needsHospital(toStatus) && !hospitalId) {
+      setError("Select a hospital before confirming.");
+      return;
+    }
+
     setBusyId(request.id);
     try {
+      if (needsHospital(toStatus) && hospitalId !== request.hospital_id) {
+        const { error: hospErr } = await supabase
+          .from("emergency_requests")
+          .update({ hospital_id: hospitalId })
+          .eq("id", request.id);
+        if (hospErr) throw hospErr;
+      }
+
       if (needsDriver(toStatus)) {
         const label = `${draft.name.trim()} · ${draft.phone.trim()}`;
         const { data: driverRow, error: drvErr } = await supabase
@@ -117,7 +147,10 @@ export function RequestBoard({
             {requests.map((r) => {
               const targets = allowedTargets(rules, r.status, actorRole);
               const showDriver = targets.some(needsDriver);
+              const showHospital = targets.some(needsHospital);
               const draft = driverDraft[r.id] ?? { name: "", phone: "" };
+              const selectedHospital =
+                hospitalDraft[r.id] ?? r.hospital_id ?? "";
               return (
                 <tr key={r.id}>
                   <td className="font-medium max-w-[220px]">
@@ -145,6 +178,25 @@ export function RequestBoard({
                   </td>
                   <td>
                     <div className="flex flex-col gap-2 min-w-[200px]">
+                      {showHospital && (
+                        <select
+                          className="select"
+                          value={selectedHospital}
+                          onChange={(e) =>
+                            setHospitalDraft((h) => ({
+                              ...h,
+                              [r.id]: e.target.value,
+                            }))
+                          }
+                        >
+                          <option value="">Select hospital</option>
+                          {hospitals.map((h) => (
+                            <option key={h.id} value={h.id}>
+                              {h.name}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                       {showDriver && (
                         <div className="grid grid-cols-2 gap-1">
                           <input
