@@ -10,6 +10,11 @@ export default async function DispatcherPage() {
     fetchRequests(supabase, { activeOnly: true }),
     fetchTransitionRules(supabase, "dispatcher"),
     supabase.from("hospitals").select("id, name").order("name"),
+    supabase
+      .from("drivers")
+      .select("id, display_name, vehicle_label, hospital_id, active")
+      .eq("active", true)
+      .order("display_name"),
   ]);
 
   return (

@@ -132,9 +132,8 @@ export function RequestBoard({
           <tbody>
             {requests.map((r) => {
               const targets = allowedTargets(rules, r.status, actorRole);
-              const showDriver = targets.some(needsDriver) && !r.driver_id;
               const showHospital = targets.some(needsHospital);
-              const showDriver = targets.some(needsDriver);
+              const showDriver = targets.some(needsDriver) && !r.driver_id;
               const selectedDriver = driverDraft[r.id] ?? r.driver_id ?? "";
               const selectedHospital =
                 hospitalDraft[r.id] ?? r.hospital_id ?? "";
