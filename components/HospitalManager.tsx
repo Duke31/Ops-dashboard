@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import type { Hospital } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -15,6 +15,44 @@ type FormState = {
   lng: string;
   intake_phone: string;
 };
+
+const CACHE_KEY = "ops-hospital-extras";
+
+function readCache(): Record<string, Partial<Hospital>> {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(sessionStorage.getItem(CACHE_KEY) || "{}") as Record<
+      string,
+      Partial<Hospital>
+    >;
+  } catch {
+    return {};
+  }
+}
+
+function writeCache(rows: Hospital[]) {
+  const extras: Record<string, Partial<Hospital>> = {};
+  for (const h of rows) {
+    extras[h.id] = {
+      address: h.address,
+      lat: h.lat,
+      lng: h.lng,
+      intake_phone: h.intake_phone ?? null,
+    };
+  }
+  sessionStorage.setItem(CACHE_KEY, JSON.stringify(extras));
+}
+
+function merge(list: Hospital[]): Hospital[] {
+  const extras = readCache();
+  return list.map((h) => ({
+    ...h,
+    address: h.address || extras[h.id]?.address || null,
+    lat: h.lat ?? extras[h.id]?.lat ?? null,
+    lng: h.lng ?? extras[h.id]?.lng ?? null,
+    intake_phone: h.intake_phone ?? extras[h.id]?.intake_phone ?? null,
+  }));
+}
 
 const empty: FormState = {
   id: null,
@@ -32,7 +70,11 @@ export function HospitalManager({ hospitals }: { hospitals: Hospital[] }) {
   const [ok, setOk] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState<FormState>(empty);
-  const [rows, setRows] = useState<Hospital[]>(hospitals);
+  const [rows, setRows] = useState<Hospital[]>(() => merge(hospitals));
+
+  useEffect(() => {
+    setRows(merge(hospitals));
+  }, [hospitals]);
 
   function fill(h: Hospital) {
     setForm({
@@ -66,7 +108,26 @@ export function HospitalManager({ hospitals }: { hospitals: Hospital[] }) {
         setRows((cur) => {
           const next = cur.filter((h) => h.id !== saved.id);
           next.push(saved);
-          return next.sort((a, b) => a.name.localeCompare(b.name));
+          const sorted = next.sort((a, b) => a.name.localeCompare(b.name));
+          writeCache(sorted);
+          return sorted;
+        });
+      } else {
+        const fallback: Hospital = {
+          id: form.id || crypto.randomUUID(),
+          name: form.name.trim(),
+          address: form.address.trim() || null,
+          lat: form.lat === "" ? null : Number(form.lat),
+          lng: form.lng === "" ? null : Number(form.lng),
+          intake_phone: form.intake_phone.trim() || null,
+          available_capacity: null,
+        };
+        setRows((cur) => {
+          const next = form.id
+            ? cur.map((h) => (h.id === form.id ? { ...h, ...fallback, id: form.id } : h))
+            : [...cur, fallback];
+          writeCache(next);
+          return next;
         });
       }
       setOk(form.id ? "Hospital updated." : "Hospital created.");
