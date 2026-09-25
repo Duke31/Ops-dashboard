@@ -107,7 +107,7 @@ export function RequestBoard({
               <th>Patient location</th>
               <th>Type</th>
               <th>Status</th>
-              <th>Age</th>
+              <th>Opened</th>
               <th>Hospital</th>
               <th>Driver</th>
               <th>Actions</th>
