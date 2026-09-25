@@ -5,25 +5,27 @@ import { fetchRequests, fetchTransitionRules } from "@/lib/queries";
 
 export default async function AdminQueuePage() {
   const { supabase, profile } = await requireProfile("admin");
-  const [requests, dispatcherRules, hospitalRules] = await Promise.all([
-    fetchRequests(supabase, { activeOnly: true }),
-    fetchTransitionRules(supabase, "dispatcher"),
-    fetchTransitionRules(supabase, "hospital"),
-  ]);
+  const [requests, dispatcherRules, hospitalRules, adminRules] =
+    await Promise.all([
+      fetchRequests(supabase, { activeOnly: true }),
+      fetchTransitionRules(supabase, "dispatcher"),
+      fetchTransitionRules(supabase, "hospital"),
+      fetchTransitionRules(supabase, "admin"),
+    ]);
 
   return (
     <AppShell profile={profile}>
       <div className="mb-4">
         <h1 className="text-lg font-semibold">Network queue</h1>
         <p className="text-sm text-[var(--muted)]">
-          Combined live view. Transitions use the dispatcher rule set unless
-          you act from a hospital screen.
+          Combined live view. Transitions are sent as actor_role=admin (must
+          match your profile). Buttons follow dispatcher rules.
         </p>
       </div>
       <RequestBoard
         requests={requests}
-        rules={[...dispatcherRules, ...hospitalRules]}
-        actorRole="dispatcher"
+        rules={[...adminRules, ...dispatcherRules, ...hospitalRules]}
+        actorRole="admin"
       />
     </AppShell>
   );

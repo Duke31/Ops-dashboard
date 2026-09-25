@@ -55,9 +55,14 @@ export function allowedTargets(
   fromStatus: string,
   actorRole: string,
 ) {
-  return rules
-    .filter((r) => r.actor_role === actorRole && r.from_status === fromStatus)
+  const targets = rules
+    .filter((r) => {
+      if (r.from_status !== fromStatus) return false;
+      if (r.actor_role === actorRole) return true;
+      return actorRole === "admin" && r.actor_role === "dispatcher";
+    })
     .map((r) => r.to_status);
+  return [...new Set(targets)];
 }
 
 export function formatLocation(r: EmergencyRequest): string {
