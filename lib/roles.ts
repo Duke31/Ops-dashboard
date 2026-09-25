@@ -1,7 +1,16 @@
 import type { AppRole } from "./types";
 
-export function homeForRole(role: AppRole): string {
-  return `/${role}`;
+const DESK_ROLES: AppRole[] = ["dispatcher", "hospital", "admin"];
+
+export function isDeskRole(role: string | null | undefined): role is AppRole {
+  return !!role && DESK_ROLES.includes(role as AppRole);
+}
+
+export function homeForRole(role: string | null | undefined): string {
+  if (role === "dispatcher" || role === "hospital" || role === "admin") {
+    return `/${role}`;
+  }
+  return "/no-access";
 }
 
 export function roleFromPath(pathname: string): AppRole | null {

@@ -35,7 +35,8 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
   const isLogin = pathname === "/login";
-  const isPublic = isLogin || pathname.startsWith("/auth");
+  const isNoAccess = pathname === "/no-access";
+  const isPublic = isLogin || isNoAccess || pathname.startsWith("/auth");
 
   if (!user && !isPublic) {
     const redirectUrl = request.nextUrl.clone();
@@ -55,7 +56,7 @@ export async function updateSession(request: NextRequest) {
 
     if (isLogin) {
       const dest = request.nextUrl.clone();
-      dest.pathname = role ? homeForRole(role) : "/login";
+      dest.pathname = role ? homeForRole(role) : "/no-access";
       dest.search = "";
       if (role) return NextResponse.redirect(dest);
     }
