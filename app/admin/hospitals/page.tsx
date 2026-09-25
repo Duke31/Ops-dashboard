@@ -3,66 +3,40 @@ import { HospitalManager } from "@/components/HospitalManager";
 import { requireProfile } from "@/lib/auth";
 import type { Hospital } from "@/lib/types";
 
-type Embed = {
-  hospital:
-    | {
-        id?: string;
-        name?: string;
-        address?: string | null;
-        lat?: number | null;
-        lng?: number | null;
-        intake_phone?: string | null;
-      }
-    | {
-        id?: string;
-        name?: string;
-        address?: string | null;
-        lat?: number | null;
-        lng?: number | null;
-        intake_phone?: string | null;
-      }[]
-    | null;
+type Row = {
+  hospital_id: string | null;
+  hospital?: { name?: string } | { name?: string }[] | null;
 };
 
-function unwrap(h: Embed["hospital"]): Hospital | null {
+function nameOf(h: Row["hospital"]): string | null {
   const row = Array.isArray(h) ? h[0] : h;
-  if (!row?.id) return null;
-  return {
-    id: String(row.id),
-    name: String(row.name ?? "Hospital"),
-    address: row.address ?? null,
-    lat: row.lat ?? null,
-    lng: row.lng ?? null,
-    intake_phone: row.intake_phone ?? null,
-    available_capacity: null,
-  };
+  return row?.name ?? null;
 }
 
 export default async function HospitalsPage() {
   const { supabase, profile } = await requireProfile("admin");
 
   const [fromProfiles, fromDrivers] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select(
-        "hospital:hospitals(id, name, address, lat, lng, intake_phone)",
-      ),
-    supabase
-      .from("drivers")
-      .select(
-        "hospital:hospitals(id, name, address, lat, lng, intake_phone)",
-      ),
+    supabase.from("profiles").select("hospital_id, hospital:hospitals(name)"),
+    supabase.from("drivers").select("hospital_id, hospital:hospitals(name)"),
   ]);
 
   const byId = new Map<string, Hospital>();
-  for (const row of (fromProfiles.data ?? []) as Embed[]) {
-    const h = unwrap(row.hospital);
-    if (h) byId.set(h.id, h);
-  }
-  for (const row of (fromDrivers.data ?? []) as Embed[]) {
-    const h = unwrap(row.hospital);
-    if (h) byId.set(h.id, h);
-  }
+  const ingest = (rows: Row[] | null) => {
+    for (const row of rows ?? []) {
+      if (!row.hospital_id) continue;
+      const existing = byId.get(row.hospital_id);
+      const label = nameOf(row.hospital);
+      byId.set(row.hospital_id, {
+        id: row.hospital_id,
+        name: label || existing?.name || "Linked hospital",
+        address: existing?.address ?? null,
+        available_capacity: null,
+      });
+    }
+  };
+  ingest((fromProfiles.data ?? []) as Row[]);
+  ingest((fromDrivers.data ?? []) as Row[]);
 
   const hospitals = [...byId.values()].sort((a, b) =>
     a.name.localeCompare(b.name),
@@ -73,8 +47,8 @@ export default async function HospitalsPage() {
       <div className="mb-4">
         <h1 className="text-lg font-semibold">Manage hospitals</h1>
         <p className="text-sm text-[var(--muted)]">
-          Saves through admin_save_hospital. List comes from profiles/drivers
-          (RLS blocks a raw hospitals select).
+          List = hospital_id already on staff or drivers. Lekki shows after a
+          desk or driver is linked to it.
         </p>
       </div>
       <HospitalManager hospitals={hospitals} />
