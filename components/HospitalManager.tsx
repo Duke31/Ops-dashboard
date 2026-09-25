@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import type { Hospital } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -71,6 +71,7 @@ export function HospitalManager({ hospitals }: { hospitals: Hospital[] }) {
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState<FormState>(empty);
   const [rows, setRows] = useState<Hospital[]>(() => merge(hospitals));
+  const inFlight = useRef(false);
 
   useEffect(() => {
     setRows(merge(hospitals));
@@ -90,6 +91,8 @@ export function HospitalManager({ hospitals }: { hospitals: Hospital[] }) {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (inFlight.current || busy) return;
+    inFlight.current = true;
     setError(null);
     setOk(null);
     setBusy(true);
@@ -136,6 +139,38 @@ export function HospitalManager({ hospitals }: { hospitals: Hospital[] }) {
     } catch (e) {
       setError(rpcMessage(e));
     } finally {
+      inFlight.current = false;
+      setBusy(false);
+    }
+  }
+
+  async function onDelete(h: Hospital) {
+    if (inFlight.current || busy) return;
+    const okConfirm = window.confirm(
+      `Delete “${h.name}”? This only works if no request, staff, or driver uses it.`,
+    );
+    if (!okConfirm) return;
+    inFlight.current = true;
+    setError(null);
+    setOk(null);
+    setBusy(true);
+    try {
+      const { error: err } = await supabase.rpc("admin_delete_hospital", {
+        p_id: h.id,
+      });
+      if (err) throw err;
+      setRows((cur) => {
+        const next = cur.filter((row) => row.id !== h.id);
+        writeCache(next);
+        return next;
+      });
+      if (form.id === h.id) setForm(empty);
+      setOk("Hospital deleted.");
+      router.refresh();
+    } catch (e) {
+      setError(rpcMessage(e));
+    } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   }
@@ -182,8 +217,8 @@ export function HospitalManager({ hospitals }: { hospitals: Hospital[] }) {
           required
         />
         <div className="md:col-span-2 flex gap-2">
-          <button className="btn btn-primary" disabled={busy}>
-            {form.id ? "Save hospital" : "Add hospital"}
+          <button className="btn btn-primary" type="submit" disabled={busy}>
+            {busy ? "Saving…" : form.id ? "Save hospital" : "Add hospital"}
           </button>
           {form.id && (
             <button
@@ -230,9 +265,14 @@ export function HospitalManager({ hospitals }: { hospitals: Hospital[] }) {
                     : "—"}
                 </td>
                 <td>
-                  <button className="btn btn-ghost" onClick={() => fill(h)}>
-                    Edit
-                  </button>
+                  <div className="flex gap-1">
+                    <button className="btn btn-ghost" type="button" disabled={busy} onClick={() => fill(h)}>
+                      Edit
+                    </button>
+                    <button className="btn btn-ghost" type="button" disabled={busy} onClick={() => onDelete(h)}>
+                      Delete
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
