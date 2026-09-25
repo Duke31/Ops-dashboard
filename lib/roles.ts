@@ -10,6 +10,7 @@ export function homeForRole(role: string | null | undefined): string {
   if (role === "dispatcher" || role === "hospital" || role === "admin") {
     return `/${role}`;
   }
+  if (role === "driver") return "/driver";
   return "/no-access";
 }
 
