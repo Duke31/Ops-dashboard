@@ -48,14 +48,15 @@ export function LogEmergencyForm() {
       const { data, error: err } = await supabase.rpc(
         "create_emergency_request",
         {
-          p_patient_address: form.patient_address.trim(),
           p_patient_lat: Number(form.patient_lat),
           p_patient_lng: Number(form.patient_lng),
+          p_patient_address: form.patient_address.trim(),
           p_emergency_type: form.emergency_type,
           p_priority: Number(form.priority),
           p_notes: form.notes.trim() || null,
           p_contact_phone: form.contact_phone.trim() || null,
           p_patient_age_band: form.patient_age_band,
+          p_idempotency_key: crypto.randomUUID(),
         },
       );
       if (err) throw err;
