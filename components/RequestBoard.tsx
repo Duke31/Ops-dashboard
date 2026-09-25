@@ -85,7 +85,7 @@ export function RequestBoard({
         }
       }
 
-      if (needsDriver(toStatus)) {
+      if (needsDriver(toStatus) && !request.driver_id) {
         const label = `${draft.name.trim()} · ${draft.phone.trim()}`;
         const { data: driverRow, error: drvErr } = await supabase
           .from("drivers")
