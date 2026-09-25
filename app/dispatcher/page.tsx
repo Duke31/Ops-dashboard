@@ -6,7 +6,7 @@ import { fetchRequests, fetchTransitionRules } from "@/lib/queries";
 
 export default async function DispatcherPage() {
   const { supabase, profile } = await requireProfile("dispatcher");
-  const [requests, rules, hospitalsRes] = await Promise.all([
+  const [requests, rules, hospitalsRes, driversRes] = await Promise.all([
     fetchRequests(supabase, { activeOnly: true }),
     fetchTransitionRules(supabase, "dispatcher"),
     supabase.from("hospitals").select("id, name").order("name"),
@@ -27,6 +27,7 @@ export default async function DispatcherPage() {
         rules={rules}
         actorRole="dispatcher"
         hospitals={hospitalsRes.data ?? []}
+        drivers={driversRes.data ?? []}
       />
     </AppShell>
   );

@@ -6,13 +6,14 @@ import { fetchRequests, fetchTransitionRules } from "@/lib/queries";
 
 export default async function AdminQueuePage() {
   const { supabase, profile } = await requireProfile("admin");
-  const [requests, dispatcherRules, hospitalRules, adminRules, hospitalsRes] =
+  const [requests, dispatcherRules, hospitalRules, adminRules, hospitalsRes, driversRes] =
     await Promise.all([
       fetchRequests(supabase, { activeOnly: true }),
       fetchTransitionRules(supabase, "dispatcher"),
       fetchTransitionRules(supabase, "hospital"),
       fetchTransitionRules(supabase, "admin"),
       supabase.from("hospitals").select("id, name").order("name"),
+      supabase.from("drivers").select("id, display_name, vehicle_label, hospital_id, active").eq("active", true).order("display_name"),
     ]);
 
   return (
@@ -30,6 +31,7 @@ export default async function AdminQueuePage() {
         rules={[...adminRules, ...dispatcherRules, ...hospitalRules]}
         actorRole="admin"
         hospitals={hospitalsRes.data ?? []}
+        drivers={driversRes.data ?? []}
       />
     </AppShell>
   );

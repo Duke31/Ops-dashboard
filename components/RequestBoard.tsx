@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type {
   AppRole,
+  Driver,
   EmergencyRequest,
   Hospital,
   TransitionRule,
@@ -29,20 +30,20 @@ export function RequestBoard({
   rules,
   actorRole,
   hospitals = [],
+  drivers = [],
   empty = "No active requests.",
 }: {
   requests: EmergencyRequest[];
   rules: TransitionRule[];
   actorRole: AppRole;
   hospitals?: Pick<Hospital, "id" | "name">[];
+  drivers?: Pick<Driver, "id" | "display_name" | "vehicle_label" | "hospital_id" | "active">[];
   empty?: string;
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [driverDraft, setDriverDraft] = useState<
-    Record<string, { name: string; phone: string }>
-  >({});
+  const [driverDraft, setDriverDraft] = useState<Record<string, string>>({});
   const [hospitalDraft, setHospitalDraft] = useState<Record<string, string>>(
     {},
   );
@@ -56,13 +57,9 @@ export function RequestBoard({
     setError(null);
     setOk(null);
 
-    const draft = driverDraft[request.id] ?? { name: "", phone: "" };
-    if (
-      needsDriver(toStatus) &&
-      !request.driver_id &&
-      (!draft.name.trim() || !draft.phone.trim())
-    ) {
-      setError("Enter driver name and phone before assigning a driver.");
+    const selectedDriver = driverDraft[request.id] || request.driver_id || "";
+    if (needsDriver(toStatus) && !selectedDriver) {
+      setError("Select an active driver before Driver assigned.");
       return;
     }
 
@@ -86,28 +83,12 @@ export function RequestBoard({
         if (hospErr) throw hospErr;
       }
 
-      if (needsDriver(toStatus) && !request.driver_id) {
-        const label = `${draft.name.trim()} · ${draft.phone.trim()}`;
-        const { data: driverRow, error: drvErr } = await supabase
-          .from("drivers")
-          .insert({
-            display_name: draft.name.trim(),
-            vehicle_label: draft.phone.trim(),
-            hospital_id: request.hospital_id,
-          })
-          .select("id")
-          .single();
+      if (needsDriver(toStatus) && selectedDriver !== request.driver_id) {
+        const { error: drvErr } = await supabase.rpc("assign_emergency_driver", {
+          p_request_id: request.id,
+          p_driver_id: selectedDriver,
+        });
         if (drvErr) throw drvErr;
-        const { error: upErr } = await supabase
-          .from("emergency_requests")
-          .update({
-            driver_id: driverRow.id,
-            notes: request.notes
-              ? `${request.notes}\nAssigned driver: ${label}`
-              : `Assigned driver: ${label}`,
-          })
-          .eq("id", request.id);
-        if (upErr) throw upErr;
       }
 
       const { error: rpcErr } = await supabase.rpc(
@@ -153,7 +134,8 @@ export function RequestBoard({
               const targets = allowedTargets(rules, r.status, actorRole);
               const showDriver = targets.some(needsDriver) && !r.driver_id;
               const showHospital = targets.some(needsHospital);
-              const draft = driverDraft[r.id] ?? { name: "", phone: "" };
+              const showDriver = targets.some(needsDriver);
+              const selectedDriver = driverDraft[r.id] ?? r.driver_id ?? "";
               const selectedHospital =
                 hospitalDraft[r.id] ?? r.hospital_id ?? "";
               return (
@@ -215,30 +197,33 @@ export function RequestBoard({
                         </select>
                       )}
                       {showDriver && (
-                        <div className="grid grid-cols-2 gap-1">
-                          <input
-                            className="input"
-                            placeholder="Driver name"
-                            value={draft.name}
-                            onChange={(e) =>
-                              setDriverDraft((d) => ({
-                                ...d,
-                                [r.id]: { ...draft, name: e.target.value },
-                              }))
-                            }
-                          />
-                          <input
-                            className="input"
-                            placeholder="Phone"
-                            value={draft.phone}
-                            onChange={(e) =>
-                              setDriverDraft((d) => ({
-                                ...d,
-                                [r.id]: { ...draft, phone: e.target.value },
-                              }))
-                            }
-                          />
-                        </div>
+                        <select
+                          className="select"
+                          value={selectedDriver}
+                          onChange={async (e) => {
+                            const value = e.target.value;
+                            setDriverDraft((d) => ({ ...d, [r.id]: value }));
+                            if (!value) return;
+                            setError(null);
+                            const { error: err } = await supabase.rpc(
+                              "assign_emergency_driver",
+                              {
+                                p_request_id: r.id,
+                                p_driver_id: value,
+                              },
+                            );
+                            if (err) setError(rpcMessage(err));
+                            else router.refresh();
+                          }}
+                        >
+                          <option value="">Select driver</option>
+                          {drivers.map((d) => (
+                            <option key={d.id} value={d.id}>
+                              {d.display_name || "Driver"}
+                              {d.vehicle_label ? ` · ${d.vehicle_label}` : ""}
+                            </option>
+                          ))}
+                        </select>
                       )}
                       <div className="flex flex-wrap gap-1">
                         {targets.length === 0 && (
