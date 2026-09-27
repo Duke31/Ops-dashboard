@@ -187,23 +187,23 @@ export function DriverConsole({
         const isArrived = r.status === "Arrived / intake";
         const isCompleted = r.status === "Completed" || r.status === "Cancelled / failed";
 
-        // Construct high-precision coordinate navigation URL with fallback
-        const patientMapUrl =
+        // URL format: ?q=LAT,LNG forces Google Maps to drop the pin EXACTLY on the coordinate without snapping to roads
+        const patientExactMapUrl =
           r.patient_lat != null && r.patient_lng != null
-            ? `https://www.google.com/maps/dir/?api=1&destination=${Number(r.patient_lat).toFixed(6)},${Number(r.patient_lng).toFixed(6)}`
+            ? `https://www.google.com/maps?q=${Number(r.patient_lat).toFixed(6)},${Number(r.patient_lng).toFixed(6)}`
             : r.patient_address
-            ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(r.patient_address)}`
+            ? `https://www.google.com/maps?q=${encodeURIComponent(r.patient_address)}`
             : null;
 
         const hospitalMapUrl =
           r.hospital?.lat != null && r.hospital?.lng != null
-            ? `https://www.google.com/maps/dir/?api=1&destination=${Number(r.hospital.lat).toFixed(6)},${Number(r.hospital.lng).toFixed(6)}`
+            ? `https://www.google.com/maps?q=${Number(r.hospital.lat).toFixed(6)},${Number(r.hospital.lng).toFixed(6)}`
             : r.hospital?.address
-            ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+            ? `https://www.google.com/maps?q=${encodeURIComponent(
                 r.hospital.address + ", " + r.hospital.name,
               )}`
             : r.hospital?.name
-            ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(r.hospital.name)}`
+            ? `https://www.google.com/maps?q=${encodeURIComponent(r.hospital.name)}`
             : null;
 
         return (
@@ -237,7 +237,7 @@ export function DriverConsole({
                 <p className="text-sm font-semibold mt-0.5">{formatLocation(r)}</p>
                 {r.patient_lat != null && r.patient_lng != null && (
                   <span className="text-[11px] text-[var(--muted)] block font-mono">
-                    GPS: {Number(r.patient_lat).toFixed(5)}, {Number(r.patient_lng).toFixed(5)}
+                    GPS: {Number(r.patient_lat).toFixed(6)}, {Number(r.patient_lng).toFixed(6)}
                   </span>
                 )}
               </div>
@@ -296,15 +296,15 @@ export function DriverConsole({
               </div>
             )}
 
-            {/* Turn-by-Turn GPS Button */}
-            {patientMapUrl && !isArrived && (
+            {/* Direct GPS Pin Button (never road-snaps) */}
+            {patientExactMapUrl && !isArrived && (
               <a
-                href={patientMapUrl}
+                href={patientExactMapUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full btn py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-center flex items-center justify-center gap-2 rounded-lg"
               >
-                <span>🗺️ Open Turn-by-Turn GPS to Patient</span>
+                <span>🗺️ Open Exact GPS Pin in Google Maps</span>
               </a>
             )}
 
@@ -371,7 +371,7 @@ export function DriverConsole({
                 </div>
               )}
 
-              {/* Abort button ONLY available before reaching the hospital! */}
+              {/* Abort button ONLY available before reaching the hospital */}
               {!isArrived && !isCompleted && (
                 <button
                   disabled={busy === r.id}
