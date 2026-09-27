@@ -44,16 +44,11 @@ export function RequestBoard({
   const supabase = useMemo(() => createClient(), []);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [driverDraft, setDriverDraft] = useState<Record<string, string>>({});
-  const [hospitalDraft, setHospitalDraft] = useState<Record<string, string>>(
-    {},
-  );
+  const [hospitalDraft, setHospitalDraft] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
-  async function transition(
-    request: EmergencyRequest,
-    toStatus: string,
-  ) {
+  async function transition(request: EmergencyRequest, toStatus: string) {
     setError(null);
     setOk(null);
 
@@ -63,8 +58,7 @@ export function RequestBoard({
       return;
     }
 
-    const hospitalId =
-      hospitalDraft[request.id] || request.hospital_id || "";
+    const hospitalId = hospitalDraft[request.id] || request.hospital_id || "";
     if (needsHospital(toStatus) && !hospitalId) {
       setError("Select a hospital before confirming.");
       return;
@@ -91,14 +85,11 @@ export function RequestBoard({
         if (drvErr) throw drvErr;
       }
 
-      const { error: rpcErr } = await supabase.rpc(
-        "transition_emergency_state",
-        {
-          request_id: request.id,
-          new_state: toStatus,
-          actor_role: actorRole,
-        },
-      );
+      const { error: rpcErr } = await supabase.rpc("transition_emergency_state", {
+        request_id: request.id,
+        new_state: toStatus,
+        actor_role: actorRole,
+      });
       if (rpcErr) throw rpcErr;
       setOk(`Moved to “${toStatus}”.`);
       router.refresh();
@@ -121,7 +112,7 @@ export function RequestBoard({
           <thead>
             <tr>
               <th>Patient location</th>
-              <th>Type</th>
+              <th>Type / Triage</th>
               <th>Status</th>
               <th>Opened</th>
               <th>Hospital</th>
@@ -135,14 +126,40 @@ export function RequestBoard({
               const showHospital = targets.some(needsHospital);
               const showDriver = targets.some(needsDriver) && !r.driver_id;
               const selectedDriver = driverDraft[r.id] ?? r.driver_id ?? "";
-              const selectedHospital =
-                hospitalDraft[r.id] ?? r.hospital_id ?? "";
+              const selectedHospital = hospitalDraft[r.id] ?? r.hospital_id ?? "";
               return (
                 <tr key={r.id}>
-                  <td className="font-medium max-w-[220px]">
-                    {formatLocation(r)}
+                  <td className="max-w-[240px]">
+                    <div className="font-medium text-sm leading-snug">{formatLocation(r)}</div>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px]">
+                      {r.patient_age_band && (
+                        <span className="px-1.5 py-0.5 rounded bg-[var(--surface-raised,#f3f4f6)] text-[var(--muted)] border border-[var(--border,#e5e7eb)]">
+                          {r.patient_age_band === "unknown" ? "Age: ?" : `${r.patient_age_band}y`}
+                        </span>
+                      )}
+                      {r.contact_phone && (
+                        <a
+                          href={`tel:${r.contact_phone}`}
+                          className="font-medium text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5"
+                          title="Call patient"
+                        >
+                          <span>📞</span>
+                          <span>{r.contact_phone}</span>
+                        </a>
+                      )}
+                    </div>
                   </td>
-                  <td>{r.emergency_type || "—"}</td>
+                  <td className="max-w-[220px]">
+                    <div className="font-semibold text-sm">{r.emergency_type || "—"}</div>
+                    {r.notes && (
+                      <div className="mt-1 text-[11px] leading-tight text-red-700 dark:text-red-300 bg-red-500/10 border border-red-500/20 rounded p-1.5">
+                        <span className="font-bold uppercase tracking-wider text-[9px] block opacity-75 mb-0.5">
+                          Triage & Medical ID:
+                        </span>
+                        <span className="line-clamp-3 hover:line-clamp-none transition-all">{r.notes}</span>
+                      </div>
+                    )}
+                  </td>
                   <td>
                     <StatusBadge status={r.status} />
                   </td>
