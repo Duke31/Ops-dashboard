@@ -2,17 +2,21 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { canAccessPath, homeForRole } from "@/lib/roles";
 import type { AppRole, Profile } from "@/lib/types";
+import { getSupabasePublishableKey, getSupabaseUrl } from "@/lib/env";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
-
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const url = getSupabaseUrl();
+  const key = getSupabasePublishableKey();
   if (!url || !key) {
     return supabaseResponse;
   }
 
   const supabase = createServerClient(url, key, {
+    cookieOptions: {
+      sameSite: "none",
+      secure: true,
+    },
     cookies: {
       getAll() {
         return request.cookies.getAll();
@@ -23,7 +27,11 @@ export async function updateSession(request: NextRequest) {
         );
         supabaseResponse = NextResponse.next({ request });
         cookiesToSet.forEach(({ name, value, options }) =>
-          supabaseResponse.cookies.set(name, value, options),
+          supabaseResponse.cookies.set(name, value, {
+            ...options,
+            sameSite: "none",
+            secure: true,
+          }),
         );
       },
     },
@@ -38,7 +46,8 @@ export async function updateSession(request: NextRequest) {
   const isRest =
     pathname === "/no-access" ||
     pathname === "/reset" ||
-    pathname === "/driver";
+    pathname === "/driver" ||
+    pathname === "/hospital";
   const isPublic = isLogin || isRest || pathname.startsWith("/auth");
 
   if (!user && !isPublic) {
