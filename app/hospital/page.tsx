@@ -3,79 +3,65 @@ import { HospitalCapacity } from "@/components/HospitalCapacity";
 import { HospitalCards } from "@/components/HospitalCards";
 import { requireProfile } from "@/lib/auth";
 import { fetchRequests, fetchTransitionRules } from "@/lib/queries";
-import type { EmergencyRequest, TransitionRule } from "@/lib/types";
+import type { Hospital } from "@/lib/types";
 
 export default async function HospitalPage() {
-  const { supabase, profile } = await requireProfile(["hospital", "admin", "dispatcher"]);
+  const { supabase, profile } = await requireProfile([
+    "hospital",
+    "admin",
+    "dispatcher",
+  ]);
 
-  let hospitalId = profile.hospital_id;
-  let capacity: number | null = null;
-  let requests: EmergencyRequest[] = [];
-  let rules: TransitionRule[] = [];
+  // Fetch all hospitals
+  const { data: hospitalsData } = await supabase
+    .from("hospitals")
+    .select("id, name, address, available_capacity")
+    .order("name");
 
-  // If user is admin/dispatcher without a hospital_id, grab the first available hospital
-  if (!hospitalId) {
-    try {
-      const { data: firstHosp } = await supabase
-        .from("hospitals")
-        .select("id, available_capacity")
-        .limit(1)
-        .maybeSingle();
+  const hospitals = (hospitalsData ?? []) as Hospital[];
 
-      if (firstHosp) {
-        hospitalId = firstHosp.id;
-        capacity = firstHosp.available_capacity ?? null;
-      }
-    } catch (e) {
-      console.error("Error fetching fallback hospital:", e);
-    }
-  } else {
-    try {
-      const { data } = await supabase
-        .from("hospitals")
-        .select("available_capacity")
-        .eq("id", hospitalId)
-        .maybeSingle();
-      capacity = data?.available_capacity ?? null;
-    } catch (e) {
-      console.error("Error fetching hospital capacity:", e);
-    }
-  }
+  // Use the profile's hospital_id, or default to the first hospital in the list
+  const activeHospital =
+    hospitals.find((h) => h.id === profile.hospital_id) || hospitals[0] || null;
 
-  if (hospitalId) {
-    try {
-      requests = await fetchRequests(supabase, { hospitalId, activeOnly: true });
-    } catch (e) {
-      console.error("Error fetching requests:", e);
-      requests = [];
-    }
+  const hospitalId = activeHospital?.id ?? null;
+  const capacity = activeHospital?.available_capacity ?? null;
 
-    try {
-      rules = await fetchTransitionRules(supabase, "hospital");
-    } catch {
-      rules = [];
-    }
-  }
+  const [requests, rules] = await Promise.all([
+    fetchRequests(supabase, { activeOnly: true }).catch(() => []),
+    fetchTransitionRules(supabase, "hospital").catch(() => []),
+  ]);
+
+  // Filter requests destined for this hospital (or all active if none specified)
+  const scopedRequests = hospitalId
+    ? requests.filter((r) => !r.hospital_id || r.hospital_id === hospitalId)
+    : requests;
 
   return (
     <AppShell profile={profile}>
-      <div className="mb-4">
-        <h1 className="text-xl font-bold">ER Intake & Triage Desk</h1>
-        <p className="text-xs text-[var(--muted)]">
-          Incoming ambulance dispatches, clinical triage handovers, and live bed admissions.
-        </p>
+      <div className="mb-4 max-w-4xl mx-auto">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h1 className="text-xl font-bold">ER Intake & Triage Desk</h1>
+            <p className="text-xs text-[var(--muted)]">
+              {activeHospital
+                ? `Active Facility: ${activeHospital.name}`
+                : "Incoming ambulance dispatches and bed admissions"}
+            </p>
+          </div>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+            <span>●</span>
+            <span>Live ER Desk</span>
+          </span>
+        </div>
       </div>
 
-      {hospitalId ? (
-        <div className="space-y-4 max-w-4xl mx-auto">
+      <div className="space-y-4 max-w-4xl mx-auto">
+        {hospitalId && (
           <HospitalCapacity hospitalId={hospitalId} value={capacity} />
-          <HospitalCards requests={requests} rules={rules} />
-        </div>
-      ) : (
-        <div className="card p-6 text-sm text-[#b42318] text-center">
-          No hospital facility found in database. Please create a hospital in the Admin panel.
-        </div>
-      )}
+        )}
+        <HospitalCards requests={scopedRequests} rules={rules} />
+      </div>
     </AppShell>
   );
 }
