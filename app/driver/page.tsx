@@ -1,29 +1,45 @@
-"use client";
+import { AppShell } from "@/components/AppShell";
+import { DriverConsole } from "@/components/DriverConsole";
+import { requireProfile } from "@/lib/auth";
+import { fetchRequests, fetchTransitionRules } from "@/lib/queries";
+import type { Driver } from "@/lib/types";
 
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+export default async function DriverPage() {
+  const { supabase, profile } = await requireProfile(["driver", "admin", "dispatcher"]);
 
-export default function DriverRestPage() {
-  const router = useRouter();
+  const [requests, rules, driversRes] = await Promise.all([
+    fetchRequests(supabase, { activeOnly: true }),
+    fetchTransitionRules(supabase, "driver").catch(() => []),
+    supabase
+      .from("drivers")
+      .select("id, display_name, vehicle_label, hospital_id, active")
+      .order("display_name"),
+  ]);
 
-  async function signOut() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.replace("/login");
-    router.refresh();
-  }
+  const drivers = (driversRes.data ?? []) as Driver[];
 
   return (
-    <div className="min-h-dvh grid place-items-center p-4">
-      <div className="card max-w-sm w-full p-5 space-y-3">
-        <h1 className="text-lg font-semibold">Driver desk is not this app</h1>
-        <p className="text-sm text-[var(--muted)]">
-          Sign out, then use an admin, dispatcher, or hospital account.
-        </p>
-        <button className="btn btn-primary w-full" onClick={signOut}>
-          Sign out
-        </button>
+    <AppShell profile={profile}>
+      <div className="mb-4 max-w-xl mx-auto">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h1 className="text-xl font-bold">Ambulance Responder Console</h1>
+            <p className="text-xs text-[var(--muted)]">
+              Real-time dispatches, turn-by-turn navigation, and patient triage details.
+            </p>
+          </div>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+            <span>●</span>
+            <span>Live Dispatch Active</span>
+          </span>
+        </div>
       </div>
-    </div>
+
+      <DriverConsole
+        drivers={drivers}
+        requests={requests}
+        rules={rules}
+      />
+    </AppShell>
   );
 }
