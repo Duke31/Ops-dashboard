@@ -1,6 +1,6 @@
-export type AppRole = "dispatcher" | "hospital" | "admin";
+export type AppRole = "dispatcher" | "hospital" | "admin" | "driver";
 
-export const APP_ROLES: AppRole[] = ["dispatcher", "hospital", "admin"];
+export const APP_ROLES: AppRole[] = ["dispatcher", "hospital", "admin", "driver"];
 
 export type Profile = {
   user_id: string;
@@ -14,11 +14,10 @@ export type Hospital = {
   id: string;
   name: string;
   address: string | null;
-  available_capacity: number | null;
-  lat?: number | null;
-  lng?: number | null;
+  lat: number | null;
+  lng: number | null;
+  available_capacity?: number | null;
   intake_phone?: string | null;
-  created_at?: string;
 };
 
 export type Driver = {
@@ -42,10 +41,10 @@ export type EmergencyRequest = {
   hospital_id: string | null;
   driver_id: string | null;
   notes: string | null;
-  contact_phone?: string | null;
-  patient_age_band?: string | null;
+  contact_phone: string | null;
+  patient_age_band: string | null;
   completed_at: string | null;
-  priority: string | number | null;
+  priority: number | null;
   hospital?: Hospital | null;
   driver?: Driver | null;
 };
@@ -53,5 +52,5 @@ export type EmergencyRequest = {
 export type TransitionRule = {
   from_status: string;
   to_status: string;
-  actor_role: AppRole;
+  actor_role: string;
 };
