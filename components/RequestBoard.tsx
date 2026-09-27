@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type {
   AppRole,
   Driver,
@@ -47,6 +47,29 @@ export function RequestBoard({
   const [hospitalDraft, setHospitalDraft] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
+
+  // Live Realtime listener + 4-second auto-sync
+  useEffect(() => {
+    const channel = supabase
+      .channel(`board-live-sync-${actorRole}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "emergency_requests" },
+        () => {
+          router.refresh();
+        },
+      )
+      .subscribe();
+
+    const interval = setInterval(() => {
+      router.refresh();
+    }, 4000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
+  }, [supabase, router, actorRole]);
 
   async function transition(request: EmergencyRequest, toStatus: string) {
     setError(null);
@@ -102,7 +125,14 @@ export function RequestBoard({
   }
 
   if (!requests.length) {
-    return <p className="text-sm text-[var(--muted)]">{empty}</p>;
+    return (
+      <div className="card p-6 text-center text-sm text-[var(--muted)]">
+        <p>{empty}</p>
+        <span className="inline-block mt-2 text-xs text-emerald-600 font-medium">
+          ● Live dispatch queue listening for emergency calls...
+        </span>
+      </div>
+    );
   }
 
   return (
