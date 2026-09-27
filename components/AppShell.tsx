@@ -7,10 +7,12 @@ import type { Profile } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 
 const NAV: Record<string, { href: string; label: string }[]> = {
+  driver: [{ href: "/driver", label: "Ambulance Console" }],
   dispatcher: [{ href: "/dispatcher", label: "Active requests" }],
   hospital: [{ href: "/hospital", label: "Incoming" }],
   admin: [
     { href: "/admin", label: "Network queue" },
+    { href: "/driver", label: "Ambulance View" },
     { href: "/admin/hospitals", label: "Hospitals" },
     { href: "/admin/approvals", label: "Approvals" },
     { href: "/admin/drivers", label: "Drivers" },
@@ -101,21 +103,22 @@ export function AppShell({
         </div>
       )}
 
-      <main className="min-w-0">
-        <header className="sticky top-0 z-30 h-12 border-b border-[var(--line)] bg-white flex items-center gap-3 px-3 md:px-6 text-sm text-[var(--muted)]">
+      <div className="flex flex-col min-w-0">
+        <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-[var(--surface)]">
           <button
-            className="md:hidden btn btn-ghost px-2 py-1"
+            className="btn btn-secondary text-xs"
             onClick={() => setOpen(true)}
-            aria-label="Open menu"
           >
             Menu
           </button>
-          <span className="truncate">Live operations</span>
+          <span className="text-sm font-semibold">Live operations</span>
+          <div className="w-12" />
         </header>
-        <div className="p-3 md:p-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
+
+        <main className="flex-1 p-4 md:p-6 max-w-7xl w-full mx-auto">
           {children}
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
