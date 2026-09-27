@@ -8,12 +8,21 @@ import type { Hospital } from "@/lib/types";
 export default async function HospitalPage({
   searchParams,
 }: {
-  searchParams: Promise<{ hospital_id?: string }>;
+  searchParams?: Promise<{ hospital_id?: string }> | { hospital_id?: string };
 }) {
-  const { supabase, profile } = await requireProfile(["hospital", "admin"]);
-  const params = await searchParams;
+  const { supabase, profile } = await requireProfile("hospital");
 
-  // Fetch all hospitals so admins can switch views
+  // Safely resolve searchParams whether Next.js passes it as a Promise or an Object
+  let resolvedParams: { hospital_id?: string } = {};
+  if (searchParams) {
+    if (typeof (searchParams as Promise<unknown>).then === "function") {
+      resolvedParams = (await searchParams) || {};
+    } else {
+      resolvedParams = searchParams as { hospital_id?: string };
+    }
+  }
+
+  // Fetch all hospitals so admins can switch views if needed
   const { data: allHospitals } = await supabase
     .from("hospitals")
     .select("id, name, address, available_capacity")
@@ -23,18 +32,15 @@ export default async function HospitalPage({
 
   // Determine active hospital
   const activeHospitalId =
-    profile.role === "admin" && params.hospital_id
-      ? params.hospital_id
+    profile.role === "admin" && resolvedParams.hospital_id
+      ? resolvedParams.hospital_id
       : profile.hospital_id || hospitalsList[0]?.id || null;
 
   let capacity: number | null = null;
-  let activeHospitalName = "Hospital ER Intake Desk";
-
   if (activeHospitalId) {
     const activeHosp = hospitalsList.find((h) => h.id === activeHospitalId);
     if (activeHosp) {
       capacity = activeHosp.available_capacity ?? null;
-      activeHospitalName = activeHosp.name;
     }
   }
 
@@ -56,14 +62,12 @@ export default async function HospitalPage({
         </div>
 
         {/* Admin Hospital Switcher */}
-        {profile.role === "admin" && hospitalsList.length > 0 && (
+        {profile.role === "admin" && hospitalsList.length > 1 && (
           <form method="get" className="flex items-center gap-2">
-            <span className="text-xs text-[var(--muted)] font-medium">Switch Facility:</span>
+            <span className="text-xs text-[var(--muted)] font-medium">Facility:</span>
             <select
               name="hospital_id"
               defaultValue={activeHospitalId || ""}
-              // @ts-expect-error form submission on change
-              onChange={(e) => e.target.form?.submit()}
               className="select text-xs py-1 px-2.5 bg-[var(--surface)] border border-[var(--border,#e2e8f0)] rounded-md font-semibold"
             >
               {hospitalsList.map((h) => (
@@ -72,6 +76,9 @@ export default async function HospitalPage({
                 </option>
               ))}
             </select>
+            <button type="submit" className="btn btn-secondary text-xs py-1 px-2">
+              View
+            </button>
           </form>
         )}
       </div>
@@ -85,7 +92,7 @@ export default async function HospitalPage({
           <div>
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--muted)]">
-                Ambulances & Incoming Patients ({requests.length})
+                Ambulances & Inbound Patients ({requests.length})
               </h2>
               <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
                 <span>●</span> Live ER Channel
