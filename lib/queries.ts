@@ -13,6 +13,8 @@ const REQUEST_SELECT = [
   "hospital_id",
   "driver_id",
   "notes",
+  "contact_phone",
+  "patient_age_band",
   "completed_at",
   "priority",
   "hospital:hospitals(id, name, address, available_capacity)",
