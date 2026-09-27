@@ -12,7 +12,10 @@ import { rpcMessage } from "@/lib/rpc-error";
 
 function triggerAlertTone() {
   try {
-    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext })
+        .webkitAudioContext;
     const ctx = new AudioCtx();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -31,7 +34,7 @@ function triggerAlertTone() {
     osc.start(t);
     osc.stop(t + 0.5);
   } catch {
-    // Audio context may be restricted before user tap
+    // Audio context restricted before gesture
   }
 }
 
@@ -70,7 +73,6 @@ export function DriverConsole({
     }
   }
 
-  // Realtime subscription + fallback poll
   useEffect(() => {
     const ch = supabase
       .channel("driver-updates")
@@ -113,7 +115,6 @@ export function DriverConsole({
     setOk(null);
 
     try {
-      // Pass the user's actual profile role so admins can test driver actions
       const effectiveRole = profileRole === "admin" ? "admin" : "driver";
 
       const { error: err } = await supabase.rpc("transition_emergency_state", {
@@ -183,7 +184,9 @@ export function DriverConsole({
 
       {/* Active Emergency Requests */}
       {activeRequests.map((r) => {
-        // High-precision GPS coordinates take priority over textual addresses
+        const isArrived = r.status === "Arrived / intake";
+        const isCompleted = r.status === "Completed" || r.status === "Cancelled / failed";
+
         const patientMapUrl =
           r.patient_lat != null && r.patient_lng != null
             ? `https://www.google.com/maps/dir/?api=1&destination=${Number(r.patient_lat).toFixed(6)},${Number(r.patient_lng).toFixed(6)}&travelmode=driving`
@@ -205,12 +208,16 @@ export function DriverConsole({
         return (
           <article
             key={r.id}
-            className="card p-5 border-2 border-red-500/40 shadow-lg space-y-4 bg-[var(--surface)]"
+            className={`card p-5 border-2 shadow-lg space-y-4 bg-[var(--surface)] ${
+              isArrived ? "border-emerald-500/50" : "border-red-500/40"
+            }`}
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <span className="text-[11px] font-bold text-red-600 dark:text-red-400 tracking-wider uppercase block">
-                  🚨 Active Emergency Call
+                <span className={`text-[11px] font-bold tracking-wider uppercase block ${
+                  isArrived ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+                }`}>
+                  {isArrived ? "🏥 Handover In Progress" : "🚨 Active Emergency Call"}
                 </span>
                 <h3 className="text-xl font-bold mt-0.5">{r.emergency_type || "Emergency"}</h3>
                 <div className="text-xs text-[var(--muted)] mt-1">
@@ -288,8 +295,8 @@ export function DriverConsole({
               </div>
             )}
 
-            {/* Turn-by-Turn GPS Button */}
-            {patientMapUrl && (
+            {/* Turn-by-Turn GPS Button (hidden once arrived at hospital) */}
+            {patientMapUrl && !isArrived && (
               <a
                 href={patientMapUrl}
                 target="_blank"
@@ -300,53 +307,71 @@ export function DriverConsole({
               </a>
             )}
 
-            {/* Mission Status Buttons */}
+            {/* Mission Status Workflow */}
             <div className="pt-2 border-t border-[var(--border,#e2e8f0)] space-y-2">
               <span className="text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider block">
-                Update Mission Status
+                Mission Status
               </span>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {r.status === "Driver assigned" && (
-                  <button
-                    disabled={busy === r.id}
-                    onClick={() => updateStatus(r.id, "En route to patient")}
-                    className="btn py-3 text-sm font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-lg flex items-center justify-center gap-2"
-                  >
-                    <span>🚑 En Route to Patient</span>
-                  </button>
-                )}
+              {/* State 1: En Route to Patient */}
+              {r.status === "Driver assigned" && (
+                <button
+                  disabled={busy === r.id}
+                  onClick={() => updateStatus(r.id, "En route to patient")}
+                  className="w-full btn py-3 text-sm font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-lg flex items-center justify-center gap-2"
+                >
+                  <span>🚑 En Route to Patient</span>
+                </button>
+              )}
 
-                {r.status === "En route to patient" && (
-                  <button
-                    disabled={busy === r.id}
-                    onClick={() => updateStatus(r.id, "Patient picked up")}
-                    className="btn py-3 text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center justify-center gap-2"
-                  >
-                    <span>📍 Patient Picked Up</span>
-                  </button>
-                )}
+              {/* State 2: Patient Picked Up */}
+              {r.status === "En route to patient" && (
+                <button
+                  disabled={busy === r.id}
+                  onClick={() => updateStatus(r.id, "Patient picked up")}
+                  className="w-full btn py-3 text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center justify-center gap-2"
+                >
+                  <span>📍 Patient Picked Up</span>
+                </button>
+              )}
 
-                {r.status === "Patient picked up" && (
-                  <button
-                    disabled={busy === r.id}
-                    onClick={() => updateStatus(r.id, "En route to hospital")}
-                    className="btn py-3 text-sm font-bold bg-purple-600 hover:bg-purple-700 text-white rounded-lg flex items-center justify-center gap-2"
-                  >
-                    <span>🏥 En Route to Hospital</span>
-                  </button>
-                )}
+              {/* State 3: En Route to Hospital */}
+              {r.status === "Patient picked up" && (
+                <button
+                  disabled={busy === r.id}
+                  onClick={() => updateStatus(r.id, "En route to hospital")}
+                  className="w-full btn py-3 text-sm font-bold bg-purple-600 hover:bg-purple-700 text-white rounded-lg flex items-center justify-center gap-2"
+                >
+                  <span>🏥 En Route to Hospital</span>
+                </button>
+              )}
 
-                {r.status === "En route to hospital" && (
-                  <button
-                    disabled={busy === r.id}
-                    onClick={() => updateStatus(r.id, "Arrived / intake")}
-                    className="btn py-3 text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center justify-center gap-2"
-                  >
-                    <span>✅ Arrived / Intake Handover</span>
-                  </button>
-                )}
+              {/* State 4: Arrived / Intake Handover */}
+              {r.status === "En route to hospital" && (
+                <button
+                  disabled={busy === r.id}
+                  onClick={() => updateStatus(r.id, "Arrived / intake")}
+                  className="w-full btn py-3 text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center justify-center gap-2"
+                >
+                  <span>✅ Arrived / Intake Handover</span>
+                </button>
+              )}
 
+              {/* State 5: Arrived - Driver Handover Completed, awaiting hospital */}
+              {isArrived && (
+                <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-center space-y-1">
+                  <div className="text-sm font-bold text-emerald-700 dark:text-emerald-400 flex items-center justify-center gap-2">
+                    <span>✅</span>
+                    <span>Patient Handed Over to Hospital</span>
+                  </div>
+                  <p className="text-xs text-[var(--muted)]">
+                    Ambulance unit free for next dispatch. Hospital intake desk will mark case completed upon admission.
+                  </p>
+                </div>
+              )}
+
+              {/* Abort button ONLY available before reaching the hospital! */}
+              {!isArrived && !isCompleted && (
                 <button
                   disabled={busy === r.id}
                   onClick={() => {
@@ -354,11 +379,11 @@ export function DriverConsole({
                       updateStatus(r.id, "Cancelled / failed");
                     }
                   }}
-                  className="btn py-2 text-xs border border-red-300 text-red-600 dark:border-red-800 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg"
+                  className="w-full mt-2 btn py-2 text-xs border border-red-300 text-red-600 dark:border-red-800 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg"
                 >
                   Report Unable to Complete / Abort
                 </button>
-              </div>
+              )}
             </div>
           </article>
         );
