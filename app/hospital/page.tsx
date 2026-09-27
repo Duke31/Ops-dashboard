@@ -3,113 +3,84 @@ import { HospitalCapacity } from "@/components/HospitalCapacity";
 import { HospitalCards } from "@/components/HospitalCards";
 import { requireProfile } from "@/lib/auth";
 import { fetchRequests, fetchTransitionRules } from "@/lib/queries";
-import type { Hospital } from "@/lib/types";
+import type { EmergencyRequest, TransitionRule } from "@/lib/types";
 
-export default async function HospitalPage({
-  searchParams,
-}: {
-  searchParams?: Promise<{ hospital_id?: string }> | { hospital_id?: string };
-}) {
+export default async function HospitalPage() {
   const { supabase, profile } = await requireProfile("hospital");
 
-  // Safely resolve searchParams whether Next.js passes it as a Promise or an Object
-  let resolvedParams: { hospital_id?: string } = {};
-  if (searchParams) {
-    if (typeof (searchParams as Promise<unknown>).then === "function") {
-      resolvedParams = (await searchParams) || {};
-    } else {
-      resolvedParams = searchParams as { hospital_id?: string };
-    }
-  }
-
-  // Fetch all hospitals so admins can switch views if needed
-  const { data: allHospitals } = await supabase
-    .from("hospitals")
-    .select("id, name, address, available_capacity")
-    .order("name");
-
-  const hospitalsList = (allHospitals ?? []) as Hospital[];
-
-  // Determine active hospital
-  const activeHospitalId =
-    profile.role === "admin" && resolvedParams.hospital_id
-      ? resolvedParams.hospital_id
-      : profile.hospital_id || hospitalsList[0]?.id || null;
-
+  let hospitalId = profile.hospital_id;
   let capacity: number | null = null;
-  if (activeHospitalId) {
-    const activeHosp = hospitalsList.find((h) => h.id === activeHospitalId);
-    if (activeHosp) {
-      capacity = activeHosp.available_capacity ?? null;
+  let requests: EmergencyRequest[] = [];
+  let rules: TransitionRule[] = [];
+  let fetchError: string | null = null;
+
+  // 1. If admin has no hospital attached, safely grab the first hospital
+  if (!hospitalId && profile.role === "admin") {
+    try {
+      const { data: firstHosp } = await supabase
+        .from("hospitals")
+        .select("id")
+        .limit(1)
+        .maybeSingle();
+      hospitalId = firstHosp?.id ?? null;
+    } catch {
+      // Ignore fallback error
     }
   }
 
-  const [requests, rules] = await Promise.all([
-    activeHospitalId
-      ? fetchRequests(supabase, { hospitalId: activeHospitalId, activeOnly: true })
-      : Promise.resolve([]),
-    fetchTransitionRules(supabase, "hospital").catch(() => []),
-  ]);
+  // 2. Fetch capacity safely
+  if (hospitalId) {
+    try {
+      const { data } = await supabase
+        .from("hospitals")
+        .select("available_capacity")
+        .eq("id", hospitalId)
+        .maybeSingle();
+      capacity = data?.available_capacity ?? null;
+    } catch (e) {
+      console.error("Error fetching hospital capacity:", e);
+    }
+
+    // 3. Fetch requests safely without throwing 500 error
+    try {
+      requests = await fetchRequests(supabase, { hospitalId, activeOnly: true });
+    } catch (e: unknown) {
+      console.error("Error fetching hospital requests:", e);
+      fetchError = e instanceof Error ? e.message : "Failed to load requests";
+    }
+
+    // 4. Fetch transition rules safely
+    try {
+      rules = await fetchTransitionRules(supabase, "hospital");
+    } catch {
+      rules = [];
+    }
+  }
 
   return (
     <AppShell profile={profile}>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold">ER Intake & Triage Desk</h1>
-          <p className="text-xs text-[var(--muted)]">
-            Incoming ambulance dispatches, clinical triage handovers, and live bed admissions.
-          </p>
-        </div>
-
-        {/* Admin Hospital Switcher */}
-        {profile.role === "admin" && hospitalsList.length > 1 && (
-          <form method="get" className="flex items-center gap-2">
-            <span className="text-xs text-[var(--muted)] font-medium">Facility:</span>
-            <select
-              name="hospital_id"
-              defaultValue={activeHospitalId || ""}
-              className="select text-xs py-1 px-2.5 bg-[var(--surface)] border border-[var(--border,#e2e8f0)] rounded-md font-semibold"
-            >
-              {hospitalsList.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name}
-                </option>
-              ))}
-            </select>
-            <button type="submit" className="btn btn-secondary text-xs py-1 px-2">
-              View
-            </button>
-          </form>
-        )}
+      <div className="mb-4">
+        <h1 className="text-xl font-bold">ER Intake & Triage Desk</h1>
+        <p className="text-xs text-[var(--muted)]">
+          Incoming ambulance dispatches, clinical triage handovers, and bed admissions.
+        </p>
       </div>
 
-      {activeHospitalId ? (
+      {hospitalId ? (
         <div className="space-y-4 max-w-4xl mx-auto">
-          {/* Live Bed Capacity Card */}
-          <HospitalCapacity hospitalId={activeHospitalId} value={capacity} />
+          <HospitalCapacity hospitalId={hospitalId} value={capacity} />
 
-          {/* Incoming & Arrived Patients */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--muted)]">
-                Ambulances & Inbound Patients ({requests.length})
-              </h2>
-              <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-                <span>●</span> Live ER Channel
-              </span>
+          {fetchError && (
+            <div className="p-3 bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs rounded-md">
+              Notice: {fetchError}
             </div>
+          )}
 
-            <HospitalCards
-              requests={requests}
-              rules={rules}
-              hospitalId={activeHospitalId}
-              profileRole={profile.role}
-            />
-          </div>
+          <HospitalCards requests={requests} rules={rules} />
         </div>
       ) : (
-        <div className="card p-6 text-center text-sm text-[#b42318]">
-          This account has no hospital facility attached. Select a hospital or ask an administrator to assign one.
+        <div className="card p-6 text-sm text-[#b42318] text-center">
+          This account has no hospital facility attached. Please assign a hospital to this account in the Admin Staff section.
         </div>
       )}
     </AppShell>
