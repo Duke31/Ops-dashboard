@@ -39,6 +39,7 @@ export default async function DriverPage() {
         drivers={drivers}
         requests={requests}
         rules={rules}
+        profileRole={profile.role}
       />
     </AppShell>
   );
