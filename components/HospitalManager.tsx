@@ -1,286 +1,126 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
-import type { Hospital } from "@/lib/types";
+import { useMemo, useState } from "react";
+import type { EmergencyRequest, TransitionRule } from "@/lib/types";
+import { allowedTargets, formatLocation } from "@/lib/queries";
+import { timeSince } from "@/lib/format";
+import { StatusBadge } from "@/components/StatusBadge";
+import { Toast } from "@/components/Toast";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
-import { Toast } from "@/components/Toast";
-import { rpcMessage } from "@/lib/rpc-error";
 
-type FormState = {
-  id: string | null;
-  name: string;
-  address: string;
-  lat: string;
-  lng: string;
-  intake_phone: string;
-};
-
-const CACHE_KEY = "ops-hospital-extras";
-
-function readCache(): Record<string, Partial<Hospital>> {
-  if (typeof window === "undefined") return {};
-  try {
-    return JSON.parse(sessionStorage.getItem(CACHE_KEY) || "{}") as Record<
-      string,
-      Partial<Hospital>
-    >;
-  } catch {
-    return {};
-  }
-}
-
-function writeCache(rows: Hospital[]) {
-  const extras: Record<string, Partial<Hospital>> = {};
-  for (const h of rows) {
-    extras[h.id] = {
-      address: h.address,
-      lat: h.lat,
-      lng: h.lng,
-      intake_phone: h.intake_phone ?? null,
-    };
-  }
-  sessionStorage.setItem(CACHE_KEY, JSON.stringify(extras));
-}
-
-function merge(list: Hospital[]): Hospital[] {
-  const extras = readCache();
-  return list.map((h) => ({
-    ...h,
-    address: h.address || extras[h.id]?.address || null,
-    lat: h.lat ?? extras[h.id]?.lat ?? null,
-    lng: h.lng ?? extras[h.id]?.lng ?? null,
-    intake_phone: h.intake_phone ?? extras[h.id]?.intake_phone ?? null,
-  }));
-}
-
-const empty: FormState = {
-  id: null,
-  name: "",
-  address: "",
-  lat: "",
-  lng: "",
-  intake_phone: "",
-};
-
-export function HospitalManager({ hospitals }: { hospitals: Hospital[] }) {
-  const supabase = createClient();
+export function HospitalCards({
+  requests,
+  rules,
+}: {
+  requests: EmergencyRequest[];
+  rules: TransitionRule[];
+}) {
+  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
+  const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [ok, setOk] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState<FormState>(empty);
-  const [rows, setRows] = useState<Hospital[]>(() => merge(hospitals));
-  const inFlight = useRef(false);
 
-  useEffect(() => {
-    setRows(merge(hospitals));
-  }, [hospitals]);
-
-  function fill(h: Hospital) {
-    setForm({
-      id: h.id,
-      name: h.name ?? "",
-      address: h.address ?? "",
-      lat: h.lat != null ? String(h.lat) : "",
-      lng: h.lng != null ? String(h.lng) : "",
-      intake_phone: (h as Hospital & { intake_phone?: string }).intake_phone ?? "",
+  async function go(id: string, to: string) {
+    setBusy(id);
+    setError(null);
+    const { error: rpcErr } = await supabase.rpc("transition_emergency_state", {
+      request_id: id,
+      new_state: to,
+      actor_role: "hospital",
     });
-    setError(null);
+    setBusy(null);
+    if (rpcErr) {
+      setError(rpcErr.message);
+      return;
+    }
+    router.refresh();
   }
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (inFlight.current || busy) return;
-    inFlight.current = true;
-    setError(null);
-    setOk(null);
-    setBusy(true);
-    try {
-      const { data, error: err } = await supabase.rpc("admin_save_hospital", {
-        p_id: form.id,
-        p_name: form.name.trim(),
-        p_address: form.address.trim() || null,
-        p_lat: form.lat === "" ? null : Number(form.lat),
-        p_lng: form.lng === "" ? null : Number(form.lng),
-        p_intake_phone: form.intake_phone.trim() || null,
-      });
-      if (err) throw err;
-      const saved = (Array.isArray(data) ? data[0] : data) as Hospital | null;
-      if (saved?.id) {
-        setRows((cur) => {
-          const next = cur.filter((h) => h.id !== saved.id);
-          next.push(saved);
-          const sorted = next.sort((a, b) => a.name.localeCompare(b.name));
-          writeCache(sorted);
-          return sorted;
-        });
-      } else {
-        const fallback: Hospital = {
-          id: form.id || crypto.randomUUID(),
-          name: form.name.trim(),
-          address: form.address.trim() || null,
-          lat: form.lat === "" ? null : Number(form.lat),
-          lng: form.lng === "" ? null : Number(form.lng),
-          intake_phone: form.intake_phone.trim() || null,
-          available_capacity: null,
-        };
-        setRows((cur) => {
-          const next = form.id
-            ? cur.map((h) => (h.id === form.id ? { ...h, ...fallback, id: form.id } : h))
-            : [...cur, fallback];
-          writeCache(next);
-          return next;
-        });
-      }
-      setOk(form.id ? "Hospital updated." : "Hospital created.");
-      setForm(empty);
-      router.refresh();
-    } catch (e) {
-      setError(rpcMessage(e));
-    } finally {
-      inFlight.current = false;
-      setBusy(false);
-    }
-  }
-
-  async function onDelete(h: Hospital) {
-    if (inFlight.current || busy) return;
-    const okConfirm = window.confirm(
-      `Delete “${h.name}”? This only works if no request, staff, or driver uses it.`,
-    );
-    if (!okConfirm) return;
-    inFlight.current = true;
-    setError(null);
-    setOk(null);
-    setBusy(true);
-    try {
-      const { error: err } = await supabase.rpc("admin_delete_hospital", {
-        p_id: h.id,
-      });
-      if (err) throw err;
-      setRows((cur) => {
-        const next = cur.filter((row) => row.id !== h.id);
-        writeCache(next);
-        return next;
-      });
-      if (form.id === h.id) setForm(empty);
-      setOk("Hospital deleted.");
-      router.refresh();
-    } catch (e) {
-      setError(rpcMessage(e));
-    } finally {
-      inFlight.current = false;
-      setBusy(false);
-    }
+  if (!requests.length) {
+    return <p className="text-sm text-[var(--muted)]">No incoming requests.</p>;
   }
 
   return (
-    <div className="space-y-6">
-      <form onSubmit={onSubmit} className="card p-4 grid md:grid-cols-2 gap-3">
-        <div className="md:col-span-2 text-sm font-semibold">
-          {form.id ? "Edit hospital" : "New hospital"}
-        </div>
-        <input
-          className="input"
-          placeholder="Name"
-          value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.target.value })}
-          required
-        />
-        <input
-          className="input"
-          placeholder="Intake phone"
-          value={form.intake_phone}
-          onChange={(e) => setForm({ ...form, intake_phone: e.target.value })}
-        />
-        <input
-          className="input md:col-span-2"
-          placeholder="Address"
-          value={form.address}
-          onChange={(e) => setForm({ ...form, address: e.target.value })}
-        />
-        <input
-          className="input"
-          placeholder="Latitude"
-          inputMode="decimal"
-          value={form.lat}
-          onChange={(e) => setForm({ ...form, lat: e.target.value })}
-          required
-        />
-        <input
-          className="input"
-          placeholder="Longitude"
-          inputMode="decimal"
-          value={form.lng}
-          onChange={(e) => setForm({ ...form, lng: e.target.value })}
-          required
-        />
-        <div className="md:col-span-2 flex gap-2">
-          <button className="btn btn-primary" type="submit" disabled={busy}>
-            {busy ? "Saving…" : form.id ? "Save hospital" : "Add hospital"}
-          </button>
-          {form.id && (
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={() => setForm(empty)}
-            >
-              Cancel edit
-            </button>
-          )}
-        </div>
-      </form>
-
-      <div className="table-wrap">
-        <table className="data">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Address</th>
-              <th>Phone</th>
-              <th>Lat / lng</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={5} className="text-[var(--muted)]">
-                  No hospitals yet.
-                </td>
-              </tr>
-            )}
-            {rows.map((h) => (
-              <tr key={h.id}>
-                <td className="font-medium">{h.name}</td>
-                <td>{h.address || "—"}</td>
-                <td>
-                  {(h as Hospital & { intake_phone?: string }).intake_phone ||
-                    "—"}
-                </td>
-                <td className="whitespace-nowrap text-[var(--muted)]">
-                  {h.lat != null && h.lng != null
-                    ? `${h.lat}, ${h.lng}`
-                    : "—"}
-                </td>
-                <td>
-                  <div className="flex gap-1">
-                    <button className="btn btn-ghost" type="button" disabled={busy} onClick={() => fill(h)}>
-                      Edit
-                    </button>
-                    <button className="btn btn-ghost" type="button" disabled={busy} onClick={() => onDelete(h)}>
-                      Delete
-                    </button>
+    <>
+      <div className="grid gap-3">
+        {requests.map((r) => {
+          const targets = allowedTargets(rules, r.status, "hospital").filter(
+            (t) => t !== "Completed",
+          );
+          const showReceived = r.status === "Arrived / intake";
+          return (
+            <article key={r.id} className="card p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="font-semibold text-base">
+                    {r.emergency_type || "Emergency"}
                   </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  <div className="text-sm text-[var(--muted)] mt-0.5">
+                    {formatLocation(r)} · {timeSince(r.created_at)}
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                    {r.patient_age_band && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded font-medium bg-[var(--surface-raised,#f3f4f6)] text-[var(--foreground)] border border-[var(--border,#e5e7eb)]">
+                        Age: {r.patient_age_band === "unknown" ? "Unknown" : `${r.patient_age_band} yrs`}
+                      </span>
+                    )}
+                    {r.contact_phone && (
+                      <a
+                        href={`tel:${r.contact_phone}`}
+                        className="inline-flex items-center gap-1 font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                      >
+                        <span>📞</span>
+                        <span>Patient: {r.contact_phone}</span>
+                      </a>
+                    )}
+                  </div>
+                  {r.notes && (
+                    <div className="mt-2.5 rounded-md p-2.5 text-xs bg-red-500/10 border border-red-500/30 text-red-900 dark:text-red-200">
+                      <span className="font-bold uppercase tracking-wider block text-[10px] text-red-700 dark:text-red-400 mb-0.5">
+                        Clinical Triage & Medical ID:
+                      </span>
+                      <p className="whitespace-pre-wrap leading-relaxed">{r.notes}</p>
+                    </div>
+                  )}
+                  {r.driver?.display_name && (
+                    <div className="text-sm mt-2 text-[var(--muted)] flex items-center gap-1.5">
+                      <span>🚑</span>
+                      <span>
+                        Driver: <strong className="text-[var(--foreground)]">{r.driver.display_name}</strong>
+                        {r.driver.vehicle_label ? ` (${r.driver.vehicle_label})` : ""}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <StatusBadge status={r.status} />
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {targets.map((to) => (
+                  <button
+                    key={to}
+                    className="btn btn-primary"
+                    disabled={busy === r.id}
+                    onClick={() => go(r.id, to)}
+                  >
+                    {to.toLowerCase().includes("declin") ? "Decline" : to}
+                  </button>
+                ))}
+                {showReceived && (
+                  <button
+                    className="btn btn-primary"
+                    disabled={busy === r.id}
+                    onClick={() => go(r.id, "Completed")}
+                  >
+                    Mark Patient Received
+                  </button>
+                )}
+              </div>
+            </article>
+          );
+        })}
       </div>
       <Toast message={error} onClose={() => setError(null)} />
-      <Toast message={ok} kind="ok" onClose={() => setOk(null)} />
-    </div>
+    </>
   );
 }
