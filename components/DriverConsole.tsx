@@ -187,22 +187,23 @@ export function DriverConsole({
         const isArrived = r.status === "Arrived / intake";
         const isCompleted = r.status === "Completed" || r.status === "Cancelled / failed";
 
+        // Construct high-precision coordinate navigation URL with fallback
         const patientMapUrl =
           r.patient_lat != null && r.patient_lng != null
-            ? `https://www.google.com/maps/dir/?api=1&destination=${Number(r.patient_lat).toFixed(6)},${Number(r.patient_lng).toFixed(6)}&travelmode=driving`
+            ? `https://www.google.com/maps/dir/?api=1&destination=${Number(r.patient_lat).toFixed(6)},${Number(r.patient_lng).toFixed(6)}`
             : r.patient_address
-            ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(r.patient_address)}&travelmode=driving`
+            ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(r.patient_address)}`
             : null;
 
         const hospitalMapUrl =
           r.hospital?.lat != null && r.hospital?.lng != null
-            ? `https://www.google.com/maps/dir/?api=1&destination=${Number(r.hospital.lat).toFixed(6)},${Number(r.hospital.lng).toFixed(6)}&travelmode=driving`
+            ? `https://www.google.com/maps/dir/?api=1&destination=${Number(r.hospital.lat).toFixed(6)},${Number(r.hospital.lng).toFixed(6)}`
             : r.hospital?.address
             ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
                 r.hospital.address + ", " + r.hospital.name,
-              )}&travelmode=driving`
+              )}`
             : r.hospital?.name
-            ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(r.hospital.name)}&travelmode=driving`
+            ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(r.hospital.name)}`
             : null;
 
         return (
@@ -295,7 +296,7 @@ export function DriverConsole({
               </div>
             )}
 
-            {/* Turn-by-Turn GPS Button (hidden once arrived at hospital) */}
+            {/* Turn-by-Turn GPS Button */}
             {patientMapUrl && !isArrived && (
               <a
                 href={patientMapUrl}
@@ -357,7 +358,7 @@ export function DriverConsole({
                 </button>
               )}
 
-              {/* State 5: Arrived - Driver Handover Completed, awaiting hospital */}
+              {/* State 5: Arrived - Driver Handover Completed */}
               {isArrived && (
                 <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-center space-y-1">
                   <div className="text-sm font-bold text-emerald-700 dark:text-emerald-400 flex items-center justify-center gap-2">
