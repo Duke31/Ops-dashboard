@@ -6,30 +6,30 @@ import { fetchRequests, fetchTransitionRules } from "@/lib/queries";
 import type { EmergencyRequest, TransitionRule } from "@/lib/types";
 
 export default async function HospitalPage() {
-  const { supabase, profile } = await requireProfile("hospital");
+  const { supabase, profile } = await requireProfile(["hospital", "admin", "dispatcher"]);
 
   let hospitalId = profile.hospital_id;
   let capacity: number | null = null;
   let requests: EmergencyRequest[] = [];
   let rules: TransitionRule[] = [];
-  let fetchError: string | null = null;
 
-  // 1. If admin has no hospital attached, safely grab the first hospital
-  if (!hospitalId && profile.role === "admin") {
+  // If user is admin/dispatcher without a hospital_id, grab the first available hospital
+  if (!hospitalId) {
     try {
       const { data: firstHosp } = await supabase
         .from("hospitals")
-        .select("id")
+        .select("id, available_capacity")
         .limit(1)
         .maybeSingle();
-      hospitalId = firstHosp?.id ?? null;
-    } catch {
-      // Ignore fallback error
-    }
-  }
 
-  // 2. Fetch capacity safely
-  if (hospitalId) {
+      if (firstHosp) {
+        hospitalId = firstHosp.id;
+        capacity = firstHosp.available_capacity ?? null;
+      }
+    } catch (e) {
+      console.error("Error fetching fallback hospital:", e);
+    }
+  } else {
     try {
       const { data } = await supabase
         .from("hospitals")
@@ -40,16 +40,16 @@ export default async function HospitalPage() {
     } catch (e) {
       console.error("Error fetching hospital capacity:", e);
     }
+  }
 
-    // 3. Fetch requests safely without throwing 500 error
+  if (hospitalId) {
     try {
       requests = await fetchRequests(supabase, { hospitalId, activeOnly: true });
-    } catch (e: unknown) {
-      console.error("Error fetching hospital requests:", e);
-      fetchError = e instanceof Error ? e.message : "Failed to load requests";
+    } catch (e) {
+      console.error("Error fetching requests:", e);
+      requests = [];
     }
 
-    // 4. Fetch transition rules safely
     try {
       rules = await fetchTransitionRules(supabase, "hospital");
     } catch {
@@ -62,25 +62,18 @@ export default async function HospitalPage() {
       <div className="mb-4">
         <h1 className="text-xl font-bold">ER Intake & Triage Desk</h1>
         <p className="text-xs text-[var(--muted)]">
-          Incoming ambulance dispatches, clinical triage handovers, and bed admissions.
+          Incoming ambulance dispatches, clinical triage handovers, and live bed admissions.
         </p>
       </div>
 
       {hospitalId ? (
         <div className="space-y-4 max-w-4xl mx-auto">
           <HospitalCapacity hospitalId={hospitalId} value={capacity} />
-
-          {fetchError && (
-            <div className="p-3 bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs rounded-md">
-              Notice: {fetchError}
-            </div>
-          )}
-
           <HospitalCards requests={requests} rules={rules} />
         </div>
       ) : (
         <div className="card p-6 text-sm text-[#b42318] text-center">
-          This account has no hospital facility attached. Please assign a hospital to this account in the Admin Staff section.
+          No hospital facility found in database. Please create a hospital in the Admin panel.
         </div>
       )}
     </AppShell>
