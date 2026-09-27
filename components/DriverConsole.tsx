@@ -39,11 +39,13 @@ export function DriverConsole({
   drivers,
   requests: initialRequests,
   initialDriverId,
+  profileRole = "driver",
 }: {
   drivers: Driver[];
   requests: EmergencyRequest[];
   rules: TransitionRule[];
   initialDriverId?: string | null;
+  profileRole?: string;
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -111,10 +113,13 @@ export function DriverConsole({
     setOk(null);
 
     try {
+      // Pass the user's actual profile role so admins can test driver actions
+      const effectiveRole = profileRole === "admin" ? "admin" : "driver";
+
       const { error: err } = await supabase.rpc("transition_emergency_state", {
         request_id: requestId,
         new_state: targetState,
-        actor_role: "driver",
+        actor_role: effectiveRole,
       });
 
       if (err) throw err;
@@ -178,20 +183,23 @@ export function DriverConsole({
 
       {/* Active Emergency Requests */}
       {activeRequests.map((r) => {
+        // High-precision GPS coordinates take priority over textual addresses
         const patientMapUrl =
           r.patient_lat != null && r.patient_lng != null
-            ? `https://www.google.com/maps/dir/?api=1&destination=${r.patient_lat},${r.patient_lng}`
+            ? `https://www.google.com/maps/dir/?api=1&destination=${Number(r.patient_lat).toFixed(6)},${Number(r.patient_lng).toFixed(6)}&travelmode=driving`
             : r.patient_address
-            ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(r.patient_address)}`
+            ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(r.patient_address)}&travelmode=driving`
             : null;
 
         const hospitalMapUrl =
-          r.hospital?.address
+          r.hospital?.lat != null && r.hospital?.lng != null
+            ? `https://www.google.com/maps/dir/?api=1&destination=${Number(r.hospital.lat).toFixed(6)},${Number(r.hospital.lng).toFixed(6)}&travelmode=driving`
+            : r.hospital?.address
             ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
                 r.hospital.address + ", " + r.hospital.name,
-              )}`
+              )}&travelmode=driving`
             : r.hospital?.name
-            ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(r.hospital.name)}`
+            ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(r.hospital.name)}&travelmode=driving`
             : null;
 
         return (
@@ -219,6 +227,11 @@ export function DriverConsole({
                   Patient Location
                 </span>
                 <p className="text-sm font-semibold mt-0.5">{formatLocation(r)}</p>
+                {r.patient_lat != null && r.patient_lng != null && (
+                  <span className="text-[11px] text-[var(--muted)] block font-mono">
+                    GPS: {Number(r.patient_lat).toFixed(5)}, {Number(r.patient_lng).toFixed(5)}
+                  </span>
+                )}
               </div>
 
               <div className="flex flex-wrap items-center gap-2 pt-1">
