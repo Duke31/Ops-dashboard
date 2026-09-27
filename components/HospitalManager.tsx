@@ -4,13 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import type { Hospital } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
-import * as ToastModule from "@/components/Toast";
 import { rpcMessage } from "@/lib/rpc-error";
-
-const Toast =
-  (ToastModule as any).Toast ||
-  (ToastModule as any).default ||
-  ToastModule;
 
 type FormState = {
   id: string | null;
@@ -51,7 +45,7 @@ function writeCache(rows: Hospital[]) {
   try {
     sessionStorage.setItem(CACHE_KEY, JSON.stringify(extras));
   } catch {
-    // ignore sessionStorage errors
+    // Ignore storage quota errors
   }
 }
 
@@ -59,7 +53,7 @@ function merge(list: Hospital[]): Hospital[] {
   if (!Array.isArray(list)) return [];
   const extras = readCache();
   return list
-    .filter((h) => h && h.id)
+    .filter((h) => h && typeof h === "object" && h.id)
     .map((h) => ({
       ...h,
       address: h.address || extras[h.id]?.address || null,
@@ -280,10 +274,13 @@ export function HospitalManager({ hospitals = [] }: { hospitals: Hospital[] }) {
                 <td className="font-medium">{h.name}</td>
                 <td>{h.address || "—"}</td>
                 <td>
-                  {(h as Hospital & { intake_phone?: string }).intake_phone || "—"}
+                  {(h as Hospital & { intake_phone?: string }).intake_phone ||
+                    "—"}
                 </td>
                 <td className="whitespace-nowrap text-[var(--muted)]">
-                  {h.lat != null && h.lng != null ? `${h.lat}, ${h.lng}` : "—"}
+                  {h.lat != null && h.lng != null
+                    ? `${h.lat}, ${h.lng}`
+                    : "—"}
                 </td>
                 <td>
                   <div className="flex gap-1">
@@ -311,15 +308,33 @@ export function HospitalManager({ hospitals = [] }: { hospitals: Hospital[] }) {
         </table>
       </div>
 
-      {Toast && (
-        <>
-          <Toast message={error} onClose={() => setError(null)} />
-          <Toast message={ok} kind="ok" onClose={() => setOk(null)} />
-        </>
+      {/* Built-in alert notifications - zero external component dependencies */}
+      {error && (
+        <div className="toast toast-error flex items-start justify-between gap-3">
+          <p className="leading-5">{error}</p>
+          <button
+            className="text-xs font-semibold opacity-70 hover:opacity-100"
+            onClick={() => setError(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {ok && (
+        <div className="toast toast-ok flex items-start justify-between gap-3">
+          <p className="leading-5">{ok}</p>
+          <button
+            className="text-xs font-semibold opacity-70 hover:opacity-100"
+            onClick={() => setOk(null)}
+          >
+            Dismiss
+          </button>
+        </div>
       )}
     </div>
   );
 }
 
-// Export BOTH named and default to eliminate import mismatches
+// Export both named and default so imports never resolve to undefined
 export default HospitalManager;
