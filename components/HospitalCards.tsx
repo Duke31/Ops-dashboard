@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { EmergencyRequest, TransitionRule } from "@/lib/types";
 import { allowedTargets, formatLocation } from "@/lib/queries";
 import { timeSince } from "@/lib/format";
@@ -21,6 +21,29 @@ export function HospitalCards({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Live Realtime listener + 4-second auto-sync
+  useEffect(() => {
+    const channel = supabase
+      .channel("hospital-live-sync")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "emergency_requests" },
+        () => {
+          router.refresh();
+        },
+      )
+      .subscribe();
+
+    const interval = setInterval(() => {
+      router.refresh();
+    }, 4000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
+  }, [supabase, router]);
+
   async function go(id: string, to: string) {
     setBusy(id);
     setError(null);
@@ -38,7 +61,14 @@ export function HospitalCards({
   }
 
   if (!requests.length) {
-    return <p className="text-sm text-[var(--muted)]">No incoming requests.</p>;
+    return (
+      <div className="card p-6 text-center text-sm text-[var(--muted)]">
+        <p>No active incoming requests at this moment.</p>
+        <span className="inline-block mt-2 text-xs text-emerald-600 font-medium">
+          ● Listening live for incoming patient admissions...
+        </span>
+      </div>
+    );
   }
 
   return (
