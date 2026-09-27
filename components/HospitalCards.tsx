@@ -75,8 +75,9 @@ export function HospitalCards({
     <>
       <div className="grid gap-3">
         {requests.map((r) => {
+          // Filter out transitions that belong to dispatchers or drivers
           const targets = allowedTargets(rules, r.status, "hospital").filter(
-            (t) => t !== "Completed",
+            (t) => t !== "Completed" && !t.toLowerCase().includes("driver"),
           );
           const showReceived = r.status === "Arrived / intake";
           return (
