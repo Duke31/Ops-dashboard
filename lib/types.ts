@@ -42,6 +42,8 @@ export type EmergencyRequest = {
   hospital_id: string | null;
   driver_id: string | null;
   notes: string | null;
+  contact_phone?: string | null;
+  patient_age_band?: string | null;
   completed_at: string | null;
   priority: string | number | null;
   hospital?: Hospital | null;
