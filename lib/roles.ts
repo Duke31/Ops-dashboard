@@ -1,16 +1,15 @@
 import type { AppRole } from "./types";
 
-const DESK_ROLES: AppRole[] = ["dispatcher", "hospital", "admin"];
+const DESK_ROLES: AppRole[] = ["dispatcher", "hospital", "admin", "driver"];
 
 export function isDeskRole(role: string | null | undefined): role is AppRole {
   return !!role && DESK_ROLES.includes(role as AppRole);
 }
 
 export function homeForRole(role: string | null | undefined): string {
-  if (role === "dispatcher" || role === "hospital" || role === "admin") {
+  if (role === "dispatcher" || role === "hospital" || role === "admin" || role === "driver") {
     return `/${role}`;
   }
-  if (role === "driver") return "/driver";
   return "/no-access";
 }
 
@@ -23,6 +22,9 @@ export function roleFromPath(pathname: string): AppRole | null {
   }
   if (pathname === "/admin" || pathname.startsWith("/admin/")) {
     return "admin";
+  }
+  if (pathname === "/driver" || pathname.startsWith("/driver/")) {
+    return "driver";
   }
   return null;
 }
