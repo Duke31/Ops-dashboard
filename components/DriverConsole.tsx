@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { rpcMessage } from "@/lib/rpc-error";
 
+// Web Audio API siren alert for high-priority dispatch
 function playDispatchChime() {
   try {
     const ctx = new (window.AudioContext ||
@@ -39,18 +40,26 @@ export function DriverConsole({
   rules,
   initialDriverId,
   isDriverRole = false,
+  activeDriverRecord,
 }: {
   drivers: Driver[];
   requests: EmergencyRequest[];
   rules: TransitionRule[];
   initialDriverId?: string | null;
   isDriverRole?: boolean;
+  activeDriverRecord?: Driver | null;
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
+  // For drivers, ALWAYS use initialDriverId (NEVER read from localStorage)
   const [selectedDriverId, setSelectedDriverId] = useState<string>(() => {
-    if (isDriverRole && initialDriverId) return initialDriverId;
+    if (isDriverRole) {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("ops_active_driver_id");
+      }
+      return initialDriverId || "";
+    }
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("ops_active_driver_id");
       if (stored) return stored;
@@ -73,14 +82,35 @@ export function DriverConsole({
   } | null>(null);
   const [gpsError, setGpsError] = useState<string | null>(null);
 
+  // If initialDriverId changes or resolves, update state
+  useEffect(() => {
+    if (isDriverRole && initialDriverId) {
+      setSelectedDriverId(initialDriverId);
+    }
+  }, [isDriverRole, initialDriverId]);
+
   function handleSelectDriver(id: string) {
+    if (isDriverRole) return; // Drivers cannot switch units!
     setSelectedDriverId(id);
     if (typeof window !== "undefined") {
       localStorage.setItem("ops_active_driver_id", id);
     }
   }
 
-  // Live Realtime listener
+  // Active driver metadata
+  const currentDriver =
+    (isDriverRole ? activeDriverRecord : null) ||
+    drivers.find((d) => d.id === selectedDriverId) ||
+    activeDriverRecord;
+
+  // STRICT FILTER: If logged in as driver, filter ONLY requests assigned to this driver ID
+  const assignedRequests = isDriverRole
+    ? initialRequests.filter((r) => r.driver_id === (initialDriverId || currentDriver?.id))
+    : selectedDriverId
+    ? initialRequests.filter((r) => r.driver_id === selectedDriverId)
+    : initialRequests;
+
+  // Real-time listener for emergency request updates
   useEffect(() => {
     const channel = supabase
       .channel("driver-console-sync")
@@ -88,7 +118,15 @@ export function DriverConsole({
         "postgres_changes",
         { event: "*", schema: "public", table: "emergency_requests" },
         (payload) => {
-          if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
+          const rec = (payload.new || {}) as Record<string, unknown>;
+          const targetDriver = isDriverRole ? (initialDriverId || currentDriver?.id) : selectedDriverId;
+          
+          // Only play chime if this dispatch is assigned to this driver!
+          if (
+            (payload.eventType === "INSERT" || payload.eventType === "UPDATE") &&
+            targetDriver &&
+            rec.driver_id === targetDriver
+          ) {
             playDispatchChime();
           }
           router.refresh();
@@ -104,27 +142,19 @@ export function DriverConsole({
       supabase.removeChannel(channel);
       clearInterval(interval);
     };
-  }, [supabase, router]);
+  }, [supabase, router, isDriverRole, initialDriverId, selectedDriverId, currentDriver?.id]);
 
   useEffect(() => {
-    if (initialRequests.length > prevCountRef.current) {
+    if (assignedRequests.length > prevCountRef.current) {
       playDispatchChime();
     }
-    prevCountRef.current = initialRequests.length;
-  }, [initialRequests.length]);
+    prevCountRef.current = assignedRequests.length;
+  }, [assignedRequests.length]);
 
-  const currentDriver = drivers.find((d) => d.id === selectedDriverId);
-
-  // If driver role, ONLY show requests passed from server (strictly filtered)
-  const assignedRequests = isDriverRole
-    ? initialRequests
-    : selectedDriverId
-    ? initialRequests.filter((r) => r.driver_id === selectedDriverId)
-    : initialRequests;
-
-  // Stream GPS Telemetry via Supabase Realtime
+  // Stream GPS Telemetry via Supabase Realtime channel "responder_locations"
   useEffect(() => {
-    if (!navigator.geolocation || !selectedDriverId) return;
+    const driverIdToStream = isDriverRole ? (initialDriverId || currentDriver?.id) : selectedDriverId;
+    if (!navigator.geolocation || !driverIdToStream) return;
 
     const locChannel = supabase.channel("responder_locations");
     locChannel.subscribe();
@@ -132,7 +162,7 @@ export function DriverConsole({
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         const payload = {
-          driver_id: selectedDriverId,
+          driver_id: driverIdToStream,
           driver_name: currentDriver?.display_name || "Ambulance Unit",
           vehicle_label: currentDriver?.vehicle_label || null,
           lat: pos.coords.latitude,
@@ -172,7 +202,7 @@ export function DriverConsole({
       navigator.geolocation.clearWatch(watchId);
       supabase.removeChannel(locChannel);
     };
-  }, [supabase, selectedDriverId, currentDriver]);
+  }, [supabase, isDriverRole, initialDriverId, selectedDriverId, currentDriver]);
 
   async function executeTransition(requestId: string, nextStatus: string) {
     setBusy(requestId);
@@ -198,7 +228,7 @@ export function DriverConsole({
 
   return (
     <div className="space-y-4 max-w-xl mx-auto pb-12">
-      {/* Unit Selector & Duty Status */}
+      {/* Unit Banner */}
       <div className="card p-4 bg-slate-900 text-white border-slate-800">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
@@ -207,7 +237,7 @@ export function DriverConsole({
             </span>
             <div className="text-base font-semibold text-emerald-400 flex items-center gap-1.5 mt-0.5">
               <span>🚑</span>
-              <span>{currentDriver?.display_name || "Select Vehicle Unit"}</span>
+              <span>{currentDriver?.display_name || "Ambulance Unit"}</span>
               {currentDriver?.vehicle_label && (
                 <span className="text-xs text-slate-300 font-normal">
                   ({currentDriver.vehicle_label})
@@ -216,7 +246,7 @@ export function DriverConsole({
             </div>
           </div>
 
-          {/* Unit selector only shown to Admin, hidden for real drivers */}
+          {/* Unit selector only visible for Admin / Dispatcher simulation */}
           {!isDriverRole && (
             <div className="flex items-center gap-2">
               <select
@@ -272,7 +302,7 @@ export function DriverConsole({
           <div className="text-4xl">🟢</div>
           <h2 className="text-base font-semibold">Ready for Dispatch</h2>
           <p className="text-sm text-[var(--muted)]">
-            No active emergency calls assigned to this unit right now.
+            No active emergency calls assigned to your unit right now.
           </p>
           <div className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
             ● GPS & Radio live • Audio siren alert enabled
