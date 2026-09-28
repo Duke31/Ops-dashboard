@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { EmergencyRequest, TransitionRule } from "@/lib/types";
 import { allowedTargets, formatLocation } from "@/lib/queries";
 import { timeSince } from "@/lib/format";
@@ -47,6 +47,29 @@ export function HospitalCards({
 
   const effectiveBay = customBay.trim() || selectedBay;
   const isFacilityFull = availableCapacity === 0;
+
+  // Real-time synchronization for zero-delay operations
+  useEffect(() => {
+    const channel = supabase
+      .channel("ops-hospital-cards-sync")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "emergency_requests" },
+        () => {
+          router.refresh();
+        },
+      )
+      .subscribe();
+
+    const interval = setInterval(() => {
+      router.refresh();
+    }, 3000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
+  }, [supabase, router]);
 
   async function go(id: string, to: string) {
     const isAccepting =
