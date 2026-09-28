@@ -6,6 +6,8 @@
   --panel: #ffffff;
   --muted: #4b5563;
   --line: #dfe3ea;
+  --surface-raised: #f8fafc;
+  --surface-subtle: #f3f4f6;
   --accent: #0f6b5c;
   --accent-fg: #ffffff;
   --danger: #b42318;
@@ -21,6 +23,8 @@
     --panel: #1a1f35;
     --muted: #a3b1c2;
     --line: #2d3748;
+    --surface-raised: #1f293a;
+    --surface-subtle: #111827;
     --accent: #2dd4bf;
     --accent-fg: #062c2a;
     --danger: #fca5a5;
@@ -108,12 +112,12 @@ body {
   filter: brightness(1.05);
 }
 .btn-ghost {
-  background: #fff;
+  background: var(--panel);
   border-color: var(--line);
   color: var(--foreground);
 }
 .btn-ghost:hover:not(:disabled) {
-  background: #f8f9fb;
+  background: var(--surface-raised);
 }
 .btn-danger {
   background: #b42318;
@@ -131,7 +135,7 @@ body {
   border-radius: 6px;
   padding: 8px 10px;
   font-size: 13px;
-  background: #fff;
+  background: var(--panel);
   color: var(--foreground);
 }
 .input:focus,
@@ -151,7 +155,7 @@ body {
   overflow: auto;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #fff;
+  background: var(--panel);
 }
 
 table.data {
@@ -169,7 +173,7 @@ table.data th {
   font-weight: 600;
   padding: 10px 12px;
   border-bottom: 1px solid var(--line);
-  background: #fafbfc;
+  background: var(--surface-raised);
   white-space: nowrap;
 }
 table.data td {
@@ -223,21 +227,20 @@ div {
   color: var(--muted) !important;
 }
 
-/* Dark Mode Overrides */
 @media (prefers-color-scheme: dark) {
   .btn-ghost {
-    background: #1a1f35;
+    background: var(--panel);
     border-color: var(--line);
     color: var(--foreground);
   }
 
   .btn-ghost:hover:not(:disabled) {
-    background: #242d47;
+    background: var(--surface-raised);
   }
 
   .input,
   .select {
-    background: #1a1f35;
+    background: var(--panel);
     border-color: var(--line);
     color: var(--foreground);
   }
@@ -249,12 +252,12 @@ div {
   }
 
   .table-wrap {
-    background: #1a1f35;
+    background: var(--panel);
     border-color: var(--line);
   }
 
   table.data th {
-    background: #242d47;
+    background: var(--surface-raised);
     color: var(--muted);
     border-color: var(--line);
   }
@@ -265,20 +268,20 @@ div {
   }
 
   .toast {
-    background: #1a1f35;
+    background: var(--panel);
     color: var(--foreground);
     border: 1px solid var(--line);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   }
 
   .toast-error {
-    background: #1a1f35;
+    background: var(--panel);
     border: 1px solid #7a271a;
     color: #fca5a5;
   }
 
   .toast-ok {
-    background: #1a1f35;
+    background: var(--panel);
     border: 1px solid #065f46;
     color: #6ee7b7;
   }
