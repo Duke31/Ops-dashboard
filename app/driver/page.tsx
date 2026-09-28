@@ -5,45 +5,63 @@ import { fetchRequests, fetchTransitionRules } from "@/lib/queries";
 import type { Driver, EmergencyRequest } from "@/lib/types";
 
 export default async function DriverPage() {
-  const { supabase, profile } = await requireProfile(["driver", "admin", "dispatcher"]);
+  const { supabase, profile } = await requireProfile([
+    "driver",
+    "admin",
+    "dispatcher",
+  ]);
 
   const isDriverRole = profile.role === "driver";
   let myDriverRecord: Driver | null = null;
+  let linkError: string | null = null;
   let requests: EmergencyRequest[] = [];
+  let drivers: Driver[] = [];
 
   if (isDriverRole) {
-    // STRICT: Fetch the driver record linked to this logged-in auth user
-    const { data: dRow } = await supabase
+    const { data: dRow, error: dErr } = await supabase
       .from("drivers")
       .select("id, display_name, vehicle_label, hospital_id, active")
       .eq("user_id", profile.user_id)
       .maybeSingle();
 
+    if (dErr) linkError = dErr.message;
     myDriverRecord = (dRow ?? null) as Driver | null;
 
     if (myDriverRecord?.id) {
-      // STRICT FILTER: Only load emergency requests assigned to THIS driver!
-      requests = await fetchRequests(supabase, {
-        driverId: myDriverRecord.id,
-        activeOnly: true,
-      });
+      try {
+        const rows = await fetchRequests(supabase, {
+          driverId: myDriverRecord.id,
+          activeOnly: true,
+        });
+        // Never trust a wide SELECT — only this unit
+        requests = rows.filter((r) => r.driver_id === myDriverRecord!.id);
+      } catch (e) {
+        linkError =
+          e instanceof Error ? e.message : "Failed to load assigned jobs.";
+        requests = [];
+      }
+      drivers = [myDriverRecord];
     } else {
       requests = [];
+      drivers = [];
+      linkError =
+        linkError ||
+        "No drivers row linked to this login (set drivers.user_id). Other units\' jobs stay hidden.";
     }
   } else {
-    // Admin / Dispatcher mode: can view active requests
-    requests = await fetchRequests(supabase, { activeOnly: true });
-  }
-
-  const [rules, driversRes] = await Promise.all([
-    fetchTransitionRules(supabase, "driver").catch(() => []),
-    supabase
+    try {
+      requests = await fetchRequests(supabase, { activeOnly: true });
+    } catch {
+      requests = [];
+    }
+    const { data: allDrivers } = await supabase
       .from("drivers")
       .select("id, display_name, vehicle_label, hospital_id, active")
-      .order("display_name"),
-  ]);
+      .order("display_name");
+    drivers = (allDrivers ?? []) as Driver[];
+  }
 
-  const drivers = (driversRes.data ?? []) as Driver[];
+  const rules = await fetchTransitionRules(supabase, "driver").catch(() => []);
 
   return (
     <AppShell profile={profile}>
@@ -52,7 +70,8 @@ export default async function DriverPage() {
           <div>
             <h1 className="text-xl font-bold">Ambulance Responder Console</h1>
             <p className="text-xs text-[var(--muted)]">
-              Real-time dispatches, turn-by-turn navigation, and patient triage details.
+              Only jobs assigned to your unit are shown. Patient location is not
+              shared with other responders.
             </p>
           </div>
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
@@ -60,6 +79,9 @@ export default async function DriverPage() {
             <span>Live Dispatch Active</span>
           </span>
         </div>
+        {isDriverRole && linkError && (
+          <p className="mt-2 text-sm text-[#b42318]">{linkError}</p>
+        )}
       </div>
 
       <DriverConsole

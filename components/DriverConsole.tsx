@@ -103,12 +103,14 @@ export function DriverConsole({
     drivers.find((d) => d.id === selectedDriverId) ||
     activeDriverRecord;
 
-  // STRICT FILTER: If logged in as driver, filter ONLY requests assigned to this driver ID
-  const assignedRequests = isDriverRole
-    ? initialRequests.filter((r) => r.driver_id === (initialDriverId || currentDriver?.id))
-    : selectedDriverId
-    ? initialRequests.filter((r) => r.driver_id === selectedDriverId)
-    : initialRequests;
+  // Least privilege: never render another unit's patient data.
+  const scopeDriverId = isDriverRole
+    ? (initialDriverId || activeDriverRecord?.id || "")
+    : selectedDriverId;
+
+  const assignedRequests = scopeDriverId
+    ? initialRequests.filter((r) => r.driver_id === scopeDriverId)
+    : [];
 
   // Real-time listener for emergency request updates
   useEffect(() => {
@@ -118,10 +120,15 @@ export function DriverConsole({
         "postgres_changes",
         { event: "*", schema: "public", table: "emergency_requests" },
         (payload) => {
-          const rec = (payload.new || {}) as Record<string, unknown>;
-          const targetDriver = isDriverRole ? (initialDriverId || currentDriver?.id) : selectedDriverId;
-          
-          // Only play chime if this dispatch is assigned to this driver!
+          const rec = (payload.new || payload.old || {}) as Record<string, unknown>;
+          const targetDriver = isDriverRole
+            ? (initialDriverId || activeDriverRecord?.id || "")
+            : selectedDriverId;
+
+          // Ignore other units entirely for drivers (no refresh / no chime)
+          if (targetDriver && rec.driver_id && rec.driver_id !== targetDriver) {
+            return;
+          }
           if (
             (payload.eventType === "INSERT" || payload.eventType === "UPDATE") &&
             targetDriver &&
@@ -129,7 +136,10 @@ export function DriverConsole({
           ) {
             playDispatchChime();
           }
-          router.refresh();
+          // Only refresh when event is in-scope (or unscoped admin without selection skipped above)
+          if (!targetDriver || !rec.driver_id || rec.driver_id === targetDriver) {
+            router.refresh();
+          }
         },
       )
       .subscribe();
@@ -254,7 +264,7 @@ export function DriverConsole({
                 value={selectedDriverId}
                 onChange={(e) => handleSelectDriver(e.target.value)}
               >
-                <option value="">All Units (Testing)</option>
+                <option value="">Select unit…</option>
                 {drivers.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.display_name} {d.vehicle_label ? `· ${d.vehicle_label}` : ""}
