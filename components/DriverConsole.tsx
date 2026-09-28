@@ -90,7 +90,7 @@ export function DriverConsole({
   }, [isDriverRole, initialDriverId]);
 
   function handleSelectDriver(id: string) {
-    if (isDriverRole) return; // Drivers cannot switch units!
+    if (isDriverRole) return;
     setSelectedDriverId(id);
     if (typeof window !== "undefined") {
       localStorage.setItem("ops_active_driver_id", id);
@@ -103,14 +103,12 @@ export function DriverConsole({
     drivers.find((d) => d.id === selectedDriverId) ||
     activeDriverRecord;
 
-  // Least privilege: never render another unit's patient data.
-  const scopeDriverId = isDriverRole
-    ? (initialDriverId || activeDriverRecord?.id || "")
-    : selectedDriverId;
-
-  const assignedRequests = scopeDriverId
-    ? initialRequests.filter((r) => r.driver_id === scopeDriverId)
-    : [];
+  // STRICT FILTER: If logged in as driver, filter ONLY requests assigned to this driver ID
+  const assignedRequests = isDriverRole
+    ? initialRequests.filter((r) => r.driver_id === (initialDriverId || currentDriver?.id))
+    : selectedDriverId
+    ? initialRequests.filter((r) => r.driver_id === selectedDriverId)
+    : initialRequests;
 
   // Real-time listener for emergency request updates
   useEffect(() => {
@@ -120,15 +118,9 @@ export function DriverConsole({
         "postgres_changes",
         { event: "*", schema: "public", table: "emergency_requests" },
         (payload) => {
-          const rec = (payload.new || payload.old || {}) as Record<string, unknown>;
-          const targetDriver = isDriverRole
-            ? (initialDriverId || activeDriverRecord?.id || "")
-            : selectedDriverId;
-
-          // Ignore other units entirely for drivers (no refresh / no chime)
-          if (targetDriver && rec.driver_id && rec.driver_id !== targetDriver) {
-            return;
-          }
+          const rec = (payload.new || {}) as Record<string, unknown>;
+          const targetDriver = isDriverRole ? (initialDriverId || currentDriver?.id) : selectedDriverId;
+          
           if (
             (payload.eventType === "INSERT" || payload.eventType === "UPDATE") &&
             targetDriver &&
@@ -136,10 +128,7 @@ export function DriverConsole({
           ) {
             playDispatchChime();
           }
-          // Only refresh when event is in-scope (or unscoped admin without selection skipped above)
-          if (!targetDriver || !rec.driver_id || rec.driver_id === targetDriver) {
-            router.refresh();
-          }
+          router.refresh();
         },
       )
       .subscribe();
@@ -256,7 +245,6 @@ export function DriverConsole({
             </div>
           </div>
 
-          {/* Unit selector only visible for Admin / Dispatcher simulation */}
           {!isDriverRole && (
             <div className="flex items-center gap-2">
               <select
@@ -264,7 +252,7 @@ export function DriverConsole({
                 value={selectedDriverId}
                 onChange={(e) => handleSelectDriver(e.target.value)}
               >
-                <option value="">Select unit…</option>
+                <option value="">All Units (Testing)</option>
                 {drivers.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.display_name} {d.vehicle_label ? `· ${d.vehicle_label}` : ""}
@@ -444,62 +432,66 @@ export function DriverConsole({
               </div>
             )}
 
-            <div className="space-y-2">
-              <span className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-wider block">
-                Turn-by-Turn Navigation
-              </span>
+            {/* Turn-by-Turn Navigation */}
+            {r.status !== "Arrived / intake" && (
+              <div className="space-y-2">
+                <span className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-wider block">
+                  Turn-by-Turn Navigation
+                </span>
 
-              {gmapsPatientUrl && (
-                <div className="flex gap-2">
-                  <a
-                    href={gmapsPatientUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 btn py-2.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center gap-1.5"
-                  >
-                    <span>🗺️</span>
-                    <span>Google Maps to Patient</span>
-                  </a>
-                  {wazePatientUrl && (
+                {gmapsPatientUrl && (
+                  <div className="flex gap-2">
                     <a
-                      href={wazePatientUrl}
+                      href={gmapsPatientUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="btn py-2.5 px-3 text-xs font-semibold bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg flex items-center justify-center gap-1"
+                      className="flex-1 btn py-2.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center gap-1.5"
                     >
-                      <span>🚗</span>
-                      <span>Waze</span>
+                      <span>🗺️</span>
+                      <span>Google Maps to Patient</span>
                     </a>
-                  )}
-                </div>
-              )}
+                    {wazePatientUrl && (
+                      <a
+                        href={wazePatientUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn py-2.5 px-3 text-xs font-semibold bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg flex items-center justify-center gap-1"
+                      >
+                        <span>🚗</span>
+                        <span>Waze</span>
+                      </a>
+                    )}
+                  </div>
+                )}
 
-              {gmapsHospitalUrl && (
-                <div className="flex gap-2">
-                  <a
-                    href={gmapsHospitalUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 btn py-2.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white rounded-lg flex items-center justify-center gap-1.5"
-                  >
-                    <span>🏥</span>
-                    <span>Google Maps to Hospital</span>
-                  </a>
-                  {wazeHospitalUrl && (
+                {gmapsHospitalUrl && (
+                  <div className="flex gap-2">
                     <a
-                      href={wazeHospitalUrl}
+                      href={gmapsHospitalUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="btn py-2.5 px-3 text-xs font-semibold bg-cyan-800 hover:bg-cyan-700 text-white rounded-lg flex items-center justify-center gap-1"
+                      className="flex-1 btn py-2.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white rounded-lg flex items-center justify-center gap-1.5"
                     >
-                      <span>🚗</span>
-                      <span>Waze</span>
+                      <span>🏥</span>
+                      <span>Google Maps to Hospital</span>
                     </a>
-                  )}
-                </div>
-              )}
-            </div>
+                    {wazeHospitalUrl && (
+                      <a
+                        href={wazeHospitalUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn py-2.5 px-3 text-xs font-semibold bg-cyan-800 hover:bg-cyan-700 text-white rounded-lg flex items-center justify-center gap-1"
+                      >
+                        <span>🚗</span>
+                        <span>Waze</span>
+                      </a>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
+            {/* Mission Milestone Buttons */}
             <div className="pt-3 border-t border-[var(--border,#e2e8f0)] space-y-2">
               <span className="text-[11px] font-bold text-[var(--muted)] uppercase tracking-wider block">
                 Mission Milestones
@@ -546,22 +538,37 @@ export function DriverConsole({
                     className="btn py-3.5 text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center justify-center gap-2 shadow-md"
                   >
                     <span>🏥</span>
-                    <span>4. Arrived at Hospital / Initiate Intake</span>
+                    <span>4. Arrived at Hospital / Hand Over to ER Staff</span>
                   </button>
                 )}
 
-                <button
-                  type="button"
-                  disabled={busy === r.id}
-                  onClick={() => {
-                    if (confirm("Are you sure you need to abort this dispatch?")) {
-                      executeTransition(r.id, "Cancelled / failed");
-                    }
-                  }}
-                  className="btn py-2 text-xs border border-red-300 text-red-600 dark:border-red-800 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg"
-                >
-                  Report Unable to Complete / Abort
-                </button>
+                {/* Handover Completed Confirmation Banner for Drivers */}
+                {r.status === "Arrived / intake" && (
+                  <div className="p-4 rounded-lg bg-emerald-500/10 border-2 border-emerald-500/30 text-center space-y-2">
+                    <div className="text-3xl">✅</div>
+                    <div className="font-bold text-emerald-700 dark:text-emerald-400 text-sm">
+                      Patient Successfully Delivered to Hospital
+                    </div>
+                    <p className="text-xs text-[var(--muted)] leading-relaxed">
+                      Handover completed at the ER triage desk. The hospital staff is currently assigning a bed. Your unit is marked available for new dispatches.
+                    </p>
+                  </div>
+                )}
+
+                {r.status !== "Arrived / intake" && (
+                  <button
+                    type="button"
+                    disabled={busy === r.id}
+                    onClick={() => {
+                      if (confirm("Are you sure you need to abort this dispatch?")) {
+                        executeTransition(r.id, "Cancelled / failed");
+                      }
+                    }}
+                    className="btn py-2 text-xs border border-red-300 text-red-600 dark:border-red-800 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg"
+                  >
+                    Report Unable to Complete / Abort
+                  </button>
+                )}
               </div>
             </div>
           </article>
