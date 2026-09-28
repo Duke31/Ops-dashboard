@@ -11,18 +11,18 @@ export default async function DriverPage() {
   let myDriverRecord: Driver | null = null;
   let requests: EmergencyRequest[] = [];
 
-  // If logged in as driver, match their drivers table record by user_id
   if (isDriverRole) {
+    // STRICT: Fetch the driver record linked to this logged-in auth user
     const { data: dRow } = await supabase
       .from("drivers")
       .select("id, display_name, vehicle_label, hospital_id, active")
       .eq("user_id", profile.user_id)
       .maybeSingle();
 
-    myDriverRecord = dRow as Driver | null;
+    myDriverRecord = (dRow ?? null) as Driver | null;
 
     if (myDriverRecord?.id) {
-      // STRICT FILTER: Only load emergency calls assigned to THIS driver!
+      // STRICT FILTER: Only load emergency requests assigned to THIS driver!
       requests = await fetchRequests(supabase, {
         driverId: myDriverRecord.id,
         activeOnly: true,
@@ -31,7 +31,7 @@ export default async function DriverPage() {
       requests = [];
     }
   } else {
-    // Admin / Dispatcher mode: can view all requests
+    // Admin / Dispatcher mode: can view active requests
     requests = await fetchRequests(supabase, { activeOnly: true });
   }
 
@@ -68,6 +68,7 @@ export default async function DriverPage() {
         rules={rules}
         initialDriverId={myDriverRecord?.id || null}
         isDriverRole={isDriverRole}
+        activeDriverRecord={myDriverRecord}
       />
     </AppShell>
   );
