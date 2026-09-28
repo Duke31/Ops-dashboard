@@ -13,17 +13,24 @@ import { rpcMessage } from "@/lib/rpc-error";
 const PRESET_BAYS = [
   "Trauma Bay 1",
   "Trauma Bay 2",
-  "Resus Bay A",
-  "Observation Bed 3",
-  "General Acute Bay",
+  "Resuscitation Suite",
+  "Critical Care / ICU-1",
+  "Acute Observation 1",
+  "Acute Observation 2",
+  "Pediatric Bay",
+  "General Triage Bed",
 ];
 
 export function HospitalCards({
   requests,
+  historyRequests = [],
   rules,
+  availableCapacity = null,
 }: {
   requests: EmergencyRequest[];
+  historyRequests?: EmergencyRequest[];
   rules: TransitionRule[];
+  availableCapacity?: number | null;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
@@ -32,11 +39,13 @@ export function HospitalCards({
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
-  // State for Bed Admission Modal / Drawer
+  // Admission Modal State
   const [admittingReq, setAdmittingReq] = useState<EmergencyRequest | null>(null);
   const [selectedBay, setSelectedBay] = useState<string>("Trauma Bay 1");
   const [customBay, setCustomBay] = useState<string>("");
   const [admitNotes, setAdmitNotes] = useState<string>("");
+
+  const effectiveBay = customBay.trim() || selectedBay;
 
   async function go(id: string, to: string) {
     setBusy(id);
@@ -62,23 +71,21 @@ export function HospitalCards({
 
   async function handleConfirmAdmit() {
     if (!admittingReq) return;
-    const finalBay = customBay.trim() || selectedBay;
 
     setBusy(admittingReq.id);
     setError(null);
     setOk(null);
 
     try {
-      // Calls the atomic RPC which completes the dispatch and decrements capacity
-      const { data, error: rpcErr } = await supabase.rpc("hospital_admit_patient", {
+      const { error: rpcErr } = await supabase.rpc("hospital_admit_patient", {
         p_request_id: admittingReq.id,
-        p_assigned_bay: finalBay,
+        p_assigned_bay: effectiveBay,
         p_notes: admitNotes.trim() || null,
       });
 
       if (rpcErr) throw rpcErr;
 
-      setOk(`Patient successfully admitted to ${finalBay}! Bed count updated.`);
+      setOk(`Patient admitted to ${effectiveBay}. Capacity updated.`);
       setAdmittingReq(null);
       setCustomBay("");
       setAdmitNotes("");
@@ -90,146 +97,232 @@ export function HospitalCards({
     }
   }
 
-  if (!requests.length) {
-    return (
-      <div className="card p-6 text-center text-sm text-[var(--muted)]">
-        No active incoming patient transfers at this time.
-      </div>
-    );
-  }
-
   return (
     <>
-      <div className="grid gap-3">
-        {requests.map((r) => {
-          const targets = allowedTargets(rules, r.status, "hospital").filter(
-            (t) => t !== "Completed",
-          );
-          const showAdmitButton =
-            r.status === "Arrived / intake" || r.status === "En route to hospital";
+      <div className="space-y-6">
+        {/* Active Incoming Emergency Transfers Section */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--muted)]">
+              Incoming Ambulance Transfers ({requests.length})
+            </h2>
+          </div>
 
-          return (
-            <article
-              key={r.id}
-              className="card p-4 space-y-3 border-l-4 border-l-blue-600 bg-[var(--surface)]"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="font-bold text-base flex items-center gap-2">
-                    <span>{r.emergency_type || "Emergency Patient"}</span>
-                    {r.priority && (
-                      <span className="px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200">
-                        Priority {r.priority}
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-xs text-[var(--muted)]">
-                    {formatLocation(r)} · Reported {timeSince(r.created_at)}
-                  </div>
+          {!requests.length ? (
+            <div className="card p-6 text-center text-sm text-[var(--muted)]">
+              No active incoming patient transfers at this time.
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {requests.map((r) => {
+                const targets = allowedTargets(rules, r.status, "hospital").filter(
+                  (t) => t !== "Completed",
+                );
+                const showAdmitButton =
+                  r.status === "Arrived / intake" || r.status === "En route to hospital";
 
-                  <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
-                    {r.patient_age_band && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded font-medium bg-[var(--surface-raised,#f3f4f6)] text-[var(--foreground)] border border-[var(--border,#e5e7eb)]">
-                        Age: {r.patient_age_band === "unknown" ? "Unknown" : `${r.patient_age_band} yrs`}
-                      </span>
-                    )}
-                    {r.contact_phone && (
-                      <a
-                        href={`tel:${r.contact_phone}`}
-                        className="inline-flex items-center gap-1 font-semibold text-blue-600 dark:text-blue-400 hover:underline"
-                      >
-                        <span>📞</span>
-                        <span>Patient: {r.contact_phone}</span>
-                      </a>
-                    )}
-                  </div>
+                return (
+                  <article
+                    key={r.id}
+                    className="card p-4 space-y-3 border-l-4 border-l-blue-600 bg-[var(--surface)] shadow-sm"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-1">
+                        <div className="font-bold text-base flex items-center gap-2">
+                          <span>{r.emergency_type || "Emergency Patient"}</span>
+                          {r.priority && (
+                            <span className="px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200">
+                              Priority {r.priority}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-[var(--muted)]">
+                          {formatLocation(r)} · Reported {timeSince(r.created_at)}
+                        </div>
 
-                  {r.notes && (
-                    <div className="mt-2 rounded-md p-2.5 text-xs bg-red-500/10 border border-red-500/30 text-red-900 dark:text-red-200">
-                      <span className="font-bold uppercase tracking-wider block text-[10px] text-red-700 dark:text-red-400 mb-0.5">
-                        Clinical Triage & Medical ID:
-                      </span>
-                      <p className="whitespace-pre-wrap leading-relaxed">{r.notes}</p>
+                        <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
+                          {r.patient_age_band && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded font-medium bg-[var(--surface-raised,#f3f4f6)] text-[var(--foreground)] border border-[var(--border,#e5e7eb)]">
+                              Age: {r.patient_age_band === "unknown" ? "Unknown" : `${r.patient_age_band} yrs`}
+                            </span>
+                          )}
+                          {r.contact_phone && (
+                            <a
+                              href={`tel:${r.contact_phone}`}
+                              className="inline-flex items-center gap-1 font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                            >
+                              <span>📞</span>
+                              <span>Patient: {r.contact_phone}</span>
+                            </a>
+                          )}
+                        </div>
+
+                        {r.notes && (
+                          <div className="mt-2 rounded-md p-2.5 text-xs bg-red-500/10 border border-red-500/30 text-red-900 dark:text-red-200">
+                            <span className="font-bold uppercase tracking-wider block text-[10px] text-red-700 dark:text-red-400 mb-0.5">
+                              Clinical Triage & Medical ID:
+                            </span>
+                            <p className="whitespace-pre-wrap leading-relaxed">{r.notes}</p>
+                          </div>
+                        )}
+
+                        {r.driver?.display_name && (
+                          <div className="text-xs mt-2 text-[var(--muted)] flex items-center gap-1.5">
+                            <span>🚑</span>
+                            <span>
+                              Transport Unit:{" "}
+                              <strong className="text-[var(--foreground)]">
+                                {r.driver.display_name}
+                              </strong>{" "}
+                              {r.driver.vehicle_label ? `(${r.driver.vehicle_label})` : ""}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      <StatusBadge status={r.status} />
                     </div>
-                  )}
 
-                  {r.driver?.display_name && (
-                    <div className="text-xs mt-2 text-[var(--muted)] flex items-center gap-1.5">
-                      <span>🚑</span>
-                      <span>
-                        Transport Unit:{" "}
-                        <strong className="text-[var(--foreground)]">
-                          {r.driver.display_name}
-                        </strong>{" "}
-                        {r.driver.vehicle_label ? `(${r.driver.vehicle_label})` : ""}
-                      </span>
+                    {/* Action buttons */}
+                    <div className="pt-2 border-t border-[var(--border,#e5e7eb)] flex flex-wrap items-center gap-2">
+                      {targets.map((to) => (
+                        <button
+                          key={to}
+                          className="btn text-xs py-2 px-3 border border-[var(--border,#d1d5db)] hover:bg-[var(--surface-raised,#f3f4f6)]"
+                          disabled={busy === r.id}
+                          onClick={() => go(r.id, to)}
+                        >
+                          {to.toLowerCase().includes("declin") ? "Decline" : to}
+                        </button>
+                      ))}
+
+                      {showAdmitButton && (
+                        <button
+                          className="btn btn-primary text-xs py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1.5 shadow"
+                          disabled={busy === r.id}
+                          onClick={() => {
+                            setAdmittingReq(r);
+                            setSelectedBay("Trauma Bay 1");
+                            setCustomBay("");
+                            setAdmitNotes("");
+                          }}
+                        >
+                          <span>🛏️</span>
+                          <span>Admit Patient & Assign Bed</span>
+                        </button>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* Admitted Records & Handover Log History */}
+        <section className="space-y-3 pt-4 border-t border-[var(--border,#e5e7eb)]">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--muted)] flex items-center gap-2">
+              <span>📋</span>
+              <span>Admitted Records & Handover Log ({historyRequests.length})</span>
+            </h2>
+          </div>
+
+          {!historyRequests.length ? (
+            <p className="text-xs text-[var(--muted)] italic">
+              No previous admission records logged yet for this facility.
+            </p>
+          ) : (
+            <div className="grid gap-2.5">
+              {historyRequests.slice(0, 10).map((h) => (
+                <div
+                  key={h.id}
+                  className="card p-3 text-xs bg-[var(--surface-raised,#f8fafc)] border border-[var(--border,#e2e8f0)] space-y-1.5"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-sm text-[var(--foreground)]">
+                      {h.emergency_type || "Emergency"}
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
+                      Admitted / Completed
+                    </span>
+                  </div>
+
+                  <div className="text-[var(--muted)] flex flex-wrap gap-x-3 gap-y-1">
+                    <span>📍 {formatLocation(h)}</span>
+                    {h.contact_phone && <span>📞 {h.contact_phone}</span>}
+                    {h.completed_at && (
+                      <span>⏱️ Admitted {timeSince(h.completed_at)}</span>
+                    )}
+                  </div>
+
+                  {h.notes && (
+                    <div className="mt-1 pt-1 border-t border-[var(--border,#e2e8f0)] text-[11px] text-[var(--foreground)] whitespace-pre-wrap leading-relaxed">
+                      {h.notes}
                     </div>
                   )}
                 </div>
-
-                <StatusBadge status={r.status} />
-              </div>
-
-              {/* Action buttons */}
-              <div className="pt-2 border-t border-[var(--border,#e5e7eb)] flex flex-wrap items-center gap-2">
-                {targets.map((to) => (
-                  <button
-                    key={to}
-                    className="btn text-xs py-2 px-3 border border-[var(--border,#d1d5db)] hover:bg-[var(--surface-raised,#f3f4f6)]"
-                    disabled={busy === r.id}
-                    onClick={() => go(r.id, to)}
-                  >
-                    {to.toLowerCase().includes("declin") ? "Decline Transfer" : to}
-                  </button>
-                ))}
-
-                {showAdmitButton && (
-                  <button
-                    className="btn btn-primary text-xs py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1.5 shadow"
-                    disabled={busy === r.id}
-                    onClick={() => {
-                      setAdmittingReq(r);
-                      setSelectedBay("Trauma Bay 1");
-                      setCustomBay("");
-                      setAdmitNotes("");
-                    }}
-                  >
-                    <span>🛏️</span>
-                    <span>Admit Patient & Assign Bed</span>
-                  </button>
-                )}
-              </div>
-            </article>
-          );
-        })}
+              ))}
+            </div>
+          )}
+        </section>
       </div>
 
-      {/* Bed Allocation Modal */}
+      {/* Exact Bed Handover Modal Matching IMG_9614.png */}
       {admittingReq && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="card max-w-lg w-full p-6 space-y-4 shadow-2xl bg-[var(--surface)] border border-[var(--border,#e5e7eb)]">
-            <div className="flex items-center justify-between border-b pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="card max-w-lg w-full p-6 space-y-5 shadow-2xl bg-[var(--surface)] border border-[var(--border,#e5e7eb)] rounded-2xl">
+            {/* Header with green label */}
+            <div className="flex items-start justify-between border-b pb-3">
               <div>
-                <h3 className="font-bold text-lg">Hospital Intake & Bed Allocation</h3>
-                <p className="text-xs text-[var(--muted)]">
-                  {admittingReq.emergency_type} · Patient {admittingReq.contact_phone || "En Route"}
-                </p>
+                <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 tracking-wider uppercase block">
+                  ER BED HANDOVER & ADMISSION
+                </span>
+                <h3 className="text-xl font-bold mt-1">
+                  Admit {admittingReq.emergency_type || "Emergency Patient"}
+                </h3>
               </div>
               <button
-                className="text-gray-400 hover:text-gray-600 text-lg font-bold"
+                className="text-xs font-semibold text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex items-center gap-1"
                 onClick={() => setAdmittingReq(null)}
               >
-                ✕
+                ✕ Close
               </button>
             </div>
 
-            <div className="space-y-3">
+            {/* Transport Unit & Capacity info card */}
+            <div className="p-3.5 rounded-xl bg-[var(--surface-raised,#f8fafc)] border border-[var(--border,#e2e8f0)] text-xs space-y-1.5">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-[var(--muted)] mb-1.5">
-                  Select Emergency Bay / Bed:
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {PRESET_BAYS.map((bay) => (
+                <strong className="text-[var(--foreground)]">Transport Unit:</strong>{" "}
+                <span className="text-[var(--muted)]">
+                  {admittingReq.driver?.display_name || "Assigned Ambulance"}
+                  {admittingReq.driver?.vehicle_label ? ` (${admittingReq.driver.vehicle_label})` : ""}
+                </span>
+              </div>
+              <div>
+                <strong className="text-[var(--foreground)]">Location:</strong>{" "}
+                <span className="text-[var(--muted)]">{formatLocation(admittingReq)}</span>
+              </div>
+              <div className="pt-1">
+                <strong className="text-[var(--foreground)]">Current ER Bed Capacity:</strong>{" "}
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                  {availableCapacity ?? "—"} beds available
+                </span>{" "}
+                <span className="text-[var(--muted)] text-[11px]">
+                  (will be decremented by 1 upon confirmation)
+                </span>
+              </div>
+            </div>
+
+            {/* Select Receiving Bed / Trauma Bay (2-column grid) */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-[var(--foreground)]">
+                Select Receiving Bed / Trauma Bay:
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {PRESET_BAYS.map((bay) => {
+                  const isSelected = selectedBay === bay && !customBay;
+                  return (
                     <button
                       key={bay}
                       type="button"
@@ -237,49 +330,52 @@ export function HospitalCards({
                         setSelectedBay(bay);
                         setCustomBay("");
                       }}
-                      className={`text-xs p-2.5 rounded-lg border text-left font-medium transition ${
-                        selectedBay === bay && !customBay
-                          ? "border-emerald-600 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-bold"
-                          : "border-[var(--border,#e5e7eb)] hover:bg-[var(--surface-raised,#f3f4f6)]"
+                      className={`text-xs py-2.5 px-3 rounded-lg border font-medium text-left transition ${
+                        isSelected
+                          ? "bg-emerald-600 text-white border-emerald-600 font-bold shadow-sm"
+                          : "border-[var(--border,#e5e7eb)] hover:bg-[var(--surface-raised,#f3f4f6)] text-[var(--foreground)]"
                       }`}
                     >
                       {bay}
                     </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-[var(--muted)] mb-1">
-                  Or Custom Room / Bed Number:
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. ICU Ward 4 - Bed 12"
-                  value={customBay}
-                  onChange={(e) => setCustomBay(e.target.value)}
-                  className="input text-xs w-full"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-[var(--muted)] mb-1">
-                  ER Intake Notes / Attending Doctor:
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="e.g. Received by Dr. Okafor. Stable, IV fluids initiated."
-                  value={admitNotes}
-                  onChange={(e) => setAdmitNotes(e.target.value)}
-                  className="input text-xs w-full"
-                />
+                  );
+                })}
               </div>
             </div>
 
-            <div className="pt-3 border-t flex justify-end gap-2">
+            {/* Custom bed/room input */}
+            <div className="space-y-1">
+              <label className="block text-xs text-[var(--muted)]">
+                Or specify custom bed/room:
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Ward 4C - Bed 12"
+                value={customBay}
+                onChange={(e) => setCustomBay(e.target.value)}
+                className="input text-xs w-full py-2.5 px-3 rounded-lg"
+              />
+            </div>
+
+            {/* Admission Handover Notes */}
+            <div className="space-y-1">
+              <label className="block text-xs text-[var(--muted)]">
+                Admission Handover Notes (Optional):
+              </label>
+              <textarea
+                rows={3}
+                placeholder="Assigned physician, initial vitals taken at triage bay, or special instructions..."
+                value={admitNotes}
+                onChange={(e) => setAdmitNotes(e.target.value)}
+                className="input text-xs w-full py-2 px-3 rounded-lg"
+              />
+            </div>
+
+            {/* Modal Buttons with dynamic CTA button matching IMG_9614.png */}
+            <div className="pt-3 border-t border-[var(--border,#e5e7eb)] flex items-center justify-between gap-3">
               <button
                 type="button"
-                className="btn py-2 px-3 text-xs"
+                className="btn py-2.5 px-4 text-xs font-semibold border rounded-lg"
                 onClick={() => setAdmittingReq(null)}
                 disabled={busy === admittingReq.id}
               >
@@ -287,11 +383,13 @@ export function HospitalCards({
               </button>
               <button
                 type="button"
-                className="btn btn-primary py-2 px-4 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                className="btn btn-primary py-2.5 px-5 text-xs font-bold bg-[#046A38] hover:bg-[#03542c] text-white rounded-lg shadow-md flex-1 text-center"
                 onClick={handleConfirmAdmit}
                 disabled={busy === admittingReq.id}
               >
-                {busy === admittingReq.id ? "Admitting..." : "Confirm Intake & Allocate Bed"}
+                {busy === admittingReq.id
+                  ? "Admitting..."
+                  : `Confirm Admission to ${effectiveBay}`}
               </button>
             </div>
           </div>
