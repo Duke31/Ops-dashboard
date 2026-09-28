@@ -36,7 +36,7 @@ export function RequestBoard({
   requests: EmergencyRequest[];
   rules: TransitionRule[];
   actorRole: AppRole;
-  hospitals?: Pick<Hospital, "id" | "name">[];
+  hospitals?: Pick<Hospital, "id" | "name" | "available_capacity">[];
   drivers?: Pick<Driver, "id" | "display_name" | "vehicle_label" | "hospital_id" | "active">[];
   empty?: string;
 }) {
@@ -68,6 +68,17 @@ export function RequestBoard({
     if (needsHospital(toStatus) && !hospitalId) {
       setError("Select a hospital before confirming.");
       return;
+    }
+
+    // Capacity check: BLOCK routing if capacity is 0
+    if (needsHospital(toStatus) && hospitalId) {
+      const targetHosp = hospitals.find((h) => h.id === hospitalId);
+      if (targetHosp && targetHosp.available_capacity === 0) {
+        setError(
+          `⛔ Cannot route to "${targetHosp.name}": Facility is at 0 available beds (Full / Diversion). Please select another hospital.`
+        );
+        return;
+      }
     }
 
     setBusyId(request.id);
@@ -179,7 +190,30 @@ export function RequestBoard({
                   <td className="whitespace-nowrap text-[var(--muted)]">
                     {timeSince(r.created_at)}
                   </td>
-                  <td>{r.hospital?.name || "—"}</td>
+                  <td>
+                    {r.hospital?.name ? (
+                      <div>
+                        <div className="font-medium text-xs text-slate-900 dark:text-slate-100">
+                          {r.hospital.name}
+                        </div>
+                        <div className="mt-0.5">
+                          {r.hospital.available_capacity != null ? (
+                            r.hospital.available_capacity === 0 ? (
+                              <span className="inline-flex items-center text-[10px] font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 px-1.5 py-0.5 rounded border border-red-200 dark:border-red-900">
+                                ⛔ 0 Beds (Full)
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
+                                {r.hospital.available_capacity} Beds Available
+                              </span>
+                            )
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                   <td className="text-[12px]">
                     {r.driver?.display_name ? (
                       <>
@@ -200,11 +234,22 @@ export function RequestBoard({
                           value={selectedHospital}
                           onChange={async (e) => {
                             const value = e.target.value;
+                            if (!value) return;
+
+                            // HARD PREVENTATIVE GUARD: Check capacity
+                            const targetHosp = hospitals.find((h) => h.id === value);
+                            if (targetHosp && targetHosp.available_capacity === 0) {
+                              setError(
+                                `⛔ Cannot route to "${targetHosp.name}": Facility is at 0 available beds (Full / Diversion). Please select another hospital.`
+                              );
+                              return;
+                            }
+
                             setHospitalDraft((h) => ({
                               ...h,
                               [r.id]: value,
                             }));
-                            if (!value) return;
+
                             setError(null);
                             const { error: err } = await supabase.rpc(
                               "assign_emergency_hospital",
@@ -218,11 +263,18 @@ export function RequestBoard({
                           }}
                         >
                           <option value="">Select hospital</option>
-                          {hospitals.map((h) => (
-                            <option key={h.id} value={h.id}>
-                              {h.name}
-                            </option>
-                          ))}
+                          {hospitals.map((h) => {
+                            const isFull = h.available_capacity === 0;
+                            return (
+                              <option
+                                key={h.id}
+                                value={h.id}
+                                disabled={isFull}
+                              >
+                                {h.name} {h.available_capacity != null ? (isFull ? "⛔ (0 beds - FULL)" : `(${h.available_capacity} beds)`) : ""}
+                              </option>
+                            );
+                          })}
                         </select>
                       )}
                       {showDriver && (
