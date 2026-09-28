@@ -278,36 +278,45 @@ export function DriverConsole({
         }
       });
 
-      // 3. Throttled DB write: persist coordinate directly to drivers table every 3s
+      // 3. Throttled DB write so the patient app can poll/realtime-read coords
       const now = Date.now();
-      if (now - lastDbUpdateRef.current >= 3000) {
+      if (now - lastDbUpdateRef.current >= 2500) {
         lastDbUpdateRef.current = now;
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const heading = pos.coords.heading;
+        const speed = pos.coords.speed;
+        const stamp = new Date().toISOString();
 
-        // Try direct update first
-        supabase
-          .from("drivers")
-          .update({
-            current_lat: pos.coords.latitude,
-            current_lng: pos.coords.longitude,
-            heading: pos.coords.heading,
-            speed: pos.coords.speed,
-            last_location_at: new Date().toISOString(),
-          })
-          .eq("id", driverIdToStream)
-          .then(({ error: updateErr }) => {
-            if (updateErr) {
-              // Fallback to RPC if RLS blocks direct update
-              supabase
-                .rpc("update_driver_location", {
-                  p_driver_id: driverIdToStream,
-                  p_lat: pos.coords.latitude,
-                  p_lng: pos.coords.longitude,
-                  p_heading: pos.coords.heading,
-                  p_speed: pos.coords.speed,
-                })
-                .then(() => {});
-            }
+        void (async () => {
+          const { error: updateErr } = await supabase
+            .from("drivers")
+            .update({
+              current_lat: lat,
+              current_lng: lng,
+              heading,
+              speed,
+              last_location_at: stamp,
+            })
+            .eq("id", driverIdToStream);
+
+          if (!updateErr) return;
+
+          const { error: rpcErr } = await supabase.rpc("update_driver_location", {
+            p_driver_id: driverIdToStream,
+            p_lat: lat,
+            p_lng: lng,
+            p_heading: heading,
+            p_speed: speed,
           });
+
+          if (rpcErr) {
+            console.error("driver location persist failed", updateErr, rpcErr);
+            setGpsError(
+              `Location not saved for patients: ${rpcErr.message || updateErr.message}. Run update_driver_location SQL.`,
+            );
+          }
+        })();
       }
     };
 
