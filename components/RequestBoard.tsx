@@ -22,7 +22,47 @@ function needsDriver(toStatus: string) {
 
 function needsHospital(toStatus: string) {
   const s = toStatus.toLowerCase();
-  return s.includes("hospital confirmed") || s.includes("hospital matched");
+  return (
+    s.includes("hospital") ||
+    s.includes("match") ||
+    s.includes("intake") ||
+    s.includes("admit")
+  );
+}
+
+function getHospitalCapacity(
+  hospitalId: string | null | undefined,
+  request: EmergencyRequest,
+  hospitals: Pick<Hospital, "id" | "name" | "available_capacity">[],
+): number | null {
+  if (!hospitalId) return null;
+  // Check embedded hospital in request first
+  if (
+    request.hospital &&
+    request.hospital.id === hospitalId &&
+    request.hospital.available_capacity != null
+  ) {
+    return request.hospital.available_capacity;
+  }
+  // Check hospitals list
+  const found = hospitals.find((h) => h.id === hospitalId);
+  if (found && found.available_capacity != null) {
+    return found.available_capacity;
+  }
+  return null;
+}
+
+function getHospitalName(
+  hospitalId: string | null | undefined,
+  request: EmergencyRequest,
+  hospitals: Pick<Hospital, "id" | "name" | "available_capacity">[],
+): string {
+  if (!hospitalId) return "Hospital";
+  if (request.hospital && request.hospital.id === hospitalId && request.hospital.name) {
+    return request.hospital.name;
+  }
+  const found = hospitals.find((h) => h.id === hospitalId);
+  return found?.name || "Hospital";
 }
 
 export function RequestBoard({
@@ -70,12 +110,13 @@ export function RequestBoard({
       return;
     }
 
-    // Capacity check: BLOCK routing if capacity is 0
+    // STRICT CAPACITY GUARD: Check capacity from both list and request object
     if (needsHospital(toStatus) && hospitalId) {
-      const targetHosp = hospitals.find((h) => h.id === hospitalId);
-      if (targetHosp && targetHosp.available_capacity === 0) {
+      const cap = getHospitalCapacity(hospitalId, request, hospitals);
+      if (cap === 0) {
+        const name = getHospitalName(hospitalId, request, hospitals);
         setError(
-          `⛔ Cannot route to "${targetHosp.name}": Facility is at 0 available beds (Full / Diversion). Please select another hospital.`
+          `⛔ Cannot confirm or route to "${name}": Facility is at 0 available beds (Full / Diversion). Please select another hospital with open capacity.`,
         );
         return;
       }
@@ -148,6 +189,14 @@ export function RequestBoard({
               const selectedDriver = driverDraft[r.id] ?? r.driver_id ?? "";
               const selectedHospital =
                 hospitalDraft[r.id] ?? r.hospital_id ?? "";
+
+              const effectiveCap = getHospitalCapacity(
+                selectedHospital,
+                r,
+                hospitals,
+              );
+              const isSelectedHospitalFull = effectiveCap === 0;
+
               return (
                 <tr key={r.id}>
                   <td className="max-w-[260px]">
@@ -230,17 +279,22 @@ export function RequestBoard({
                     <div className="flex flex-col gap-2 min-w-[200px]">
                       {showHospital && (
                         <select
-                          className="select"
+                          className={`select ${
+                            isSelectedHospitalFull
+                              ? "border-red-500 bg-red-50/50 dark:bg-red-950/30 text-red-700 dark:text-red-300 font-semibold"
+                              : ""
+                          }`}
                           value={selectedHospital}
                           onChange={async (e) => {
                             const value = e.target.value;
                             if (!value) return;
 
-                            // HARD PREVENTATIVE GUARD: Check capacity
-                            const targetHosp = hospitals.find((h) => h.id === value);
-                            if (targetHosp && targetHosp.available_capacity === 0) {
+                            // STRICT CAPACITY GUARD: Cannot select hospital with 0 beds
+                            const cap = getHospitalCapacity(value, r, hospitals);
+                            if (cap === 0) {
+                              const name = getHospitalName(value, r, hospitals);
                               setError(
-                                `⛔ Cannot route to "${targetHosp.name}": Facility is at 0 available beds (Full / Diversion). Please select another hospital.`
+                                `⛔ Cannot route to "${name}": Facility is at 0 available beds (Full / Diversion). Please select another hospital.`,
                               );
                               return;
                             }
@@ -264,19 +318,32 @@ export function RequestBoard({
                         >
                           <option value="">Select hospital</option>
                           {hospitals.map((h) => {
-                            const isFull = h.available_capacity === 0;
+                            const cap = getHospitalCapacity(h.id, r, hospitals);
+                            const isFull = cap === 0;
                             return (
                               <option
                                 key={h.id}
                                 value={h.id}
                                 disabled={isFull}
                               >
-                                {h.name} {h.available_capacity != null ? (isFull ? "⛔ (0 beds - FULL)" : `(${h.available_capacity} beds)`) : ""}
+                                {h.name}{" "}
+                                {cap != null
+                                  ? isFull
+                                    ? "⛔ (0 beds - FULL)"
+                                    : `(${cap} beds)`
+                                  : ""}
                               </option>
                             );
                           })}
                         </select>
                       )}
+
+                      {isSelectedHospitalFull && showHospital && (
+                        <div className="p-2 rounded bg-red-100 dark:bg-red-950/50 border border-red-300 dark:border-red-900 text-[11px] text-red-800 dark:text-red-300 font-semibold">
+                          ⛔ Assigned facility has 0 available beds. Select another hospital above to proceed.
+                        </div>
+                      )}
+
                       {showDriver && (
                         <select
                           className="select"
@@ -306,22 +373,37 @@ export function RequestBoard({
                           ))}
                         </select>
                       )}
+
                       <div className="flex flex-wrap gap-1">
                         {targets.length === 0 && (
                           <span className="text-[12px] text-[var(--muted)]">
                             No legal transitions
                           </span>
                         )}
-                        {targets.map((to) => (
-                          <button
-                            key={to}
-                            className="btn btn-primary"
-                            disabled={busyId === r.id}
-                            onClick={() => transition(r, to)}
-                          >
-                            {to}
-                          </button>
-                        ))}
+                        {targets.map((to) => {
+                          const isHospAction = needsHospital(to);
+                          const isBlocked = isHospAction && isSelectedHospitalFull;
+
+                          return (
+                            <button
+                              key={to}
+                              className={`btn ${
+                                isBlocked
+                                  ? "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-400 border border-red-300 dark:border-red-800 cursor-not-allowed opacity-60 font-bold"
+                                  : "btn-primary"
+                              }`}
+                              disabled={busyId === r.id || isBlocked}
+                              onClick={() => transition(r, to)}
+                              title={
+                                isBlocked
+                                  ? "Hospital has 0 beds available. Choose another facility."
+                                  : ""
+                              }
+                            >
+                              {isBlocked ? "⛔ Full (0 Beds)" : to}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   </td>
