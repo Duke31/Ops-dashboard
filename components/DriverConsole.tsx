@@ -126,9 +126,51 @@ export function DriverConsole({
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [wakeLockActive, setWakeLockActive] = useState(false);
   const [gpsStalled, setGpsStalled] = useState(false);
+  const [deviceVitals, setDeviceVitals] = useState<{
+    battery_level: number | null;
+    is_charging: boolean | null;
+    network_type: string | null;
+  }>({ battery_level: null, is_charging: null, network_type: null });
   const [navTarget, setNavTarget] = useState<NavTarget | null>(null);
   const [reconnectToast, setReconnectToast] = useState<string | null>(null);
   const forcePersistRef = useRef(false);
+
+  async function readDeviceVitals(): Promise<{
+    battery_level: number | null;
+    is_charging: boolean | null;
+    network_type: string | null;
+  }> {
+    let battery_level: number | null = null;
+    let is_charging: boolean | null = null;
+    let network_type: string | null = null;
+    try {
+      const nav = navigator as Navigator & {
+        getBattery?: () => Promise<{
+          level: number;
+          charging: boolean;
+        }>;
+        connection?: { effectiveType?: string; type?: string };
+      };
+      if (typeof nav.getBattery === "function") {
+        const bat = await nav.getBattery();
+        battery_level = Math.round(Math.min(1, Math.max(0, bat.level)) * 100);
+        is_charging = !!bat.charging;
+      }
+      const conn = nav.connection;
+      if (conn?.effectiveType) {
+        network_type = String(conn.effectiveType).toLowerCase();
+      } else if (conn?.type) {
+        network_type = String(conn.type).toLowerCase();
+      } else if (typeof navigator.onLine === "boolean") {
+        network_type = navigator.onLine ? "online" : "offline";
+      }
+    } catch {
+      /* Safari / denied — leave nulls */
+    }
+    return { battery_level, is_charging, network_type };
+  }
+
+
   const lastGpsAtRef = useRef<number>(0);
   const wakeLockRef = useRef<{ release: () => Promise<void>; addEventListener: (type: string, fn: () => void) => void } | null>(null);
   const watchIdRef = useRef<number | null>(null);
@@ -401,15 +443,23 @@ export function DriverConsole({
         const stamp = new Date().toISOString();
 
         void (async () => {
+          const vitals = await readDeviceVitals();
+          setDeviceVitals(vitals);
+
+          const row: Record<string, unknown> = {
+            current_lat: lat,
+            current_lng: lng,
+            heading,
+            speed,
+            last_location_at: stamp,
+          };
+          if (vitals.battery_level != null) row.battery_level = vitals.battery_level;
+          if (vitals.is_charging != null) row.is_charging = vitals.is_charging;
+          if (vitals.network_type != null) row.network_type = vitals.network_type;
+
           const { error: updateErr } = await supabase
             .from("drivers")
-            .update({
-              current_lat: lat,
-              current_lng: lng,
-              heading,
-              speed,
-              last_location_at: stamp,
-            })
+            .update(row)
             .eq("id", driverIdToStream);
 
           if (!updateErr) return;
@@ -420,6 +470,9 @@ export function DriverConsole({
             p_lng: lng,
             p_heading: heading,
             p_speed: speed,
+            p_battery_level: vitals.battery_level,
+            p_is_charging: vitals.is_charging,
+            p_network_type: vitals.network_type,
           });
 
           if (rpcErr) {
@@ -670,17 +723,37 @@ export function DriverConsole({
                 : "Acquiring GPS Fix…"}
             </span>
           </div>
-          {gpsCoords?.speed != null && (
-            <span className="font-mono text-slate-300">
-              {(gpsCoords.speed * 3.6).toFixed(0)} km/h
-            </span>
-          )}
+          <div className="flex items-center gap-2 font-mono text-slate-300">
+            {gpsCoords?.speed != null && (
+              <span>{(gpsCoords.speed * 3.6).toFixed(0)} km/h</span>
+            )}
+            {deviceVitals.battery_level != null && (
+              <span>
+                {deviceVitals.is_charging ? "⚡" : "🔋"} {deviceVitals.battery_level}%
+              </span>
+            )}
+            {deviceVitals.network_type && (
+              <span className="uppercase text-[10px] opacity-80">
+                {deviceVitals.network_type}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
       {reconnectToast && !navTarget && (
         <div className="rounded-lg border border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2 text-sm text-emerald-900 dark:text-emerald-100 font-medium">
           {reconnectToast}
+        </div>
+      )}
+
+      {deviceVitals.battery_level != null &&
+        deviceVitals.battery_level <= 20 &&
+        deviceVitals.is_charging === false && (
+        <div className="rounded-lg border border-amber-500/60 bg-amber-50 dark:bg-amber-950/50 px-3 py-2.5 text-sm text-amber-950 dark:text-amber-50">
+          <span className="font-semibold">
+            ⚠️ Battery Low ({deviceVitals.battery_level}%) — Connect vehicle dashboard charger to avoid losing GPS tracking.
+          </span>
         </div>
       )}
 

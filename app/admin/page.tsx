@@ -19,7 +19,7 @@ export default async function AdminQueuePage() {
       supabase.from("hospitals").select("id, name, available_capacity").order("name"),
       supabase
         .from("drivers")
-        .select("id, display_name, vehicle_label, hospital_id, active, last_location_at, current_lat, current_lng")
+        .select("id, display_name, vehicle_label, hospital_id, active, last_location_at, current_lat, current_lng, battery_level, is_charging, network_type")
         .eq("active", true)
         .order("display_name"),
     ]);

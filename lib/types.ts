@@ -30,6 +30,9 @@ export type Driver = {
   last_location_at?: string | null;
   current_lat?: number | null;
   current_lng?: number | null;
+  battery_level?: number | null;
+  is_charging?: boolean | null;
+  network_type?: string | null;
 };
 
 export type EmergencyRequest = {
