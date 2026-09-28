@@ -3,50 +3,76 @@ import { HospitalCapacity } from "@/components/HospitalCapacity";
 import { HospitalCards } from "@/components/HospitalCards";
 import { requireProfile } from "@/lib/auth";
 import { fetchRequests, fetchTransitionRules } from "@/lib/queries";
-import type { EmergencyRequest, Hospital, TransitionRule } from "@/lib/types";
-import Link from "next/link";
+import type { EmergencyRequest, TransitionRule } from "@/lib/types";
 
-export default async function HospitalPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ hospital_id?: string }>;
-}) {
+export default async function HospitalPage() {
   const { supabase, profile } = await requireProfile(["hospital", "admin", "dispatcher"]);
-  const params = await searchParams;
 
-  // Fetch all hospitals for switcher dropdown (helpful for admin/dispatcher oversight)
-  const { data: allHospitals } = await supabase
-    .from("hospitals")
-    .select("id, name, address, available_capacity, intake_phone")
-    .order("name");
-
-  const hospitalList = (allHospitals ?? []) as Hospital[];
-
-  // Determine active hospital:
-  // If staff has fixed hospital_id, use that.
-  // Otherwise check URL search param `hospital_id`, or fallback to first hospital in database.
   let hospitalId = profile.hospital_id;
+  let capacity: number | null = null;
+  let hospitalName = "Assigned Emergency Centre";
+  let intakePhone: string | null = null;
+  let requests: EmergencyRequest[] = [];
+  let admittedRequests: EmergencyRequest[] = [];
+  let rules: TransitionRule[] = [];
+
+  // If user is admin/dispatcher without a specific hospital, use first one
   if (!hospitalId) {
-    if (params.hospital_id && hospitalList.some((h) => h.id === params.hospital_id)) {
-      hospitalId = params.hospital_id;
-    } else if (hospitalList.length > 0) {
-      hospitalId = hospitalList[0].id;
+    try {
+      const { data: firstHosp } = await supabase
+        .from("hospitals")
+        .select("id, name, available_capacity, intake_phone")
+        .limit(1)
+        .maybeSingle();
+
+      if (firstHosp) {
+        hospitalId = firstHosp.id;
+        hospitalName = firstHosp.name;
+        capacity = firstHosp.available_capacity ?? null;
+        intakePhone = firstHosp.intake_phone ?? null;
+      }
+    } catch (e) {
+      console.error("Error fetching fallback hospital:", e);
+    }
+  } else {
+    try {
+      const { data: hosp } = await supabase
+        .from("hospitals")
+        .select("name, available_capacity, intake_phone")
+        .eq("id", hospitalId)
+        .maybeSingle();
+
+      if (hosp) {
+        hospitalName = hosp.name;
+        capacity = hosp.available_capacity ?? null;
+        intakePhone = hosp.intake_phone ?? null;
+      }
+    } catch (e) {
+      console.error("Error fetching hospital capacity:", e);
     }
   }
 
-  const activeHospital = hospitalList.find((h) => h.id === hospitalId);
-  const capacity = activeHospital?.available_capacity ?? null;
-
-  let requests: EmergencyRequest[] = [];
-  let rules: TransitionRule[] = [];
-
   if (hospitalId) {
     try {
+      // 1. Fetch active inbound requests
       requests = await fetchRequests(supabase, { hospitalId, activeOnly: true });
     } catch (e) {
-      console.error("Error fetching requests:", e);
+      console.error("Error fetching active requests:", e);
       requests = [];
     }
+
+    try {
+      // 2. Fetch admitted patient records
+      admittedRequests = await fetchRequests(supabase, {
+        hospitalId,
+        completedOnly: true,
+        limit: 25,
+      });
+    } catch (e) {
+      console.error("Error fetching admitted requests:", e);
+      admittedRequests = [];
+    }
+
     try {
       rules = await fetchTransitionRules(supabase, "hospital");
     } catch {
@@ -56,38 +82,11 @@ export default async function HospitalPage({
 
   return (
     <AppShell profile={profile}>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold">ER Intake & Triage Desk</h1>
-          <p className="text-xs text-[var(--muted)]">
-            Incoming ambulance dispatches, clinical triage handovers, and live bed admissions.
-          </p>
-        </div>
-
-        {/* Facility Selector for Admins / Multi-Site Supervisors */}
-        {profile.role !== "hospital" && hospitalList.length > 1 && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-[var(--muted)] font-medium">Viewing Facility:</span>
-            <div className="flex flex-wrap gap-1.5">
-              {hospitalList.map((h) => {
-                const isSelected = h.id === hospitalId;
-                return (
-                  <Link
-                    key={h.id}
-                    href={`/hospital?hospital_id=${h.id}`}
-                    className={`px-2.5 py-1 text-xs rounded font-medium border transition-colors ${
-                      isSelected
-                        ? "bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900"
-                        : "bg-[var(--surface)] text-[var(--foreground)] border-[var(--border,#e2e8f0)] hover:bg-slate-100 dark:hover:bg-slate-800"
-                    }`}
-                  >
-                    {h.name}
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        )}
+      <div className="mb-4">
+        <h1 className="text-xl font-bold">ER Intake & Triage Desk</h1>
+        <p className="text-xs text-[var(--muted)]">
+          Incoming ambulance dispatches, clinical triage handovers, and live bed admissions.
+        </p>
       </div>
 
       {hospitalId ? (
@@ -97,12 +96,12 @@ export default async function HospitalPage({
             <div className="flex items-center gap-2">
               <span className="text-base">🏥</span>
               <span>
-                Active Intake Station: <strong>{activeHospital?.name}</strong>
-                {activeHospital?.intake_phone ? ` (ER Line: ${activeHospital.intake_phone})` : ""}
+                Facility: <strong>{hospitalName}</strong>
+                {intakePhone ? ` · ER Phone: ${intakePhone}` : ""}
               </span>
             </div>
             <div className="font-semibold text-emerald-800 dark:text-emerald-300">
-              ● Live Intake Ready
+              ● Live Intake Station Active
             </div>
           </div>
 
@@ -110,6 +109,7 @@ export default async function HospitalPage({
 
           <HospitalCards
             requests={requests}
+            admittedRequests={admittedRequests}
             rules={rules}
             hospitalId={hospitalId}
             currentCapacity={capacity}
