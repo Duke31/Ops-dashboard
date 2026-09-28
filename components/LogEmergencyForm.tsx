@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useRef, useState } from "react";
+import { FormEvent, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Toast } from "@/components/Toast";
@@ -21,7 +21,7 @@ const AGE_BANDS = ["unknown", "0-1", "2-12", "13-17", "18-39", "40-64", "65+"] a
 
 export function LogEmergencyForm() {
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const inFlight = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +65,7 @@ export function LogEmergencyForm() {
         created && typeof created === "object" && "id" in created
           ? String((created as { id: string }).id)
           : null;
-      setOk(id ? `Logged emergency #${id.slice(0, 8)} successfully.` : "Emergency logged successfully.");
+      setOk(id ? `Logged emergency #${id.slice(0, 8)}.` : "Emergency logged.");
       setForm({
         patient_address: "",
         patient_lat: "",
