@@ -27,6 +27,9 @@ export type Driver = {
   hospital_id: string | null;
   active?: boolean | null;
   status?: string | null;
+  last_location_at?: string | null;
+  current_lat?: number | null;
+  current_lng?: number | null;
 };
 
 export type EmergencyRequest = {

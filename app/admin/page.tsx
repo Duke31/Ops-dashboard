@@ -1,6 +1,7 @@
 import { AppShell } from "@/components/AppShell";
 import { RequestBoard } from "@/components/RequestBoard";
 import { LogEmergencyForm } from "@/components/LogEmergencyForm";
+import { TelemetryFleetBanner } from "@/components/TelemetryFleetBanner";
 import { requireProfile } from "@/lib/auth";
 import { fetchRequests, fetchTransitionRules } from "@/lib/queries";
 
@@ -18,7 +19,7 @@ export default async function AdminQueuePage() {
       supabase.from("hospitals").select("id, name, available_capacity").order("name"),
       supabase
         .from("drivers")
-        .select("id, display_name, vehicle_label, hospital_id, active")
+        .select("id, display_name, vehicle_label, hospital_id, active, last_location_at, current_lat, current_lng")
         .eq("active", true)
         .order("display_name"),
     ]);
@@ -33,6 +34,10 @@ export default async function AdminQueuePage() {
         </p>
       </div>
       <LogEmergencyForm />
+      <TelemetryFleetBanner
+        drivers={(driversRes.data ?? []) as never}
+        requests={requests}
+      />
       <RequestBoard
         requests={requests}
         rules={[...adminRules, ...dispatcherRules, ...hospitalRules]}

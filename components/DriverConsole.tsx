@@ -120,6 +120,12 @@ export function DriverConsole({
     accuracy: number | null;
   } | null>(null);
   const [gpsError, setGpsError] = useState<string | null>(null);
+  const [wakeLockActive, setWakeLockActive] = useState(false);
+  const [gpsStalled, setGpsStalled] = useState(false);
+  const lastGpsAtRef = useRef<number>(0);
+  const wakeLockRef = useRef<{ release: () => Promise<void>; addEventListener: (type: string, fn: () => void) => void } | null>(null);
+  const watchIdRef = useRef<number | null>(null);
+  const reacquireGpsRef = useRef<(() => void) | null>(null);
 
   // If initialDriverId changes or resolves, update state
   useEffect(() => {
@@ -206,7 +212,99 @@ export function DriverConsole({
 
   const lastDbUpdateRef = useRef<number>(0);
 
-  // Stream GPS Telemetry with immediate initial position fetch & continuous watching
+  const hasActiveRun = assignedRequests.some((r) =>
+    [
+      "Driver assigned",
+      "En route to patient",
+      "Patient picked up",
+      "En route to hospital",
+      "Arrived / intake",
+    ].includes(r.status),
+  );
+
+  const trackingDesired = hasActiveRun || !!selectedDriverId || !!initialDriverId;
+
+  async function requestWakeLock() {
+    try {
+      if (typeof navigator === "undefined" || !("wakeLock" in navigator)) {
+        setWakeLockActive(false);
+        return;
+      }
+      if (document.visibilityState !== "visible") return;
+      // Release existing before re-request
+      try {
+        await wakeLockRef.current?.release();
+      } catch {
+        /* ignore */
+      }
+      wakeLockRef.current = null;
+      const sentinel = await navigator.wakeLock.request("screen");
+      wakeLockRef.current = sentinel;
+      setWakeLockActive(true);
+      sentinel.addEventListener("release", () => {
+        setWakeLockActive(false);
+        wakeLockRef.current = null;
+      });
+    } catch {
+      // Permission denied or unsupported — never throw
+      setWakeLockActive(false);
+      wakeLockRef.current = null;
+    }
+  }
+
+  async function releaseWakeLock() {
+    try {
+      await wakeLockRef.current?.release();
+    } catch {
+      /* ignore */
+    }
+    wakeLockRef.current = null;
+    setWakeLockActive(false);
+  }
+
+  // Screen Wake Lock while on an active run / tracking
+  useEffect(() => {
+    if (!trackingDesired) {
+      void releaseWakeLock();
+      return;
+    }
+    void requestWakeLock();
+    return () => {
+      void releaseWakeLock();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trackingDesired, hasActiveRun]);
+
+  // Re-acquire wake lock + verify GPS when tab becomes visible again
+  useEffect(() => {
+    function onVisibility() {
+      if (document.visibilityState !== "visible") return;
+      if (trackingDesired) void requestWakeLock();
+      reacquireGpsRef.current?.();
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trackingDesired]);
+
+  // 15s telemetry watchdog (driver console)
+  useEffect(() => {
+    if (!hasActiveRun) {
+      setGpsStalled(false);
+      return;
+    }
+    const id = setInterval(() => {
+      const last = lastGpsAtRef.current;
+      if (!last) {
+        setGpsStalled(true);
+        return;
+      }
+      setGpsStalled(Date.now() - last > 15_000);
+    }, 2000);
+    return () => clearInterval(id);
+  }, [hasActiveRun]);
+
+    // Stream GPS Telemetry with immediate initial position fetch & continuous watching
   useEffect(() => {
     const driverIdToStream = isDriverRole ? (initialDriverId || currentDriver?.id) : selectedDriverId;
     if (typeof window === "undefined" || !("geolocation" in navigator)) {
@@ -238,6 +336,8 @@ export function DriverConsole({
         updated_at: new Date().toISOString(),
       };
 
+      lastGpsAtRef.current = Date.now();
+      setGpsStalled(false);
       setGpsCoords({
         lat: pos.coords.latitude,
         lng: pos.coords.longitude,
@@ -332,22 +432,38 @@ export function DriverConsole({
       setGpsError(msg);
     };
 
-    // 1. Immediately request current position
-    navigator.geolocation.getCurrentPosition(updateLocation, handleLocationError, {
-      enableHighAccuracy: true,
-      maximumAge: 10000,
-      timeout: 10000,
-    });
-
-    // 2. Watch continuously
-    const watchId = navigator.geolocation.watchPosition(updateLocation, handleLocationError, {
+    const geoOpts: PositionOptions = {
       enableHighAccuracy: true,
       maximumAge: 5000,
       timeout: 10000,
-    });
+    };
+
+    const startWatch = () => {
+      if (watchIdRef.current != null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+      navigator.geolocation.getCurrentPosition(
+        updateLocation,
+        handleLocationError,
+        { ...geoOpts, maximumAge: 10000 },
+      );
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        updateLocation,
+        handleLocationError,
+        geoOpts,
+      );
+    };
+
+    reacquireGpsRef.current = startWatch;
+    startWatch();
 
     return () => {
-      navigator.geolocation.clearWatch(watchId);
+      reacquireGpsRef.current = null;
+      if (watchIdRef.current != null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
       supabase.removeChannel(locChannel);
       requestChannels.forEach((ch) => supabase.removeChannel(ch));
     };
@@ -413,6 +529,19 @@ export function DriverConsole({
           )}
         </div>
 
+        <div className="mt-3 flex flex-wrap gap-2">
+          {wakeLockActive && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/20 border border-sky-400/50 text-sky-100 px-2.5 py-0.5 text-[11px] font-semibold">
+              <span aria-hidden>🔒</span> Screen Lock Active
+            </span>
+          )}
+          {hasActiveRun && !wakeLockActive && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-slate-700 border border-slate-600 text-slate-300 px-2.5 py-0.5 text-[11px]">
+              Screen lock unavailable
+            </span>
+          )}
+        </div>
+
         {/* Live GPS Telemetry Indicator */}
         <div className="mt-3 pt-2.5 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
           <div className="flex items-center gap-1.5">
@@ -443,6 +572,16 @@ export function DriverConsole({
           )}
         </div>
       </div>
+
+      {gpsStalled && hasActiveRun && (
+        <div className="rounded-lg border border-amber-500/50 bg-amber-50 dark:bg-amber-950/40 px-3 py-2.5 text-sm text-amber-950 dark:text-amber-100">
+          <span className="font-semibold">GPS fix stalled — checking location services</span>
+          <p className="text-xs mt-1 opacity-90">
+            No coordinate update for over 15 seconds. Keep this tab visible, enable high-accuracy
+            location, or reopen the console after using Maps/Waze.
+          </p>
+        </div>
+      )}
 
       {/* No active dispatches */}
       {assignedRequests.length === 0 && (
