@@ -39,8 +39,8 @@ export function DriverActivation({ drivers }: { drivers: DriverRow[] }) {
       if (err) throw err;
       setOk(
         next
-          ? `${d.display_name ?? "Driver"} marked active.`
-          : `${d.display_name ?? "Driver"} stood down.`,
+          ? `${d.display_name ?? "Driver"} marked active on duty.`
+          : `${d.display_name ?? "Driver"} stood down from duty.`,
       );
       router.refresh();
     } catch (e) {
@@ -52,19 +52,21 @@ export function DriverActivation({ drivers }: { drivers: DriverRow[] }) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {drivers.length === 0 ? (
-        <p className="text-sm text-[var(--muted)]">No drivers yet.</p>
+        <div className="card p-8 text-center text-sm text-[var(--muted)]">
+          No responder driver accounts registered yet.
+        </div>
       ) : (
         <div className="table-wrap">
           <table className="data">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Vehicle</th>
-                <th>Hospital</th>
-                <th>Status</th>
-                <th>Active</th>
+                <th>Responder Unit</th>
+                <th>Vehicle Plate / Label</th>
+                <th>Base Hospital</th>
+                <th>Duty Status</th>
+                <th>Active Toggle</th>
               </tr>
             </thead>
             <tbody>
@@ -72,16 +74,20 @@ export function DriverActivation({ drivers }: { drivers: DriverRow[] }) {
                 const on = activeMap[d.id] ?? Boolean(d.active);
                 return (
                   <tr key={d.id}>
-                    <td className="font-medium">{d.display_name || "—"}</td>
-                    <td>{d.vehicle_label || "—"}</td>
-                    <td>{d.hospital?.name || "—"}</td>
+                    <td className="font-semibold text-sm text-slate-900 dark:text-slate-100">
+                      {d.display_name || "Ambulance Driver"}
+                    </td>
+                    <td className="text-xs font-mono text-[var(--muted)]">
+                      {d.vehicle_label || "—"}
+                    </td>
+                    <td className="text-xs font-medium text-[var(--muted)]">
+                      {d.hospital?.name || "Independent / Network Unit"}
+                    </td>
                     <td>
                       {on ? (
-                        <span className="badge badge-ok">Active</span>
+                        <span className="badge badge-ok">🟢 Active On Duty</span>
                       ) : (
-                        <span className="badge badge-warn">
-                          Pending activation
-                        </span>
+                        <span className="badge badge-warn">⚪ Stood Down / Inactive</span>
                       )}
                     </td>
                     <td>
@@ -92,7 +98,7 @@ export function DriverActivation({ drivers }: { drivers: DriverRow[] }) {
                         disabled={busy === d.id}
                         onClick={() => flip(d, !on)}
                         className={`relative h-6 w-11 rounded-full transition-colors ${
-                          on ? "bg-[var(--accent)]" : "bg-[#d0d5dd]"
+                          on ? "bg-emerald-600" : "bg-[#d0d5dd]"
                         }`}
                       >
                         <span
