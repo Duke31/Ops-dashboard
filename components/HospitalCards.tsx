@@ -46,6 +46,7 @@ export function HospitalCards({
   const [admitNotes, setAdmitNotes] = useState<string>("");
 
   const effectiveBay = customBay.trim() || selectedBay;
+  const isFacilityFull = availableCapacity === 0;
 
   async function go(id: string, to: string) {
     const isAccepting =
@@ -53,9 +54,9 @@ export function HospitalCards({
       to.toLowerCase().includes("matched") ||
       to.toLowerCase().includes("intake");
 
-    if (isAccepting && availableCapacity === 0) {
+    if (isAccepting && isFacilityFull) {
       setError(
-        "Cannot accept or confirm emergency: Available bed capacity is 0 (Full/Diversion). Increase available beds above or decline/redirect request.",
+        "⛔ Cannot accept or confirm emergency: Available bed capacity is 0 (Full/Diversion). Increase available beds above or decline/redirect request.",
       );
       return;
     }
@@ -84,9 +85,9 @@ export function HospitalCards({
   async function handleConfirmAdmit() {
     if (!admittingReq) return;
 
-    if (availableCapacity === 0) {
+    if (isFacilityFull) {
       setError(
-        "Cannot admit patient: Available bed capacity is 0. Please adjust your live bed count above first.",
+        "⛔ Cannot admit patient: Available bed capacity is 0. Please adjust your live bed count above first.",
       );
       return;
     }
@@ -127,11 +128,11 @@ export function HospitalCards({
             </h2>
           </div>
 
-          {availableCapacity === 0 && (
-            <div className="p-3 rounded-lg bg-red-500/10 border-2 border-red-500/30 text-xs text-red-900 dark:text-red-200 font-semibold flex items-center gap-2">
-              <span>⚠️</span>
+          {isFacilityFull && (
+            <div className="p-3.5 rounded-lg bg-red-500/10 border-2 border-red-500/40 text-xs text-red-900 dark:text-red-200 font-semibold flex items-center gap-2">
+              <span className="text-base">⛔</span>
               <span>
-                Facility is currently at 0 available beds (Full/Diversion). New patient admissions are paused until beds are freed up or updated above.
+                Facility is currently in Diversion Mode (0 Beds Available). Patient admissions and intake confirmations are locked until beds are updated above.
               </span>
             </div>
           )}
@@ -213,22 +214,39 @@ export function HospitalCards({
 
                     {/* Action buttons */}
                     <div className="pt-2 border-t border-[var(--border,#e5e7eb)] flex flex-wrap items-center gap-2">
-                      {targets.map((to) => (
-                        <button
-                          key={to}
-                          className="btn text-xs py-2 px-3 border border-[var(--border,#d1d5db)] hover:bg-[var(--surface-raised,#f3f4f6)]"
-                          disabled={busy === r.id}
-                          onClick={() => go(r.id, to)}
-                        >
-                          {to.toLowerCase().includes("declin") ? "Decline" : to}
-                        </button>
-                      ))}
+                      {targets.map((to) => {
+                        const isDecline = to.toLowerCase().includes("declin");
+                        const isDisabled = busy === r.id || (!isDecline && isFacilityFull);
+                        return (
+                          <button
+                            key={to}
+                            className={`btn text-xs py-2 px-3 border border-[var(--border,#d1d5db)] ${
+                              isDecline
+                                ? "text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                                : "hover:bg-[var(--surface-raised,#f3f4f6)]"
+                            }`}
+                            disabled={isDisabled}
+                            onClick={() => go(r.id, to)}
+                            title={isDisabled && !isDecline ? "Capacity is 0. Increase beds first." : ""}
+                          >
+                            {isDecline ? "Decline / Divert" : to}
+                          </button>
+                        );
+                      })}
 
                       {showAdmitButton && (
                         <button
-                          className="btn btn-primary text-xs py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1.5 shadow"
-                          disabled={busy === r.id}
+                          className={`btn text-xs py-2 px-4 font-semibold flex items-center gap-1.5 shadow rounded-lg ${
+                            isFacilityFull
+                              ? "bg-gray-400 text-white cursor-not-allowed opacity-60"
+                              : "btn-primary bg-emerald-600 hover:bg-emerald-700 text-white"
+                          }`}
+                          disabled={busy === r.id || isFacilityFull}
                           onClick={() => {
+                            if (isFacilityFull) {
+                              setError("Cannot admit patient: Available bed capacity is 0.");
+                              return;
+                            }
                             setAdmittingReq(r);
                             setSelectedBay("Trauma Bay 1");
                             setCustomBay("");
@@ -236,7 +254,9 @@ export function HospitalCards({
                           }}
                         >
                           <span>🛏️</span>
-                          <span>Admit Patient & Assign Bed</span>
+                          <span>
+                            {isFacilityFull ? "⛔ ER Full (0 Beds)" : "Admit Patient & Assign Bed"}
+                          </span>
                         </button>
                       )}
                     </div>
@@ -300,7 +320,7 @@ export function HospitalCards({
       {admittingReq && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
           <div className="card max-w-lg w-full p-6 space-y-5 shadow-2xl bg-[var(--surface)] border border-[var(--border,#e5e7eb)] rounded-2xl">
-            {/* Header with green label */}
+            {/* Header */}
             <div className="flex items-start justify-between border-b pb-3">
               <div>
                 <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 tracking-wider uppercase block">
@@ -333,7 +353,7 @@ export function HospitalCards({
               </div>
               <div className="pt-1">
                 <strong className="text-[var(--foreground)]">Current ER Bed Capacity:</strong>{" "}
-                <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                <span className={`font-bold ${isFacilityFull ? "text-red-600" : "text-emerald-600 dark:text-emerald-400"}`}>
                   {availableCapacity ?? "—"} beds available
                 </span>{" "}
                 <span className="text-[var(--muted)] text-[11px]">
@@ -354,6 +374,7 @@ export function HospitalCards({
                     <button
                       key={bay}
                       type="button"
+                      disabled={isFacilityFull}
                       onClick={() => {
                         setSelectedBay(bay);
                         setCustomBay("");
@@ -378,6 +399,7 @@ export function HospitalCards({
               </label>
               <input
                 type="text"
+                disabled={isFacilityFull}
                 placeholder="e.g. Ward 4C - Bed 12"
                 value={customBay}
                 onChange={(e) => setCustomBay(e.target.value)}
@@ -392,6 +414,7 @@ export function HospitalCards({
               </label>
               <textarea
                 rows={3}
+                disabled={isFacilityFull}
                 placeholder="Assigned physician, initial vitals taken at triage bay, or special instructions..."
                 value={admitNotes}
                 onChange={(e) => setAdmitNotes(e.target.value)}
@@ -411,12 +434,18 @@ export function HospitalCards({
               </button>
               <button
                 type="button"
-                className="btn btn-primary py-2.5 px-5 text-xs font-bold bg-[#046A38] hover:bg-[#03542c] text-white rounded-lg shadow-md flex-1 text-center"
+                className={`btn py-2.5 px-5 text-xs font-bold text-white rounded-lg shadow-md flex-1 text-center ${
+                  isFacilityFull
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-[#046A38] hover:bg-[#03542c]"
+                }`}
                 onClick={handleConfirmAdmit}
-                disabled={busy === admittingReq.id}
+                disabled={busy === admittingReq.id || isFacilityFull}
               >
                 {busy === admittingReq.id
                   ? "Admitting..."
+                  : isFacilityFull
+                  ? "⛔ Cannot Admit — 0 Beds Available"
                   : `Confirm Admission to ${effectiveBay}`}
               </button>
             </div>
