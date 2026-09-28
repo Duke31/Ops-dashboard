@@ -23,10 +23,9 @@ export default async function DriversPage() {
   return (
     <AppShell profile={profile}>
       <div className="mb-4">
-        <h1 className="text-lg font-semibold">Driver activation</h1>
-        <p className="text-sm text-[var(--muted)]">
-          New units stay inactive until you flip them via
-          admin_set_driver_active.
+        <h1 className="text-xl font-bold">Ambulance Fleet & Driver Activation</h1>
+        <p className="text-xs text-[var(--muted)]">
+          Manage responder vehicle readiness. Only active drivers receive incoming dispatch assignments.
         </p>
         {error && (
           <p className="text-sm text-[#b42318] mt-1">{error.message}</p>
