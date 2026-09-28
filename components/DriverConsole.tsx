@@ -218,8 +218,12 @@ export function DriverConsole({
       return;
     }
 
+    // Channel for system-wide responders and request-specific tracking
     const locChannel = supabase.channel("responder_locations");
     locChannel.subscribe();
+
+    // Map of subscribed request channels to avoid re-creating/unsubscribed sends
+    const requestChannels = new Map<string, ReturnType<typeof supabase.channel>>();
 
     const updateLocation = (pos: GeolocationPosition) => {
       const payload = {
@@ -252,33 +256,56 @@ export function DriverConsole({
 
       // 2. Broadcast to specific request tracking channels for patient mobile app
       activeRequestIdsRef.current.forEach((reqId) => {
-        const reqChannel = supabase.channel(`request-tracking:${reqId}`);
-        reqChannel.send({
-          type: "broadcast",
-          event: "location_update",
-          payload: {
-            ...payload,
-            request_id: reqId,
-          },
-        });
+        let reqChan = requestChannels.get(reqId);
+        if (!reqChan) {
+          reqChan = supabase.channel(`request-tracking:${reqId}`);
+          reqChan.subscribe((status) => {
+            if (status === "SUBSCRIBED") {
+              reqChan?.send({
+                type: "broadcast",
+                event: "location_update",
+                payload: { ...payload, request_id: reqId },
+              });
+            }
+          });
+          requestChannels.set(reqId, reqChan);
+        } else {
+          reqChan.send({
+            type: "broadcast",
+            event: "location_update",
+            payload: { ...payload, request_id: reqId },
+          });
+        }
       });
 
-      // 3. Throttled DB write: persist coordinate directly to drivers table every 5s
+      // 3. Throttled DB write: persist coordinate directly to drivers table every 3s
       const now = Date.now();
-      if (now - lastDbUpdateRef.current >= 5000) {
+      if (now - lastDbUpdateRef.current >= 3000) {
         lastDbUpdateRef.current = now;
+
+        // Try direct update first
         supabase
-          .rpc("update_driver_location", {
-            p_driver_id: driverIdToStream,
-            p_lat: pos.coords.latitude,
-            p_lng: pos.coords.longitude,
-            p_heading: pos.coords.heading,
-            p_speed: pos.coords.speed,
+          .from("drivers")
+          .update({
+            current_lat: pos.coords.latitude,
+            current_lng: pos.coords.longitude,
+            heading: pos.coords.heading,
+            speed: pos.coords.speed,
+            last_location_at: new Date().toISOString(),
           })
-          .then(({ error: rpcErr }) => {
-            if (rpcErr) {
-              // Silently fallback if RPC not yet created in remote DB
-              console.warn("Telemetry DB write error:", rpcErr.message);
+          .eq("id", driverIdToStream)
+          .then(({ error: updateErr }) => {
+            if (updateErr) {
+              // Fallback to RPC if RLS blocks direct update
+              supabase
+                .rpc("update_driver_location", {
+                  p_driver_id: driverIdToStream,
+                  p_lat: pos.coords.latitude,
+                  p_lng: pos.coords.longitude,
+                  p_heading: pos.coords.heading,
+                  p_speed: pos.coords.speed,
+                })
+                .then(() => {});
             }
           });
       }
@@ -313,6 +340,7 @@ export function DriverConsole({
     return () => {
       navigator.geolocation.clearWatch(watchId);
       supabase.removeChannel(locChannel);
+      requestChannels.forEach((ch) => supabase.removeChannel(ch));
     };
   }, [supabase, isDriverRole, initialDriverId, selectedDriverId, currentDriver]);
 
