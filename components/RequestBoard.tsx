@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type {
   AppRole,
   Driver,
@@ -89,6 +89,29 @@ export function RequestBoard({
   );
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
+
+  // Real-time synchronization for zero-delay operations
+  useEffect(() => {
+    const channel = supabase
+      .channel("ops-request-board-sync")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "emergency_requests" },
+        () => {
+          router.refresh();
+        },
+      )
+      .subscribe();
+
+    const interval = setInterval(() => {
+      router.refresh();
+    }, 3000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
+  }, [supabase, router]);
 
   async function transition(
     request: EmergencyRequest,
