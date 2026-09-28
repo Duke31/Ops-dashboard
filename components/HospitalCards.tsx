@@ -48,6 +48,18 @@ export function HospitalCards({
   const effectiveBay = customBay.trim() || selectedBay;
 
   async function go(id: string, to: string) {
+    const isAccepting =
+      to.toLowerCase().includes("confirm") ||
+      to.toLowerCase().includes("matched") ||
+      to.toLowerCase().includes("intake");
+
+    if (isAccepting && availableCapacity === 0) {
+      setError(
+        "Cannot accept or confirm emergency: Available bed capacity is 0 (Full/Diversion). Increase available beds above or decline/redirect request.",
+      );
+      return;
+    }
+
     setBusy(id);
     setError(null);
     setOk(null);
@@ -71,6 +83,13 @@ export function HospitalCards({
 
   async function handleConfirmAdmit() {
     if (!admittingReq) return;
+
+    if (availableCapacity === 0) {
+      setError(
+        "Cannot admit patient: Available bed capacity is 0. Please adjust your live bed count above first.",
+      );
+      return;
+    }
 
     setBusy(admittingReq.id);
     setError(null);
@@ -107,6 +126,15 @@ export function HospitalCards({
               Incoming Ambulance Transfers ({requests.length})
             </h2>
           </div>
+
+          {availableCapacity === 0 && (
+            <div className="p-3 rounded-lg bg-red-500/10 border-2 border-red-500/30 text-xs text-red-900 dark:text-red-200 font-semibold flex items-center gap-2">
+              <span>⚠️</span>
+              <span>
+                Facility is currently at 0 available beds (Full/Diversion). New patient admissions are paused until beds are freed up or updated above.
+              </span>
+            </div>
+          )}
 
           {!requests.length ? (
             <div className="card p-6 text-center text-sm text-[var(--muted)]">
@@ -268,7 +296,7 @@ export function HospitalCards({
         </section>
       </div>
 
-      {/* Exact Bed Handover Modal Matching IMG_9614.png */}
+      {/* Bed Handover Modal */}
       {admittingReq && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
           <div className="card max-w-lg w-full p-6 space-y-5 shadow-2xl bg-[var(--surface)] border border-[var(--border,#e5e7eb)] rounded-2xl">
@@ -371,7 +399,7 @@ export function HospitalCards({
               />
             </div>
 
-            {/* Modal Buttons with dynamic CTA button matching IMG_9614.png */}
+            {/* Modal Buttons */}
             <div className="pt-3 border-t border-[var(--border,#e5e7eb)] flex items-center justify-between gap-3">
               <button
                 type="button"
