@@ -23,16 +23,35 @@ const REQUEST_SELECT = [
 
 export async function fetchRequests(
   supabase: SupabaseClient,
-  opts?: { hospitalId?: string; activeOnly?: boolean },
+  opts?: {
+    hospitalId?: string;
+    driverId?: string;
+    activeOnly?: boolean;
+    completedOnly?: boolean;
+    limit?: number;
+  },
 ) {
   let q = supabase
     .from("emergency_requests")
     .select(REQUEST_SELECT)
     .order("created_at", { ascending: false });
 
-  if (opts?.hospitalId) q = q.eq("hospital_id", opts.hospitalId);
-  if (opts?.activeOnly !== false) {
+  if (opts?.hospitalId) {
+    q = q.eq("hospital_id", opts.hospitalId);
+  }
+
+  if (opts?.driverId) {
+    q = q.eq("driver_id", opts.driverId);
+  }
+
+  if (opts?.completedOnly) {
+    q = q.eq("status", "Completed");
+  } else if (opts?.activeOnly !== false) {
     q = q.not("status", "in", '("Completed","Cancelled / failed")');
+  }
+
+  if (opts?.limit) {
+    q = q.limit(opts.limit);
   }
 
   const { data, error } = await q;
