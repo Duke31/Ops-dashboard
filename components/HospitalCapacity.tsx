@@ -48,34 +48,31 @@ export function HospitalCapacity({
   }
 
   return (
-    <div className="card p-5 border border-[var(--border,#e2e8f0)] bg-[var(--surface,#ffffff)] shadow-sm">
+    <div className="card p-5 border shadow-sm" style={{ borderColor: 'var(--line)' }}>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--muted,#64748b)]">
+          <div className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--muted)' }}>
             Live Facility Bed Availability
           </div>
           <div className="mt-1 flex items-baseline gap-2">
             <span
-              className={`text-3xl font-extrabold tracking-tight ${
-                cap === 0
-                  ? "text-red-600 dark:text-red-400"
-                  : cap <= 2
-                  ? "text-amber-600 dark:text-amber-400"
-                  : "text-emerald-600 dark:text-emerald-400"
-              }`}
+              className="text-3xl font-extrabold tracking-tight"
+              style={{
+                color: cap === 0 ? '#dc2626' : cap <= 2 ? '#d97706' : '#059669'
+              }}
             >
               {cap}
             </span>
-            <span className="text-sm font-semibold text-[var(--muted,#64748b)]">
+            <span className="text-sm font-semibold" style={{ color: 'var(--muted)' }}>
               {cap === 1 ? "bed available" : "beds available"}
             </span>
             {cap === 0 && (
-              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300 border border-red-300 dark:border-red-800">
+              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-bold" style={{ backgroundColor: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca' }}>
                 ⚠️ Full / Diversion Mode
               </span>
             )}
           </div>
-          <p className="text-xs text-[var(--muted,#64748b)] mt-1">
+          <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
             Dispatchers immediately see this live count before routing ambulances.
           </p>
         </div>
@@ -84,7 +81,7 @@ export function HospitalCapacity({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            className="btn btn-ghost px-3 py-1.5 text-base font-bold border border-[var(--border,#cbd5e1)] hover:bg-red-50 dark:hover:bg-red-950/30"
+            className="btn btn-ghost px-3 py-1.5 text-base font-bold"
             disabled={busy || cap <= 0}
             onClick={() => adjust(-1)}
             title="Minus 1 Bed"
@@ -93,7 +90,7 @@ export function HospitalCapacity({
           </button>
           <button
             type="button"
-            className="btn btn-ghost px-3 py-1.5 text-base font-bold border border-[var(--border,#cbd5e1)] hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+            className="btn btn-ghost px-3 py-1.5 text-base font-bold"
             disabled={busy}
             onClick={() => adjust(1)}
             title="Plus 1 Bed"
@@ -111,7 +108,7 @@ export function HospitalCapacity({
         </div>
       </div>
 
-      <div className="mt-4 pt-3 border-t border-[var(--border,#f1f5f9)] flex items-center gap-4">
+      <div className="mt-4 pt-3 flex items-center gap-4" style={{ borderTop: '1px solid var(--line)' }}>
         <input
           type="range"
           min={0}
@@ -132,7 +129,7 @@ export function HospitalCapacity({
             onChange={(e) => setCap(Number(e.target.value))}
             onBlur={() => saveValue(cap)}
           />
-          <span className="text-xs text-[var(--muted,#64748b)]">beds</span>
+          <span className="text-xs" style={{ color: 'var(--muted)' }}>beds</span>
         </div>
       </div>
 
