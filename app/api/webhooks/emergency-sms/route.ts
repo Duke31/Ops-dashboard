@@ -1,7 +1,7 @@
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { toNigeriaE164 } from "@/lib/sms/e164";
-import { sendTermiiSms } from "@/lib/sms/termii";
+import { sendSms, resolveSmsProvider } from "@/lib/sms/provider";
 import { callerDispatchSms, hospitalIntakeSms } from "@/lib/sms/templates";
 import { getSupabaseUrl } from "@/lib/env";
 
@@ -34,15 +34,6 @@ function webhookSecret() {
   return process.env.EMERGENCY_SMS_WEBHOOK_SECRET || process.env.WEBHOOK_SECRET || "";
 }
 
-function termiiConfig() {
-  const apiKey = process.env.TERMII_API_KEY || "";
-  const senderId = process.env.TERMII_SENDER_ID || "";
-  if (!apiKey || !senderId) {
-    throw new Error("TERMII_API_KEY and TERMII_SENDER_ID must be set");
-  }
-  return { apiKey, senderId };
-}
-
 function adminClient() {
   return createServiceClient(getSupabaseUrl(), serviceKey(), {
     auth: { autoRefreshToken: false, persistSession: false },
@@ -58,6 +49,7 @@ async function logSms(
     trigger_status: string;
     template_key: string;
     body_preview: string;
+    provider: string;
     provider_message_id: string | null;
     http_status: number | null;
     success: boolean;
@@ -72,7 +64,7 @@ async function logSms(
     trigger_status: row.trigger_status,
     template_key: row.template_key,
     body_preview: row.body_preview.slice(0, 280),
-    provider: "termii",
+    provider: row.provider,
     provider_message_id: row.provider_message_id,
     http_status: row.http_status,
     success: row.success,
@@ -134,12 +126,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, skipped: "status not in SMS map" });
   }
 
-  let termii: { apiKey: string; senderId: string };
+  let providerName: string;
   try {
-    termii = termiiConfig();
+    providerName = resolveSmsProvider();
   } catch (e) {
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Termii config error" },
+      { error: e instanceof Error ? e.message : "SMS provider config error" },
       { status: 500 },
     );
   }
@@ -215,12 +207,7 @@ export async function POST(req: NextRequest) {
         vehicleLabel: driver?.vehicle_label || null,
         status,
       });
-      const sent = await sendTermiiSms({
-        toE164: e164,
-        body: text,
-        apiKey: termii.apiKey,
-        senderId: termii.senderId,
-      });
+      const sent = await sendSms({ toE164: e164, body: text });
       await logSms(admin, {
         request_id: requestId,
         recipient_e164: e164,
@@ -228,11 +215,12 @@ export async function POST(req: NextRequest) {
         trigger_status: status,
         template_key: "caller_dispatch",
         body_preview: text,
+        provider: sent.provider,
         provider_message_id: sent.messageId,
         http_status: sent.httpStatus,
         success: sent.ok,
         error_message: sent.error,
-        meta: { termii: sent.raw },
+        meta: { provider: sent.provider, raw: sent.raw },
       });
       results.push({ role: "caller", ...sent });
     }
@@ -254,12 +242,7 @@ export async function POST(req: NextRequest) {
         patientAgeBand: reqRow.patient_age_band as string | null,
         address: reqRow.patient_address as string | null,
       });
-      const sent = await sendTermiiSms({
-        toE164: e164,
-        body: text,
-        apiKey: termii.apiKey,
-        senderId: termii.senderId,
-      });
+      const sent = await sendSms({ toE164: e164, body: text });
       await logSms(admin, {
         request_id: requestId,
         recipient_e164: e164,
@@ -267,22 +250,30 @@ export async function POST(req: NextRequest) {
         trigger_status: status,
         template_key: "hospital_intake",
         body_preview: text,
+        provider: sent.provider,
         provider_message_id: sent.messageId,
         http_status: sent.httpStatus,
         success: sent.ok,
         error_message: sent.error,
-        meta: { termii: sent.raw },
+        meta: { provider: sent.provider, raw: sent.raw },
       });
       results.push({ role: "hospital", ...sent });
     }
   }
 
-  return NextResponse.json({ ok: true, request_id: requestId, status, results });
+  return NextResponse.json({ ok: true, provider: providerName, request_id: requestId, status, results });
 }
 
 export async function GET() {
+  let provider: string | null = null;
+  try {
+    provider = resolveSmsProvider();
+  } catch {
+    provider = null;
+  }
   return NextResponse.json({
     service: "emergency-sms-webhook",
+    provider,
     triggers: {
       caller: [...CALLER_STATUSES],
       hospital: [...HOSPITAL_STATUSES],
