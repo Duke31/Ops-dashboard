@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { rpcMessage } from "@/lib/rpc-error";
+import { admitHospitalPatientAction } from "@/app/hospital/actions";
 
 const PRESET_BAYS = [
   "Trauma Bay 1",
@@ -22,18 +23,21 @@ const PRESET_BAYS = [
 
 export function HospitalCards({
   requests: initialRequests,
+  admittedRequests = [],
   rules,
   hospitalId,
   currentCapacity,
 }: {
   requests: EmergencyRequest[];
+  admittedRequests?: EmergencyRequest[];
   rules: TransitionRule[];
-  hospitalId?: string;
+  hospitalId: string;
   currentCapacity?: number | null;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
 
+  const [activeTab, setActiveTab] = useState<"inbound" | "admitted">("inbound");
   const [requests, setRequests] = useState<EmergencyRequest[]>(initialRequests);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +63,7 @@ export function HospitalCards({
           event: "*",
           schema: "public",
           table: "emergency_requests",
-          filter: hospitalId ? `hospital_id=eq.${hospitalId}` : undefined,
+          filter: `hospital_id=eq.${hospitalId}`,
         },
         () => {
           router.refresh();
@@ -94,7 +98,7 @@ export function HospitalCards({
     }
   }
 
-  // Handle Full Bed Admission Flow (Bed Assignment + Capacity Decrement + Transition to Completed)
+  // Handle Bed Admission using Server Action
   async function confirmAdmission() {
     if (!admittingReq) return;
     const req = admittingReq;
@@ -105,189 +109,227 @@ export function HospitalCards({
     setOk(null);
 
     try {
-      // 1. Decrement available capacity on hospital record if hospitalId exists
-      const hId = hospitalId || req.hospital_id;
-      if (hId) {
-        const { data: hosp } = await supabase
-          .from("hospitals")
-          .select("available_capacity")
-          .eq("id", hId)
-          .maybeSingle();
-
-        const currentVal = hosp?.available_capacity ?? currentCapacity;
-        if (currentVal != null && currentVal > 0) {
-          await supabase
-            .from("hospitals")
-            .update({ available_capacity: Math.max(0, currentVal - 1) })
-            .eq("id", hId);
-        }
-      }
-
-      // 2. Append Bed/Bay assignment note to request record
-      const admissionStamp = `[Admitted to ${finalBay} at ${new Date().toLocaleTimeString()}]${
-        admitNotes.trim() ? ` Notes: ${admitNotes.trim()}` : ""
-      }`;
-      const updatedNotes = req.notes ? `${req.notes}\n${admissionStamp}` : admissionStamp;
-
-      await supabase
-        .from("emergency_requests")
-        .update({ notes: updatedNotes })
-        .eq("id", req.id);
-
-      // 3. Transition state to Completed
-      const { error: rpcErr } = await supabase.rpc("transition_emergency_state", {
-        request_id: req.id,
-        new_state: "Completed",
-        actor_role: "hospital",
+      const result = await admitHospitalPatientAction({
+        requestId: req.id,
+        hospitalId,
+        assignedBay: finalBay,
+        notes: admitNotes,
       });
 
-      if (rpcErr) throw rpcErr;
+      if (!result.ok) {
+        throw new Error(result.error);
+      }
 
-      setOk(`Patient successfully admitted to ${finalBay}. Bed capacity updated.`);
+      setOk(`Patient admitted to ${finalBay}. Bed capacity decremented.`);
       setAdmittingReq(null);
       setCustomBay("");
       setAdmitNotes("");
       router.refresh();
     } catch (err: unknown) {
-      setError(rpcMessage(err) || "Failed to complete bed admission");
+      setError(err instanceof Error ? err.message : "Failed to complete bed admission");
     } finally {
       setBusy(null);
     }
   }
 
-  if (!requests.length) {
-    return (
-      <div className="card p-8 text-center space-y-2">
-        <div className="text-3xl">🏥</div>
-        <h3 className="font-semibold text-base">Intake Queue Clear</h3>
-        <p className="text-sm text-[var(--muted)]">
-          No inbound ambulances or pending ER admissions for this site.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <>
-      <div className="grid gap-3.5">
-        {requests.map((r) => {
-          const targets = allowedTargets(rules, r.status, "hospital").filter(
-            (t) => t !== "Completed",
-          );
+      {/* Tab Switcher: Inbound vs Admitted */}
+      <div className="flex items-center gap-2 border-b border-[var(--line,#e5e7eb)] pb-2 mb-3">
+        <button
+          type="button"
+          onClick={() => setActiveTab("inbound")}
+          className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 ${
+            activeTab === "inbound"
+              ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+              : "text-[var(--muted)] hover:text-[var(--foreground)]"
+          }`}
+        >
+          <span>🚑 Inbound Queue</span>
+          <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-500 text-white font-bold">
+            {requests.length}
+          </span>
+        </button>
 
-          const isReadyForAdmission =
-            r.status === "Arrived / intake" ||
-            r.status.toLowerCase().includes("arrived") ||
-            r.status.toLowerCase().includes("intake") ||
-            r.status.toLowerCase().includes("hospital");
+        <button
+          type="button"
+          onClick={() => setActiveTab("admitted")}
+          className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 ${
+            activeTab === "admitted"
+              ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+              : "text-[var(--muted)] hover:text-[var(--foreground)]"
+          }`}
+        >
+          <span>📋 Admitted Records & Handover Log</span>
+          <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold">
+            {admittedRequests.length}
+          </span>
+        </button>
+      </div>
 
-          return (
-            <article
-              key={r.id}
-              className={`card p-4 transition-all ${
-                isReadyForAdmission
-                  ? "border-2 border-emerald-500/40 bg-emerald-500/5 shadow-sm"
-                  : ""
-              }`}
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-base">
-                      {r.emergency_type || "Emergency"}
-                    </span>
-                    {r.priority && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300">
-                        Priority {r.priority}
-                      </span>
-                    )}
-                  </div>
+      {/* Tab 1: Inbound Active Requests */}
+      {activeTab === "inbound" && (
+        <>
+          {requests.length === 0 ? (
+            <div className="card p-8 text-center space-y-2">
+              <div className="text-3xl">🏥</div>
+              <h3 className="font-semibold text-base">Intake Queue Clear</h3>
+              <p className="text-sm text-[var(--muted)]">
+                No inbound ambulances or pending ER admissions for this site.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-3.5">
+              {requests.map((r) => {
+                const targets = allowedTargets(rules, r.status, "hospital").filter(
+                  (t) => t !== "Completed",
+                );
 
-                  <div className="text-sm text-[var(--muted)] mt-0.5">
-                    {formatLocation(r)} · Reported {timeSince(r.created_at)}
-                  </div>
+                return (
+                  <article
+                    key={r.id}
+                    className="card p-4 border-2 border-emerald-500/40 bg-emerald-500/5 shadow-sm space-y-3"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-base">
+                            {r.emergency_type || "Emergency"}
+                          </span>
+                          {r.priority && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300">
+                              Priority {r.priority}
+                            </span>
+                          )}
+                        </div>
 
-                  {/* Patient Vitals & Demographics Tags */}
-                  <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
-                    {r.patient_age_band && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded font-semibold bg-[var(--surface-raised,#f3f4f6)] text-[var(--foreground)] border border-[var(--border,#e5e7eb)]">
-                        Age: {r.patient_age_band === "unknown" ? "Unknown" : `${r.patient_age_band} yrs`}
-                      </span>
-                    )}
-                    {r.contact_phone && (
-                      <a
-                        href={`tel:${r.contact_phone}`}
-                        className="inline-flex items-center gap-1 font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                        <div className="text-sm text-[var(--muted)] mt-0.5">
+                          {formatLocation(r)} · Reported {timeSince(r.created_at)}
+                        </div>
+
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                          {r.patient_age_band && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded font-semibold bg-[var(--surface-raised,#f3f4f6)] text-[var(--foreground)] border border-[var(--border,#e5e7eb)]">
+                              Age: {r.patient_age_band === "unknown" ? "Unknown" : `${r.patient_age_band} yrs`}
+                            </span>
+                          )}
+                          {r.contact_phone && (
+                            <a
+                              href={`tel:${r.contact_phone}`}
+                              className="inline-flex items-center gap-1 font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                            >
+                              <span>📞</span>
+                              <span>Patient: {r.contact_phone}</span>
+                            </a>
+                          )}
+                        </div>
+
+                        {r.notes && (
+                          <div className="mt-2.5 rounded-md p-3 text-xs bg-red-500/10 border border-red-500/30 text-red-900 dark:text-red-200">
+                            <span className="font-bold uppercase tracking-wider block text-[10px] text-red-700 dark:text-red-400 mb-1">
+                              🚨 Inbound Clinical Triage Alert:
+                            </span>
+                            <p className="whitespace-pre-wrap leading-relaxed font-medium">
+                              {r.notes}
+                            </p>
+                          </div>
+                        )}
+
+                        {r.driver?.display_name && (
+                          <div className="text-sm mt-2 text-[var(--muted)] flex items-center gap-1.5 font-medium">
+                            <span>🚑 Transport Unit:</span>
+                            <strong className="text-[var(--foreground)]">
+                              {r.driver.display_name}
+                            </strong>
+                            {r.driver.vehicle_label ? (
+                              <span className="text-xs text-[var(--muted)]">
+                                ({r.driver.vehicle_label})
+                              </span>
+                            ) : null}
+                          </div>
+                        )}
+                      </div>
+
+                      <StatusBadge status={r.status} />
+                    </div>
+
+                    <div className="pt-3 border-t border-[var(--line,#e5e7eb)] flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        className="btn btn-primary bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-3.5 py-1.5 flex items-center gap-1.5"
+                        disabled={busy === r.id}
+                        onClick={() => {
+                          setAdmittingReq(r);
+                          setAssignedBay("Trauma Bay 1");
+                          setCustomBay("");
+                          setAdmitNotes("");
+                        }}
                       >
-                        <span>📞</span>
-                        <span>Patient: {r.contact_phone}</span>
-                      </a>
-                    )}
+                        <span>🛏️</span>
+                        <span>Admit Patient & Assign Bed</span>
+                      </button>
+
+                      {targets.map((to) => (
+                        <button
+                          key={to}
+                          className="btn btn-ghost text-xs"
+                          disabled={busy === r.id}
+                          onClick={() => goTransition(r.id, to)}
+                        >
+                          {to.toLowerCase().includes("declin") ? "Decline Transfer" : to}
+                        </button>
+                      ))}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Tab 2: Admitted Patients & Intake History */}
+      {activeTab === "admitted" && (
+        <div className="space-y-3">
+          {admittedRequests.length === 0 ? (
+            <div className="card p-8 text-center text-sm text-[var(--muted)]">
+              No admitted patients on record yet.
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {admittedRequests.map((r) => (
+                <div key={r.id} className="card p-4 space-y-2 border-l-4 border-l-emerald-600">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="font-bold text-sm text-[var(--foreground)]">
+                        {r.emergency_type || "Emergency Admission"}
+                      </div>
+                      <div className="text-xs text-[var(--muted)]">
+                        {formatLocation(r)} · Admitted {r.completed_at ? timeSince(r.completed_at) : "recently"}
+                      </div>
+                    </div>
+                    <span className="badge badge-ok text-[11px]">
+                      Admitted & Bed Allocated
+                    </span>
                   </div>
 
-                  {/* Clinical Triage & Allergy Notes */}
                   {r.notes && (
-                    <div className="mt-2.5 rounded-md p-3 text-xs bg-red-500/10 border border-red-500/30 text-red-900 dark:text-red-200">
-                      <span className="font-bold uppercase tracking-wider block text-[10px] text-red-700 dark:text-red-400 mb-1">
-                        🚨 Inbound Clinical Triage & Medical Alert:
-                      </span>
-                      <p className="whitespace-pre-wrap leading-relaxed font-medium">
-                        {r.notes}
-                      </p>
+                    <div className="text-xs bg-[var(--surface-raised,#f8fafc)] p-2.5 rounded border border-[var(--border,#e2e8f0)] font-mono whitespace-pre-wrap">
+                      {r.notes}
                     </div>
                   )}
 
-                  {/* Transport Ambulance Info */}
                   {r.driver?.display_name && (
-                    <div className="text-sm mt-2 text-[var(--muted)] flex items-center gap-1.5 font-medium">
-                      <span>🚑 Transport Unit:</span>
-                      <strong className="text-[var(--foreground)]">
-                        {r.driver.display_name}
-                      </strong>
-                      {r.driver.vehicle_label ? (
-                        <span className="text-xs text-[var(--muted)]">
-                          ({r.driver.vehicle_label})
-                        </span>
-                      ) : null}
+                    <div className="text-xs text-[var(--muted)]">
+                      Delivered by: <strong>{r.driver.display_name}</strong> {r.driver.vehicle_label ? `(${r.driver.vehicle_label})` : ""}
                     </div>
                   )}
                 </div>
-
-                <StatusBadge status={r.status} />
-              </div>
-
-              {/* Action Buttons */}
-              <div className="mt-4 pt-3 border-t border-[var(--line,#e5e7eb)] flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  className="btn btn-primary bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-3.5 py-1.5 flex items-center gap-1.5"
-                  disabled={busy === r.id}
-                  onClick={() => {
-                    setAdmittingReq(r);
-                    setAssignedBay("Trauma Bay 1");
-                    setCustomBay("");
-                    setAdmitNotes("");
-                  }}
-                >
-                  <span>🛏️</span>
-                  <span>Admit Patient & Assign Bed</span>
-                </button>
-
-                {targets.map((to) => (
-                  <button
-                    key={to}
-                    className="btn btn-ghost text-xs"
-                    disabled={busy === r.id}
-                    onClick={() => goTransition(r.id, to)}
-                  >
-                    {to.toLowerCase().includes("declin") ? "Decline Transfer" : to}
-                  </button>
-                ))}
-              </div>
-            </article>
-          );
-        })}
-      </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Bed Assignment & Admission Modal */}
       {admittingReq && (
@@ -322,13 +364,12 @@ export function HospitalCards({
               <div className="mt-1">
                 <strong>Current ER Bed Capacity:</strong>{" "}
                 <span className="font-bold text-emerald-600">
-                  {currentCapacity != null ? `${currentCapacity} beds available` : "Tracking active"}
+                  {currentCapacity != null ? `${currentCapacity} beds available` : "Live tracking"}
                 </span>{" "}
                 (will be decremented by 1 upon confirmation)
               </div>
             </div>
 
-            {/* Bay / Bed Selection */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold block">
                 Select Receiving Bed / Trauma Bay:
@@ -354,7 +395,6 @@ export function HospitalCards({
               </div>
             </div>
 
-            {/* Custom Bed Input */}
             <div className="space-y-1">
               <label className="text-[11px] text-[var(--muted)] block">
                 Or specify custom bed/room:
@@ -367,7 +407,6 @@ export function HospitalCards({
               />
             </div>
 
-            {/* Admission Handover Notes */}
             <div className="space-y-1">
               <label className="text-xs font-semibold block">
                 Admission Handover Notes (Optional):
@@ -380,7 +419,6 @@ export function HospitalCards({
               />
             </div>
 
-            {/* Action Buttons */}
             <div className="pt-2 flex items-center justify-end gap-2 border-t border-[var(--line,#e5e7eb)]">
               <button
                 type="button"
@@ -405,7 +443,6 @@ export function HospitalCards({
         </div>
       )}
 
-      {/* Notifications */}
       {error && (
         <div className="toast toast-error flex items-start justify-between gap-3">
           <p className="leading-5">{error}</p>
