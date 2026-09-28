@@ -28,25 +28,61 @@ export default async function DriverPage() {
     myDriverRecord = (dRow ?? null) as Driver | null;
 
     if (myDriverRecord?.id) {
-      try {
-        const rows = await fetchRequests(supabase, {
-          driverId: myDriverRecord.id,
-          activeOnly: true,
-        });
-        // Never trust a wide SELECT — only this unit
-        requests = rows.filter((r) => r.driver_id === myDriverRecord!.id);
-      } catch (e) {
-        linkError =
-          e instanceof Error ? e.message : "Failed to load assigned jobs.";
-        requests = [];
+      // Prefer RPC that hard-scopes by auth.uid() → drivers.id
+      const { data: rpcRows, error: rpcErr } = await supabase.rpc(
+        "driver_my_active_requests",
+      );
+
+      if (!rpcErr && Array.isArray(rpcRows)) {
+        requests = (rpcRows as EmergencyRequest[]).filter(
+          (r) => r.driver_id === myDriverRecord!.id,
+        );
+      } else {
+        // Fallback query still scoped + filtered
+        try {
+          const rows = await fetchRequests(supabase, {
+            driverId: myDriverRecord.id,
+            activeOnly: true,
+          });
+          requests = rows.filter((r) => r.driver_id === myDriverRecord!.id);
+        } catch (e) {
+          linkError =
+            (rpcErr?.message ||
+              (e instanceof Error ? e.message : "Failed to load jobs")) +
+            (rpcErr
+              ? " — run driver_my_active_requests SQL if missing."
+              : "");
+          requests = [];
+        }
       }
+
+      // Enrich hospital/driver embeds when RPC returns bare rows
+      if (requests.length > 0) {
+        try {
+          const ids = requests.map((r) => r.id);
+          const rich = await fetchRequests(supabase, {
+            driverId: myDriverRecord.id,
+            activeOnly: true,
+          });
+          const byId = new Map(rich.map((r) => [r.id, r]));
+          requests = requests
+            .map((r) => byId.get(r.id) || r)
+            .filter((r) => r.driver_id === myDriverRecord!.id);
+          // If rich fetch returned extras, still only keep our ids
+          requests = requests.filter((r) => ids.includes(r.id) || r.driver_id === myDriverRecord!.id);
+          requests = requests.filter((r) => r.driver_id === myDriverRecord!.id);
+        } catch {
+          // keep bare rpc rows
+        }
+      }
+
       drivers = [myDriverRecord];
     } else {
       requests = [];
       drivers = [];
       linkError =
         linkError ||
-        "No drivers row linked to this login (set drivers.user_id). Other units\' jobs stay hidden.";
+        "No drivers row linked to this login (drivers.user_id must equal your auth user id).";
     }
   } else {
     try {
@@ -70,8 +106,8 @@ export default async function DriverPage() {
           <div>
             <h1 className="text-xl font-bold">Ambulance Responder Console</h1>
             <p className="text-xs text-[var(--muted)]">
-              Only jobs assigned to your unit are shown. Patient location is not
-              shared with other responders.
+              Only jobs assigned to your unit. Patient location is hidden from
+              other responders.
             </p>
           </div>
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
@@ -79,6 +115,16 @@ export default async function DriverPage() {
             <span>Live Dispatch Active</span>
           </span>
         </div>
+        {isDriverRole && (
+          <p className="mt-2 text-[11px] text-[var(--muted)] font-mono">
+            Scope:{" "}
+            {myDriverRecord?.id
+              ? `unit ${myDriverRecord.id.slice(0, 8)}… (${myDriverRecord.display_name || "unit"})`
+              : "no unit linked"}
+            {" · "}
+            {requests.length} job(s)
+          </p>
+        )}
         {isDriverRole && linkError && (
           <p className="mt-2 text-sm text-[#b42318]">{linkError}</p>
         )}
