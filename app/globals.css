@@ -18,8 +18,8 @@
   :root {
     --background: #0f172a;
     --foreground: #e5e7eb;
-    --panel: #111827;
-    --muted: #9aa4b2;
+    --panel: #1a1f35;
+    --muted: #a3b1c2;
     --line: #2d3748;
     --accent: #2dd4bf;
     --accent-fg: #062c2a;
@@ -223,27 +223,69 @@ div {
   color: var(--muted) !important;
 }
 
+/* Dark Mode Overrides */
 @media (prefers-color-scheme: dark) {
   .btn-ghost {
-    background: #0f172a;
+    background: #1a1f35;
+    border-color: var(--line);
     color: var(--foreground);
   }
 
   .btn-ghost:hover:not(:disabled) {
-    background: #111827;
+    background: #242d47;
   }
 
   .input,
-  .select,
-  .table-wrap,
-  .toast,
-  .toast-error,
-  .toast-ok {
-    background: #0f172a;
+  .select {
+    background: #1a1f35;
+    border-color: var(--line);
     color: var(--foreground);
   }
 
+  .input:focus,
+  .select:focus {
+    outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
+    border-color: var(--accent);
+  }
+
+  .table-wrap {
+    background: #1a1f35;
+    border-color: var(--line);
+  }
+
   table.data th {
-    background: #111827;
+    background: #242d47;
+    color: var(--muted);
+    border-color: var(--line);
+  }
+
+  table.data td {
+    border-color: var(--line);
+    color: var(--foreground);
+  }
+
+  .toast {
+    background: #1a1f35;
+    color: var(--foreground);
+    border: 1px solid var(--line);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+
+  .toast-error {
+    background: #1a1f35;
+    border: 1px solid #7a271a;
+    color: #fca5a5;
+  }
+
+  .toast-ok {
+    background: #1a1f35;
+    border: 1px solid #065f46;
+    color: #6ee7b7;
+  }
+
+  .card {
+    background: var(--panel);
+    border-color: var(--line);
+    color: var(--foreground);
   }
 }
