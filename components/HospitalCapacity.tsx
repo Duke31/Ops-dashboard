@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Toast } from "@/components/Toast";
+import { updateHospitalCapacityAction } from "@/app/hospital/actions";
 
 export function HospitalCapacity({
   hospitalId,
@@ -18,53 +17,87 @@ export function HospitalCapacity({
   const [err, setErr] = useState<string | null>(null);
   const router = useRouter();
 
+  useEffect(() => {
+    setCap(value ?? 0);
+  }, [value]);
+
   async function save() {
     setBusy(true);
     setErr(null);
     setMsg(null);
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("hospitals")
-      .update({ available_capacity: cap })
-      .eq("id", hospitalId);
+
+    const res = await updateHospitalCapacityAction(hospitalId, cap);
     setBusy(false);
-    if (error) {
-      setErr(error.message);
+
+    if (!res.ok) {
+      setErr(res.error || "Failed to update bed capacity.");
       return;
     }
-    setMsg("Capacity updated.");
+    setMsg("Hospital ER bed capacity updated.");
     router.refresh();
   }
 
   return (
-    <div className="card p-4 flex flex-wrap items-end gap-4">
-      <div className="flex-1 min-w-[240px]">
-        <div className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
-          Available capacity
+    <div className="card p-4 space-y-3">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="flex-1 min-w-[240px]">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-[var(--muted)]">
+              Live ER Bed Capacity
+            </span>
+            <span
+              className={`text-xs font-semibold px-2 py-0.5 rounded ${
+                cap === 0
+                  ? "bg-red-500/10 text-red-600 border border-red-500/20"
+                  : cap < 3
+                  ? "bg-amber-500/10 text-amber-600 border border-amber-500/20"
+                  : "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
+              }`}
+            >
+              {cap === 0 ? "⚠️ DIVERSION / NO BEDS" : `${cap} Beds Available`}
+            </span>
+          </div>
+
+          <div className="mt-2.5 flex items-center gap-3">
+            <input
+              type="range"
+              min={0}
+              max={50}
+              value={cap}
+              onChange={(e) => setCap(Number(e.target.value))}
+              className="flex-1 accent-emerald-600 cursor-pointer"
+            />
+            <input
+              type="number"
+              className="input w-20 text-center font-bold text-sm"
+              min={0}
+              value={cap}
+              onChange={(e) => setCap(Math.max(0, Number(e.target.value)))}
+            />
+          </div>
         </div>
-        <div className="mt-2 flex items-center gap-3">
-          <input
-            type="range"
-            min={0}
-            max={50}
-            value={cap}
-            onChange={(e) => setCap(Number(e.target.value))}
-            className="flex-1"
-          />
-          <input
-            type="number"
-            className="input w-20"
-            min={0}
-            value={cap}
-            onChange={(e) => setCap(Number(e.target.value))}
-          />
-        </div>
+
+        <button
+          className="btn btn-primary bg-slate-900 hover:bg-slate-800 text-white text-xs px-4 py-2"
+          disabled={busy}
+          onClick={save}
+        >
+          {busy ? "Saving…" : "Update Bed Count"}
+        </button>
       </div>
-      <button className="btn btn-primary" disabled={busy} onClick={save}>
-        Save capacity
-      </button>
-      <Toast message={err} onClose={() => setErr(null)} />
-      <Toast message={msg} kind="ok" onClose={() => setMsg(null)} />
+
+      {err && (
+        <div className="p-2 text-xs rounded bg-red-500/10 text-red-600 border border-red-500/20">
+          {err}
+        </div>
+      )}
+      {msg && (
+        <div className="p-2 text-xs rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
+          {msg}
+        </div>
+      )}
     </div>
   );
 }
+
+export default HospitalCapacity;
