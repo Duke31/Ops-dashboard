@@ -8,6 +8,10 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { rpcMessage } from "@/lib/rpc-error";
+import {
+  DriverInAppNav,
+  type NavTarget,
+} from "@/components/DriverInAppNav";
 
 // Web Audio API siren alert for high-priority dispatch
 function playDispatchChime() {
@@ -122,6 +126,9 @@ export function DriverConsole({
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [wakeLockActive, setWakeLockActive] = useState(false);
   const [gpsStalled, setGpsStalled] = useState(false);
+  const [navTarget, setNavTarget] = useState<NavTarget | null>(null);
+  const [reconnectToast, setReconnectToast] = useState<string | null>(null);
+  const forcePersistRef = useRef(false);
   const lastGpsAtRef = useRef<number>(0);
   const wakeLockRef = useRef<{ release: () => Promise<void>; addEventListener: (type: string, fn: () => void) => void } | null>(null);
   const watchIdRef = useRef<number | null>(null);
@@ -280,7 +287,10 @@ export function DriverConsole({
     function onVisibility() {
       if (document.visibilityState !== "visible") return;
       if (trackingDesired) void requestWakeLock();
+      forcePersistRef.current = true;
       reacquireGpsRef.current?.();
+      setReconnectToast("Reconnected • Screen Lock Active • Telemetry Synced");
+      window.setTimeout(() => setReconnectToast(null), 4000);
     }
     document.addEventListener("visibilitychange", onVisibility);
     return () => document.removeEventListener("visibilitychange", onVisibility);
@@ -378,9 +388,11 @@ export function DriverConsole({
         }
       });
 
-      // 3. Throttled DB write so the patient app can poll/realtime-read coords
+      // 3. Throttled DB write (force immediately after returning from external maps)
       const now = Date.now();
-      if (now - lastDbUpdateRef.current >= 2500) {
+      const force = forcePersistRef.current;
+      if (force || now - lastDbUpdateRef.current >= 2500) {
+        forcePersistRef.current = false;
         lastDbUpdateRef.current = now;
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
@@ -491,7 +503,100 @@ export function DriverConsole({
     }
   }
 
+  function openPatientNav(r: EmergencyRequest) {
+    if (r.patient_lat == null || r.patient_lng == null) return;
+    setNavTarget({
+      lat: r.patient_lat,
+      lng: r.patient_lng,
+      label: r.emergency_type || "Patient",
+      address: r.patient_address || formatLocation(r),
+      kind: "patient",
+    });
+    void requestWakeLock();
+  }
+
+  function openHospitalNav(r: EmergencyRequest) {
+    if (r.hospital?.lat == null || r.hospital?.lng == null) return;
+    setNavTarget({
+      lat: r.hospital.lat,
+      lng: r.hospital.lng,
+      label: r.hospital.name || "Hospital",
+      address: r.hospital.address,
+      kind: "hospital",
+    });
+    void requestWakeLock();
+  }
+
+  function externalMapsUrl(target: NavTarget) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${target.lat},${target.lng}&travelmode=driving`;
+  }
+
+  const navActions =
+    navTarget && assignedRequests[0]
+      ? (() => {
+          const r = assignedRequests[0];
+          const items: { label: string; onClick: () => void; busy?: boolean }[] =
+            [];
+          if (r.status === "Driver assigned" || r.status === "En route to patient") {
+            // mirror mission buttons loosely
+          }
+          if (
+            r.status === "Driver assigned" ||
+            r.status === "En route to patient"
+          ) {
+            items.push({
+              label: "Arrived at Scene",
+              busy: busy === r.id,
+              onClick: () => {
+                void executeTransition(r.id, "Patient picked up");
+              },
+            });
+          }
+          if (r.status === "Patient picked up") {
+            items.push({
+              label: "Patient Loaded · En route to hospital",
+              busy: busy === r.id,
+              onClick: () => {
+                void executeTransition(r.id, "En route to hospital");
+              },
+            });
+          }
+          if (r.status === "En route to hospital") {
+            items.push({
+              label: "Arrived Hospital",
+              busy: busy === r.id,
+              onClick: () => {
+                void executeTransition(r.id, "Arrived / intake");
+              },
+            });
+          }
+          return items;
+        })()
+      : [];
+
   return (
+    <>
+      {navTarget && (
+        <DriverInAppNav
+          target={navTarget}
+          gps={
+            gpsCoords
+              ? {
+                  lat: gpsCoords.lat,
+                  lng: gpsCoords.lng,
+                  heading: gpsCoords.heading,
+                  speed: gpsCoords.speed,
+                }
+              : null
+          }
+          onClose={() => setNavTarget(null)}
+          onOpenExternal={() => {
+            window.open(externalMapsUrl(navTarget), "_blank", "noopener,noreferrer");
+          }}
+          actions={navActions}
+          reconnectToast={reconnectToast}
+        />
+      )}
     <div className="space-y-4 max-w-xl mx-auto pb-12">
       {/* Unit Banner */}
       <div className="card p-4 bg-slate-900 text-white border-slate-800">
@@ -572,6 +677,12 @@ export function DriverConsole({
           )}
         </div>
       </div>
+
+      {reconnectToast && !navTarget && (
+        <div className="rounded-lg border border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2 text-sm text-emerald-900 dark:text-emerald-100 font-medium">
+          {reconnectToast}
+        </div>
+      )}
 
       {gpsStalled && hasActiveRun && (
         <div className="rounded-lg border border-amber-500/50 bg-amber-50 dark:bg-amber-950/40 px-3 py-2.5 text-sm text-amber-950 dark:text-amber-100">
@@ -709,6 +820,15 @@ export function DriverConsole({
                   Turn-by-Turn Navigation
                 </span>
 
+                {(r.patient_lat != null && r.patient_lng != null) && (
+                  <button
+                    type="button"
+                    className="btn btn-primary w-full mb-2"
+                    onClick={() => openPatientNav(r)}
+                  >
+                    In-app navigation to patient
+                  </button>
+                )}
                 {gmapsPatientUrl && (
                   <div className="flex gap-2">
                     <a
@@ -734,6 +854,15 @@ export function DriverConsole({
                   </div>
                 )}
 
+                {(r.hospital?.lat != null && r.hospital?.lng != null) && (
+                  <button
+                    type="button"
+                    className="btn btn-primary w-full mb-2"
+                    onClick={() => openHospitalNav(r)}
+                  >
+                    In-app navigation to hospital
+                  </button>
+                )}
                 {gmapsHospitalUrl && (
                   <div className="flex gap-2">
                     <a
@@ -869,6 +998,7 @@ export function DriverConsole({
         </div>
       )}
     </div>
+    </>
   );
 }
 
