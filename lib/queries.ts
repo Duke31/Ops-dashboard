@@ -1,7 +1,27 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { EmergencyRequest, TransitionRule } from "./types";
 
-const REQUEST_SELECT = [
+const REQUEST_SELECT_FULL = [
+  "id",
+  "patient_address",
+  "origin",
+  "patient_lat",
+  "patient_lng",
+  "emergency_type",
+  "status",
+  "created_at",
+  "hospital_id",
+  "driver_id",
+  "notes",
+  "contact_phone",
+  "patient_age_band",
+  "completed_at",
+  "priority",
+  "hospital:hospitals(id, name, address, available_capacity, intake_phone, lat, lng)",
+  "driver:drivers(id, display_name, vehicle_label, hospital_id, active, battery_level, is_charging, network_type, last_location_at)",
+].join(", ");
+
+const REQUEST_SELECT_BASE = [
   "id",
   "patient_address",
   "origin",
@@ -18,8 +38,30 @@ const REQUEST_SELECT = [
   "completed_at",
   "priority",
   "hospital:hospitals(id, name, address, available_capacity)",
-  "driver:drivers(id, display_name, vehicle_label, hospital_id, active, battery_level, is_charging, network_type, last_location_at)",
+  "driver:drivers(id, display_name, vehicle_label, hospital_id, active)",
 ].join(", ");
+
+function applyRequestFilters(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  q: any,
+  opts?: {
+    hospitalId?: string;
+    driverId?: string;
+    activeOnly?: boolean;
+    completedOnly?: boolean;
+    limit?: number;
+  },
+) {
+  if (opts?.hospitalId) q = q.eq("hospital_id", opts.hospitalId);
+  if (opts?.driverId) q = q.eq("driver_id", opts.driverId);
+  if (opts?.completedOnly) {
+    q = q.eq("status", "Completed");
+  } else if (opts?.activeOnly !== false) {
+    q = q.not("status", "in", '("Completed","Cancelled / failed")');
+  }
+  if (opts?.limit) q = q.limit(opts.limit);
+  return q;
+}
 
 export async function fetchRequests(
   supabase: SupabaseClient,
@@ -31,31 +73,34 @@ export async function fetchRequests(
     limit?: number;
   },
 ) {
-  let q = supabase
-    .from("emergency_requests")
-    .select(REQUEST_SELECT)
-    .order("created_at", { ascending: false });
+  let q = applyRequestFilters(
+    supabase
+      .from("emergency_requests")
+      .select(REQUEST_SELECT_FULL)
+      .order("created_at", { ascending: false }),
+    opts,
+  );
 
-  if (opts?.hospitalId) {
-    q = q.eq("hospital_id", opts.hospitalId);
+  let { data, error } = await q;
+
+  if (error) {
+    const msg = error.message || String(error);
+    const missingCol = /column|does not exist|schema cache/i.test(msg);
+    if (missingCol) {
+      q = applyRequestFilters(
+        supabase
+          .from("emergency_requests")
+          .select(REQUEST_SELECT_BASE)
+          .order("created_at", { ascending: false }),
+        opts,
+      );
+      const retry = await q;
+      if (retry.error) throw retry.error;
+      return (retry.data ?? []) as unknown as EmergencyRequest[];
+    }
+    throw error;
   }
 
-  if (opts?.driverId) {
-    q = q.eq("driver_id", opts.driverId);
-  }
-
-  if (opts?.completedOnly) {
-    q = q.eq("status", "Completed");
-  } else if (opts?.activeOnly !== false) {
-    q = q.not("status", "in", '("Completed","Cancelled / failed")');
-  }
-
-  if (opts?.limit) {
-    q = q.limit(opts.limit);
-  }
-
-  const { data, error } = await q;
-  if (error) throw error;
   return (data ?? []) as unknown as EmergencyRequest[];
 }
 
