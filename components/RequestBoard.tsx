@@ -454,6 +454,11 @@ export function RequestBoard({
                           }}
                         >
                           <option value="">Select driver</option>
+                          {drivers.length === 0 && (
+                            <option value="" disabled>
+                              No drivers available — check banner error or drivers table
+                            </option>
+                          )}
                           {sortDriversForAssign(drivers).map((d) => (
                             <option key={d.id} value={d.id}>
                               {d.display_name || "Driver"}
