@@ -18,7 +18,7 @@ const REQUEST_SELECT = [
   "completed_at",
   "priority",
   "hospital:hospitals(id, name, address, available_capacity)",
-  "driver:drivers(id, display_name, vehicle_label, hospital_id, status)",
+  "driver:drivers(id, display_name, vehicle_label, hospital_id, active, battery_level, is_charging, network_type, last_location_at)",
 ].join(", ");
 
 export async function fetchRequests(

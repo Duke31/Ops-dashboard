@@ -20,6 +20,27 @@ function needsDriver(toStatus: string) {
   return toStatus.toLowerCase().includes("driver assigned");
 }
 
+
+function networkPill(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const n = raw.toLowerCase();
+  if (n === "4g" || n === "lte") return "4G";
+  if (n === "3g") return "3G";
+  if (n === "2g" || n === "slow-2g") return "2G (Degraded)";
+  if (n === "wifi" || n === "wlan") return "Wi‑Fi";
+  if (n === "offline") return "Offline";
+  return raw.toUpperCase();
+}
+
+function sortDriversForAssign(list: Driver[]): Driver[] {
+  return [...list].sort((a, b) => {
+    const aa = a.active === true ? 0 : 1;
+    const bb = b.active === true ? 0 : 1;
+    if (aa !== bb) return aa - bb;
+    return (a.display_name || "").localeCompare(b.display_name || "");
+  });
+}
+
 function needsHospital(toStatus: string) {
   const s = toStatus.toLowerCase();
   return (
@@ -77,7 +98,7 @@ export function RequestBoard({
   rules: TransitionRule[];
   actorRole: AppRole;
   hospitals?: Pick<Hospital, "id" | "name" | "available_capacity">[];
-  drivers?: Pick<Driver, "id" | "display_name" | "vehicle_label" | "hospital_id" | "active">[];
+  drivers?: Driver[];
   empty?: string;
 }) {
   const router = useRouter();
@@ -122,7 +143,7 @@ export function RequestBoard({
 
     const selectedDriver = driverDraft[request.id] || request.driver_id || "";
     if (needsDriver(toStatus) && !selectedDriver) {
-      setError("Select an active driver before Driver assigned.");
+      setError("Select a driver before Driver assigned.");
       return;
     }
 
@@ -287,16 +308,61 @@ export function RequestBoard({
                     )}
                   </td>
                   <td className="text-[12px]">
-                    {r.driver?.display_name ? (
-                      <>
-                        <div className="font-medium">{r.driver.display_name}</div>
-                        <div className="text-[var(--muted)]">
-                          {r.driver.vehicle_label}
+                    {(() => {
+                      const d =
+                        r.driver ||
+                        drivers.find((x) => x.id === r.driver_id) ||
+                        null;
+                      if (!d?.display_name && !r.driver_id) return "—";
+                      const bat = d?.battery_level;
+                      const charging = d?.is_charging === true;
+                      const low =
+                        bat != null && bat <= 20 && d?.is_charging === false;
+                      const net = networkPill(d?.network_type);
+                      return (
+                        <div className="space-y-1">
+                          <div className="font-medium">
+                            {d?.display_name || "Assigned unit"}
+                          </div>
+                          {d?.vehicle_label && (
+                            <div className="text-[var(--muted)]">
+                              {d.vehicle_label}
+                            </div>
+                          )}
+                          <div className="flex flex-wrap gap-1">
+                            {bat != null && (
+                              <span
+                                className={
+                                  low
+                                    ? "inline-flex rounded-full border border-red-500/50 bg-red-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-red-700 dark:text-red-300"
+                                    : "inline-flex rounded-full border border-[var(--border)] px-1.5 py-0.5 text-[10px]"
+                                }
+                              >
+                                {low
+                                  ? `⚠️ Low Bat (${bat}%)`
+                                  : `${charging ? "⚡" : "🔋"} ${bat}%`}
+                              </span>
+                            )}
+                            {net && (
+                              <span
+                                className={
+                                  net.includes("2G") || net === "Offline"
+                                    ? "inline-flex rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px]"
+                                    : "inline-flex rounded-full border border-[var(--border)] px-1.5 py-0.5 text-[10px]"
+                                }
+                              >
+                                {net}
+                              </span>
+                            )}
+                            {d?.last_location_at && (
+                              <span className="text-[10px] text-[var(--muted)]">
+                                {timeSince(d.last_location_at)}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </>
-                    ) : (
-                      "—"
-                    )}
+                      );
+                    })()}
                   </td>
                   <td>
                     <div className="flex flex-col gap-2 min-w-[200px]">
@@ -388,10 +454,11 @@ export function RequestBoard({
                           }}
                         >
                           <option value="">Select driver</option>
-                          {drivers.map((d) => (
+                          {sortDriversForAssign(drivers).map((d) => (
                             <option key={d.id} value={d.id}>
                               {d.display_name || "Driver"}
                               {d.vehicle_label ? ` · ${d.vehicle_label}` : ""}
+                              {` (${d.active === true ? "🟢 Active" : "⚪ Standby"})`}
                             </option>
                           ))}
                         </select>
