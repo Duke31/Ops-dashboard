@@ -3,7 +3,7 @@ import { RequestBoard } from "@/components/RequestBoard";
 import { LogEmergencyForm } from "@/components/LogEmergencyForm";
 import { TelemetryFleetBanner } from "@/components/TelemetryFleetBanner";
 import { requireProfile } from "@/lib/auth";
-import { fetchRequests, fetchTransitionRules } from "@/lib/queries";
+import { fetchRequests, fetchTransitionRules, formatSupabaseError } from "@/lib/queries";
 import { fetchDriversForDesk } from "@/lib/drivers";
 import type { EmergencyRequest, TransitionRule } from "@/lib/types";
 
@@ -25,7 +25,7 @@ export default async function DispatcherPage() {
           .then((r) => ({ ok: true as const, data: r }))
           .catch((e: unknown) => ({
             ok: false as const,
-            error: e instanceof Error ? e.message : String(e),
+            error: formatSupabaseError(e),
           })),
         fetchTransitionRules(supabase, "dispatcher").catch(
           () => [] as TransitionRule[],

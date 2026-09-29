@@ -41,6 +41,40 @@ const REQUEST_SELECT_BASE = [
   "driver:drivers(id, display_name, vehicle_label, hospital_id, active)",
 ].join(", ");
 
+const REQUEST_SELECT_PLAIN = [
+  "id",
+  "patient_address",
+  "origin",
+  "patient_lat",
+  "patient_lng",
+  "emergency_type",
+  "status",
+  "created_at",
+  "hospital_id",
+  "driver_id",
+  "notes",
+  "contact_phone",
+  "patient_age_band",
+  "completed_at",
+  "priority",
+].join(", ");
+
+export function formatSupabaseError(e: unknown): string {
+  if (!e) return "Unknown error";
+  if (typeof e === "string") return e;
+  if (e instanceof Error && e.message) return e.message;
+  const o = e as {
+    message?: string;
+    code?: string;
+    details?: string;
+    hint?: string;
+  };
+  const parts = [o.message, o.code && `code=${o.code}`, o.details, o.hint]
+    .filter(Boolean)
+    .map(String);
+  return parts.length ? parts.join(" | ") : JSON.stringify(e);
+}
+
 function applyRequestFilters(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   q: any,
@@ -57,9 +91,33 @@ function applyRequestFilters(
   if (opts?.completedOnly) {
     q = q.eq("status", "Completed");
   } else if (opts?.activeOnly !== false) {
-    q = q.not("status", "in", '("Completed","Cancelled / failed")');
+    // Prefer neq chain over "in" string which can break on enum types
+    q = q
+      .neq("status", "Completed")
+      .neq("status", "Cancelled / failed");
   }
   if (opts?.limit) q = q.limit(opts.limit);
+  return q;
+}
+
+async function runRequestSelect(
+  supabase: SupabaseClient,
+  select: string,
+  opts?: {
+    hospitalId?: string;
+    driverId?: string;
+    activeOnly?: boolean;
+    completedOnly?: boolean;
+    limit?: number;
+  },
+) {
+  const q = applyRequestFilters(
+    supabase
+      .from("emergency_requests")
+      .select(select)
+      .order("created_at", { ascending: false }),
+    opts,
+  );
   return q;
 }
 
@@ -73,35 +131,36 @@ export async function fetchRequests(
     limit?: number;
   },
 ) {
-  let q = applyRequestFilters(
-    supabase
-      .from("emergency_requests")
-      .select(REQUEST_SELECT_FULL)
-      .order("created_at", { ascending: false }),
-    opts,
-  );
+  const attempts = [
+    REQUEST_SELECT_FULL,
+    REQUEST_SELECT_BASE,
+    REQUEST_SELECT_PLAIN,
+  ];
 
-  let { data, error } = await q;
+  let lastError: unknown = null;
 
-  if (error) {
-    const msg = error.message || String(error);
-    const missingCol = /column|does not exist|schema cache/i.test(msg);
-    if (missingCol) {
-      q = applyRequestFilters(
-        supabase
-          .from("emergency_requests")
-          .select(REQUEST_SELECT_BASE)
-          .order("created_at", { ascending: false }),
-        opts,
-      );
-      const retry = await q;
-      if (retry.error) throw retry.error;
-      return (retry.data ?? []) as unknown as EmergencyRequest[];
+  for (const select of attempts) {
+    const { data, error } = await runRequestSelect(supabase, select, opts);
+    if (!error) {
+      return (data ?? []) as unknown as EmergencyRequest[];
     }
-    throw error;
+    lastError = error;
+    const msg = formatSupabaseError(error);
+    // Retry on schema/embed issues; stop early on clear RLS denial only after plain select
+    const retryable =
+      /column|does not exist|schema cache|relationship|embed|foreign key/i.test(
+        msg,
+      );
+    if (!retryable && select === REQUEST_SELECT_PLAIN) break;
+    if (!retryable && select !== REQUEST_SELECT_FULL) {
+      // non-schema error on base/plain — still try plain once
+      continue;
+    }
   }
 
-  return (data ?? []) as unknown as EmergencyRequest[];
+  throw new Error(
+    `emergency_requests SELECT failed: ${formatSupabaseError(lastError)}`,
+  );
 }
 
 export async function fetchTransitionRules(

@@ -3,7 +3,7 @@ import { RequestBoard } from "@/components/RequestBoard";
 import { LogEmergencyForm } from "@/components/LogEmergencyForm";
 import { TelemetryFleetBanner } from "@/components/TelemetryFleetBanner";
 import { requireProfile } from "@/lib/auth";
-import { fetchRequests, fetchTransitionRules } from "@/lib/queries";
+import { fetchRequests, fetchTransitionRules, formatSupabaseError } from "@/lib/queries";
 import { fetchDriversForDesk } from "@/lib/drivers";
 import type { EmergencyRequest, TransitionRule } from "@/lib/types";
 
@@ -24,8 +24,7 @@ export default async function AdminQueuePage() {
     const [req, dRules, hRules, aRules, hospitalsRes, driversPack] =
       await Promise.all([
         fetchRequests(supabase, { activeOnly: true }).catch((e: unknown) => {
-          loadError =
-            e instanceof Error ? e.message : "Failed to load emergency_requests";
+          loadError = formatSupabaseError(e);
           return [] as EmergencyRequest[];
         }),
         fetchTransitionRules(supabase, "dispatcher").catch(() => [] as TransitionRule[]),
