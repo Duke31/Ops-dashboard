@@ -123,7 +123,7 @@ export function RequestBoard({
           p_response_message: replyMessage || null,
         });
         if (!rpcErr) ackSucceeded = true;
-      } catch (_) {}
+      } catch {}
 
       const currentReq = requests.find((x) => x.id === requestId);
       const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -142,10 +142,14 @@ export function RequestBoard({
           })
           .eq("id", requestId);
         if (updateErr) {
-          await supabase.from("emergency_requests").update({ notes: updatedNotes }).eq("id", requestId).catch(() => {});
+          try {
+            await supabase.from("emergency_requests").update({ notes: updatedNotes }).eq("id", requestId);
+          } catch {}
         }
       } else {
-        await supabase.from("emergency_requests").update({ notes: updatedNotes }).eq("id", requestId).catch(() => {});
+        try {
+          await supabase.from("emergency_requests").update({ notes: updatedNotes }).eq("id", requestId);
+        } catch {}
       }
 
       setOk(replyMessage ? `Radio response sent: "${replyMessage}"` : "Tactical alert acknowledged.");
@@ -162,14 +166,17 @@ export function RequestBoard({
       const hospitalName = hospitalObj?.name || "Alternate Facility";
 
       // 1. Assign new hospital via RPC or direct update
-      await supabase.rpc("assign_emergency_hospital", {
-        p_request_id: requestId,
-        p_hospital_id: newHospitalId,
-      }).catch(async () => {
+      try {
+        const rpcRes = await supabase.rpc("assign_emergency_hospital", {
+          p_request_id: requestId,
+          p_hospital_id: newHospitalId,
+        });
+        if (rpcRes.error) throw rpcRes.error;
+      } catch {
         await supabase.from("emergency_requests").update({
           hospital_id: newHospitalId,
         }).eq("id", requestId);
-      });
+      }
 
       // 2. Transmit tactical confirmation to driver
       const replyMsg = `Hospital Divert Approved: Rerouted to ${hospitalName}`;
@@ -189,7 +196,7 @@ export function RequestBoard({
         let alertCode = r.tactical_alert_code;
         let alertAt = r.tactical_alert_at;
         let isAck = r.tactical_alert_ack;
-        let dispResponse = r.dispatcher_response;
+        const dispResponse = r.dispatcher_response;
 
         // If not in tactical_alert column, extract from notes
         if (!alertText && r.notes) {
