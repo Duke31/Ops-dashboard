@@ -78,9 +78,11 @@ body {
   font-weight: 600;
   border: 1px solid transparent;
   cursor: pointer;
+  color: var(--foreground);
+  background: #fff;
 }
 .btn:disabled {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 .btn-primary {
@@ -157,6 +159,7 @@ table.data td {
   padding: 10px 12px;
   border-bottom: 1px solid var(--line);
   vertical-align: top;
+  color: var(--foreground);
 }
 table.data tr:last-child td {
   border-bottom: none;
