@@ -90,6 +90,37 @@ export function RequestBoard({
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const [activeReplyId, setActiveReplyId] = useState<string | null>(null);
+  const [liveAlerts, setLiveAlerts] = useState<
+    Record<
+      string,
+      {
+        requestId: string;
+        driverName: string;
+        vehicleLabel?: string;
+        alertCode: string;
+        alertText: string;
+        alertAt: string;
+        isAck: boolean;
+      }
+    >
+  >({});
+
+  function playAlertChime() {
+    try {
+      const audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(440, audioCtx.currentTime + 0.35);
+      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.35);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.4);
+    } catch {}
+  }
 
   // Real-time synchronization for zero-delay operations
   useEffect(() => {
@@ -102,6 +133,25 @@ export function RequestBoard({
           router.refresh();
         },
       )
+      .on("broadcast", { event: "driver_tactical_alert" }, (payload: any) => {
+        const data = payload?.payload;
+        if (data?.request_id) {
+          playAlertChime();
+          setLiveAlerts((prev) => ({
+            ...prev,
+            [data.request_id]: {
+              requestId: data.request_id,
+              driverName: data.driver_name || "Ambulance Unit",
+              vehicleLabel: data.vehicle_label,
+              alertCode: data.alert_code || "EMERGENCY",
+              alertText: data.alert_message || "URGENT DRIVER ALERT",
+              alertAt: data.created_at || new Date().toISOString(),
+              isAck: false,
+            },
+          }));
+          router.refresh();
+        }
+      })
       .subscribe();
 
     const interval = setInterval(() => {
@@ -116,6 +166,14 @@ export function RequestBoard({
 
   async function ackTacticalAlert(requestId: string, replyMessage?: string) {
     try {
+      setLiveAlerts((prev) => {
+        if (!prev[requestId]) return prev;
+        return {
+          ...prev,
+          [requestId]: { ...prev[requestId], isAck: true },
+        };
+      });
+
       let ackSucceeded = false;
       try {
         const { error: rpcErr } = await supabase.rpc("ack_driver_tactical_alert", {
@@ -126,6 +184,21 @@ export function RequestBoard({
       } catch {}
 
       const currentReq = requests.find((x) => x.id === requestId);
+      if (currentReq?.driver_id) {
+        try {
+          const ch = supabase.channel(`driver_dispatch_realtime_${currentReq.driver_id}`);
+          await ch.subscribe();
+          await ch.send({
+            type: "broadcast",
+            event: "tactical_alert_ack",
+            payload: {
+              request_id: requestId,
+              response: replyMessage || "Acknowledged by Dispatch",
+            },
+          });
+        } catch {}
+      }
+
       const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       const replyNote = replyMessage ? `[DISPATCH RADIO ${timeStr}]: ${replyMessage}` : `[DISPATCH ACK ${timeStr}]: Acknowledged by Dispatcher`;
       const updatedNotes = currentReq?.notes ? `${currentReq.notes}\n${replyNote}` : replyNote;
@@ -198,6 +271,15 @@ export function RequestBoard({
         let isAck = r.tactical_alert_ack;
         const dispResponse = r.dispatcher_response;
 
+        // Check if there is an active live broadcast alert for this request
+        if (liveAlerts[r.id]) {
+          const la = liveAlerts[r.id];
+          alertText = alertText || la.alertText;
+          alertCode = alertCode || la.alertCode;
+          alertAt = alertAt || la.alertAt;
+          if (la.isAck !== undefined) isAck = la.isAck;
+        }
+
         // If not in tactical_alert column, extract from notes
         if (!alertText && r.notes) {
           const match = r.notes.match(/\[TACTICAL (?:RADIO|ALERT)[^\]]*\]:\s*([^\n\r]+)/i);
@@ -227,7 +309,7 @@ export function RequestBoard({
         isAck: boolean;
         response?: string | null;
       }[];
-  }, [requests]);
+  }, [requests, liveAlerts]);
 
 
   async function transition(
