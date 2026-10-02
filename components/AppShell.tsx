@@ -42,11 +42,13 @@ export function AppShell({
 
   const nav = (
     <>
-      <div className="px-4 py-4 border-b border-white/10">
-        <div className="text-[11px] uppercase tracking-[0.14em] text-white/50">
+      <div className="px-4 py-4 border-b border-[var(--border)]">
+        <div className="text-[11px] uppercase tracking-[0.14em] text-[var(--muted)]">
           Ops Dashboard
         </div>
-        <div className="mt-1 text-sm font-semibold">Emergency Dispatch</div>
+        <div className="mt-1 text-sm font-semibold text-[var(--foreground)]">
+          Emergency Dispatch
+        </div>
       </div>
       <nav className="flex-1 px-2 py-3 space-y-1">
         {items.map((item) => {
@@ -58,10 +60,10 @@ export function AppShell({
               key={item.href}
               href={item.href}
               onClick={() => setOpen(false)}
-              className={`block rounded-md px-3 py-2.5 text-[15px] md:text-[13px] ${
+              className={`block rounded-md px-3 py-2.5 text-[15px] md:text-[13px] transition-colors ${
                 active
-                  ? "bg-white/10 text-white"
-                  : "text-white/70 hover:bg-white/5 hover:text-white"
+                  ? "bg-[var(--accent)] text-[var(--accent-fg)]"
+                  : "text-[var(--muted)] hover:bg-[var(--surface-raised)] hover:text-[var(--foreground)]"
               }`}
             >
               {item.label}
@@ -69,14 +71,14 @@ export function AppShell({
           );
         })}
       </nav>
-      <div className="px-4 py-4 border-t border-white/10 text-xs">
-        <div className="font-medium truncate">
+      <div className="px-4 py-4 border-t border-[var(--border)] text-xs">
+        <div className="font-medium truncate text-[var(--foreground)]">
           {profile.display_name || profile.email || "Signed in"}
         </div>
-        <div className="text-white/50 mt-0.5 capitalize">{profile.role}</div>
+        <div className="text-[var(--muted)] mt-0.5 capitalize">{profile.role}</div>
         <button
           onClick={signOut}
-          className="mt-3 text-white/70 hover:text-white underline-offset-2 hover:underline"
+          className="mt-3 text-[var(--muted)] hover:text-[var(--foreground)] underline-offset-2 hover:underline transition-colors"
         >
           Sign out
         </button>
@@ -86,7 +88,7 @@ export function AppShell({
 
   return (
     <div className="min-h-dvh md:grid md:grid-cols-[220px_1fr]">
-      <aside className="hidden md:flex bg-[#12141a] text-white flex-col min-h-dvh">
+      <aside className="hidden md:flex bg-[var(--surface)] text-[var(--foreground)] flex-col min-h-dvh border-r border-[var(--border)]">
         {nav}
       </aside>
 
@@ -97,14 +99,14 @@ export function AppShell({
             aria-label="Close menu"
             onClick={() => setOpen(false)}
           />
-          <aside className="relative z-50 h-full w-[min(80vw,280px)] bg-[#12141a] text-white flex flex-col">
+          <aside className="relative z-50 h-full w-[min(80vw,280px)] bg-[var(--surface)] text-[var(--foreground)] flex flex-col">
             {nav}
           </aside>
         </div>
       )}
 
       <main className="min-w-0">
-        <header className="sticky top-0 z-30 h-12 border-b border-[var(--line)] bg-white flex items-center gap-3 px-3 md:px-6 text-sm text-[var(--muted)]">
+        <header className="sticky top-0 z-30 h-12 border-b border-[var(--border)] bg-[var(--surface)] flex items-center gap-3 px-3 md:px-6 text-sm text-[var(--muted)]">
           <button
             className="md:hidden btn btn-ghost px-2 py-1"
             onClick={() => setOpen(true)}
