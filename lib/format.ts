@@ -1,8 +1,6 @@
 export function timeSince(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime();
   if (Number.isNaN(ms) || ms < 0) return "—";
-  const seconds = Math.floor(ms / 1000);
-  if (seconds < 60) return `${seconds}s ago`;
   const minutes = Math.floor(ms / 60000);
   if (minutes < 1) return "<1m";
   if (minutes < 60) return `${minutes}m`;

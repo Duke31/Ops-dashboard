@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { EmergencyRequest, TransitionRule } from "./types";
 
-const REQUEST_SELECT_FULL = [
+const FULL_REQUEST_SELECT = [
   "id",
   "patient_address",
   "origin",
@@ -17,11 +17,17 @@ const REQUEST_SELECT_FULL = [
   "patient_age_band",
   "completed_at",
   "priority",
-  "hospital:hospitals(id, name, address, available_capacity, intake_phone, lat, lng)",
-  "driver:drivers(id, display_name, vehicle_label, hospital_id, active, battery_level, is_charging, network_type, last_location_at)",
+  "tactical_alert",
+  "tactical_alert_code",
+  "tactical_alert_at",
+  "tactical_alert_ack",
+  "dispatcher_response",
+  "dispatcher_response_at",
+  "hospital:hospitals(id, name, address, available_capacity)",
+  "driver:drivers(id, display_name, vehicle_label, hospital_id, status, active, duty_status)",
 ].join(", ");
 
-const REQUEST_SELECT_BASE = [
+const BASE_REQUEST_SELECT = [
   "id",
   "patient_address",
   "origin",
@@ -38,129 +44,41 @@ const REQUEST_SELECT_BASE = [
   "completed_at",
   "priority",
   "hospital:hospitals(id, name, address, available_capacity)",
-  "driver:drivers(id, display_name, vehicle_label, hospital_id, active)",
+  "driver:drivers(id, display_name, vehicle_label, hospital_id, status, active, duty_status)",
 ].join(", ");
-
-const REQUEST_SELECT_PLAIN = [
-  "id",
-  "patient_address",
-  "origin",
-  "patient_lat",
-  "patient_lng",
-  "emergency_type",
-  "status",
-  "created_at",
-  "hospital_id",
-  "driver_id",
-  "notes",
-  "contact_phone",
-  "patient_age_band",
-  "completed_at",
-  "priority",
-].join(", ");
-
-export function formatSupabaseError(e: unknown): string {
-  if (!e) return "Unknown error";
-  if (typeof e === "string") return e;
-  if (e instanceof Error && e.message) return e.message;
-  const o = e as {
-    message?: string;
-    code?: string;
-    details?: string;
-    hint?: string;
-  };
-  const parts = [o.message, o.code && `code=${o.code}`, o.details, o.hint]
-    .filter(Boolean)
-    .map(String);
-  return parts.length ? parts.join(" | ") : JSON.stringify(e);
-}
-
-function applyRequestFilters(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  q: any,
-  opts?: {
-    hospitalId?: string;
-    driverId?: string;
-    activeOnly?: boolean;
-    completedOnly?: boolean;
-    limit?: number;
-  },
-) {
-  if (opts?.hospitalId) q = q.eq("hospital_id", opts.hospitalId);
-  if (opts?.driverId) q = q.eq("driver_id", opts.driverId);
-  if (opts?.completedOnly) {
-    q = q.eq("status", "Completed");
-  } else if (opts?.activeOnly !== false) {
-    // Prefer neq chain over "in" string which can break on enum types
-    q = q
-      .neq("status", "Completed")
-      .neq("status", "Cancelled / failed");
-  }
-  if (opts?.limit) q = q.limit(opts.limit);
-  return q;
-}
-
-async function runRequestSelect(
-  supabase: SupabaseClient,
-  select: string,
-  opts?: {
-    hospitalId?: string;
-    driverId?: string;
-    activeOnly?: boolean;
-    completedOnly?: boolean;
-    limit?: number;
-  },
-) {
-  const q = applyRequestFilters(
-    supabase
-      .from("emergency_requests")
-      .select(select)
-      .order("created_at", { ascending: false }),
-    opts,
-  );
-  return q;
-}
 
 export async function fetchRequests(
   supabase: SupabaseClient,
-  opts?: {
-    hospitalId?: string;
-    driverId?: string;
-    activeOnly?: boolean;
-    completedOnly?: boolean;
-    limit?: number;
-  },
+  opts?: { hospitalId?: string; activeOnly?: boolean },
 ) {
-  const attempts = [
-    REQUEST_SELECT_FULL,
-    REQUEST_SELECT_BASE,
-    REQUEST_SELECT_PLAIN,
-  ];
+  let q = supabase
+    .from("emergency_requests")
+    .select(FULL_REQUEST_SELECT)
+    .order("created_at", { ascending: false });
 
-  let lastError: unknown = null;
-
-  for (const select of attempts) {
-    const { data, error } = await runRequestSelect(supabase, select, opts);
-    if (!error) {
-      return (data ?? []) as unknown as EmergencyRequest[];
-    }
-    lastError = error;
-    const msg = formatSupabaseError(error);
-    // Retry on schema/embed issues; stop early on clear RLS denial only after plain select
-    const retryable =
-      /column|does not exist|schema cache|relationship|embed|foreign key/i.test(
-        msg,
-      );
-    if (!retryable && select === REQUEST_SELECT_PLAIN) break;
-    if (!retryable && select !== REQUEST_SELECT_FULL) {
-      // non-schema error on base/plain — still try plain once
-      continue;
-    }
+  if (opts?.hospitalId) q = q.eq("hospital_id", opts.hospitalId);
+  if (opts?.activeOnly !== false) {
+    q = q.not("status", "in", '("Completed","Cancelled / failed")');
   }
 
-  throw new Error(
-    `emergency_requests SELECT failed: ${formatSupabaseError(lastError)}`,
-  );
+  const { data, error } = await q;
+  if (error) {
+    // Resilient fallback if tactical_alert columns are not yet in remote schema
+    let fallbackQ = supabase
+      .from("emergency_requests")
+      .select(BASE_REQUEST_SELECT)
+      .order("created_at", { ascending: false });
+
+    if (opts?.hospitalId) fallbackQ = fallbackQ.eq("hospital_id", opts.hospitalId);
+    if (opts?.activeOnly !== false) {
+      fallbackQ = fallbackQ.not("status", "in", '("Completed","Cancelled / failed")');
+    }
+
+    const fallbackRes = await fallbackQ;
+    if (fallbackRes.error) throw fallbackRes.error;
+    return (fallbackRes.data ?? []) as unknown as EmergencyRequest[];
+  }
+  return (data ?? []) as unknown as EmergencyRequest[];
 }
 
 export async function fetchTransitionRules(

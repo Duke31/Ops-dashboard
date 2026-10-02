@@ -14,10 +14,11 @@ export type Hospital = {
   id: string;
   name: string;
   address: string | null;
-  lat: number | null;
-  lng: number | null;
-  available_capacity?: number | null;
+  available_capacity: number | null;
+  lat?: number | null;
+  lng?: number | null;
   intake_phone?: string | null;
+  created_at?: string;
 };
 
 export type Driver = {
@@ -27,12 +28,9 @@ export type Driver = {
   hospital_id: string | null;
   active?: boolean | null;
   status?: string | null;
-  last_location_at?: string | null;
-  current_lat?: number | null;
-  current_lng?: number | null;
-  battery_level?: number | null;
-  is_charging?: boolean | null;
-  network_type?: string | null;
+  duty_status?: "on_duty" | "off_duty" | string | null;
+  fcm_token?: string | null;
+  last_active_at?: string | null;
 };
 
 export type EmergencyRequest = {
@@ -47,16 +45,23 @@ export type EmergencyRequest = {
   hospital_id: string | null;
   driver_id: string | null;
   notes: string | null;
-  contact_phone: string | null;
-  patient_age_band: string | null;
+  contact_phone?: string | null;
+  patient_age_band?: string | null;
   completed_at: string | null;
-  priority: number | null;
+  priority: string | number | null;
   hospital?: Hospital | null;
   driver?: Driver | null;
+  tactical_alert?: string | null;
+  tactical_alert_code?: string | null;
+  tactical_alert_at?: string | null;
+  tactical_alert_ack?: boolean | null;
+  dispatcher_response?: string | null;
+  dispatcher_response_at?: string | null;
 };
 
 export type TransitionRule = {
   from_status: string;
   to_status: string;
-  actor_role: string;
+  actor_role: AppRole;
 };
+

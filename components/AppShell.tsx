@@ -103,22 +103,21 @@ export function AppShell({
         </div>
       )}
 
-      <div className="flex flex-col min-w-0">
-        <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-[var(--surface)]">
+      <main className="min-w-0">
+        <header className="sticky top-0 z-30 h-12 border-b border-[var(--line)] bg-white flex items-center gap-3 px-3 md:px-6 text-sm text-[var(--muted)]">
           <button
-            className="btn btn-secondary text-xs"
+            className="md:hidden btn btn-ghost px-2 py-1"
             onClick={() => setOpen(true)}
+            aria-label="Open menu"
           >
             Menu
           </button>
-          <span className="text-sm font-semibold">Live operations</span>
-          <div className="w-12" />
+          <span className="truncate">Live operations</span>
         </header>
-
-        <main className="flex-1 p-4 md:p-6 max-w-7xl w-full mx-auto">
+        <div className="p-3 md:p-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
           {children}
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

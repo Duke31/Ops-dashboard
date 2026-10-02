@@ -1,282 +1,186 @@
-import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
-import { toNigeriaE164 } from "@/lib/sms/e164";
-import { sendSms, resolveSmsProvider } from "@/lib/sms/provider";
-import { callerDispatchSms, hospitalIntakeSms } from "@/lib/sms/templates";
-import { getSupabaseUrl } from "@/lib/env";
+import { createClient } from "@supabase/supabase-js";
+import { dispatchEmergencySms } from "@/lib/sms";
 
-export const runtime = "nodejs";
+// Server-only administrative client
+function getAdminSupabase() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-type WebhookBody = {
-  type?: string;
-  table?: string;
-  record?: Record<string, unknown>;
-  old_record?: Record<string, unknown> | null;
-  // Allow direct test posts
-  request_id?: string;
-  status?: string;
-};
-
-const CALLER_STATUSES = new Set([
-  "Driver assigned",
-  "En route to patient",
-]);
-
-const HOSPITAL_STATUSES = new Set(["En route to hospital"]);
-
-function serviceKey() {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!key) throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set");
-  return key;
-}
-
-function webhookSecret() {
-  return process.env.EMERGENCY_SMS_WEBHOOK_SECRET || process.env.WEBHOOK_SECRET || "";
-}
-
-function adminClient() {
-  return createServiceClient(getSupabaseUrl(), serviceKey(), {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-}
-
-async function logSms(
-  admin: ReturnType<typeof adminClient>,
-  row: {
-    request_id: string | null;
-    recipient_e164: string;
-    recipient_role: "caller" | "hospital" | "driver" | "other";
-    trigger_status: string;
-    template_key: string;
-    body_preview: string;
-    provider: string;
-    provider_message_id: string | null;
-    http_status: number | null;
-    success: boolean;
-    error_message: string | null;
-    meta?: Record<string, unknown>;
-  },
-) {
-  const { error } = await admin.from("sms_notifications_log").insert({
-    request_id: row.request_id,
-    recipient_e164: row.recipient_e164,
-    recipient_role: row.recipient_role,
-    trigger_status: row.trigger_status,
-    template_key: row.template_key,
-    body_preview: row.body_preview.slice(0, 280),
-    provider: row.provider,
-    provider_message_id: row.provider_message_id,
-    http_status: row.http_status,
-    success: row.success,
-    error_message: row.error_message,
-    meta: row.meta ?? {},
-  });
-  if (error) {
-    console.error("sms_notifications_log insert failed", error);
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_URL");
   }
+
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false },
+  });
+}
+
+interface WebhookPayload {
+  type: "INSERT" | "UPDATE" | "DELETE";
+  table: string;
+  schema: string;
+  record: {
+    id: string;
+    status: string;
+    driver_id?: string | null;
+    hospital_id?: string | null;
+    contact_phone?: string | null;
+    emergency_type?: string | null;
+    patient_address?: string | null;
+    priority?: number | null;
+    patient_age_band?: string | null;
+  };
+  old_record?: {
+    status?: string | null;
+    driver_id?: string | null;
+    hospital_id?: string | null;
+  } | null;
 }
 
 export async function POST(req: NextRequest) {
-  const expected = webhookSecret();
-  if (!expected) {
-    return NextResponse.json(
-      { error: "EMERGENCY_SMS_WEBHOOK_SECRET is not configured" },
-      { status: 500 },
-    );
-  }
-
-  const headerSecret =
-    req.headers.get("x-webhook-secret") ||
-    req.headers.get("X-Webhook-Secret") ||
-    "";
-  if (headerSecret !== expected) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  let body: WebhookBody;
   try {
-    body = (await req.json()) as WebhookBody;
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-
-  const record = body.record ?? {};
-  const old = body.old_record ?? null;
-  const requestId = String(
-    body.request_id || record.id || "",
-  );
-  const status = String(body.status || record.status || "");
-  const oldStatus = old ? String(old.status || "") : "";
-
-  if (!requestId || !status) {
-    return NextResponse.json(
-      { error: "request id and status required", received: body },
-      { status: 400 },
-    );
-  }
-
-  // Idempotent-ish: only act on transition into a trigger status
-  if (oldStatus && oldStatus === status) {
-    return NextResponse.json({ ok: true, skipped: "status unchanged" });
-  }
-
-  const needsCaller = CALLER_STATUSES.has(status);
-  const needsHospital = HOSPITAL_STATUSES.has(status);
-  if (!needsCaller && !needsHospital) {
-    return NextResponse.json({ ok: true, skipped: "status not in SMS map" });
-  }
-
-  let providerName: string;
-  try {
-    providerName = resolveSmsProvider();
-  } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "SMS provider config error" },
-      { status: 500 },
-    );
-  }
-
-  const admin = adminClient();
-
-  const { data: reqRow, error: reqErr } = await admin
-    .from("emergency_requests")
-    .select(
-      "id, status, contact_phone, emergency_type, priority, patient_age_band, patient_address, hospital_id, driver_id",
-    )
-    .eq("id", requestId)
-    .maybeSingle();
-
-  if (reqErr) {
-    return NextResponse.json(
-      { error: "RLS or query error loading request", detail: reqErr.message },
-      { status: 500 },
-    );
-  }
-  if (!reqRow) {
-    return NextResponse.json({ error: "request not found" }, { status: 404 });
-  }
-
-  let driver: {
-    display_name: string | null;
-    vehicle_label: string | null;
-    phone: string | null;
-  } | null = null;
-
-  if (reqRow.driver_id) {
-    const { data: d, error: dErr } = await admin
-      .from("drivers")
-      .select("display_name, vehicle_label, phone")
-      .eq("id", reqRow.driver_id)
-      .maybeSingle();
-    if (dErr) {
-      return NextResponse.json(
-        { error: "error loading driver", detail: dErr.message },
-        { status: 500 },
-      );
+    // 1. Secret verification (if configured)
+    const webhookSecret = process.env.SUPABASE_WEBHOOK_SECRET;
+    if (webhookSecret) {
+      const headerSecret = req.headers.get("x-webhook-secret");
+      if (headerSecret !== webhookSecret) {
+        return NextResponse.json({ error: "Unauthorized webhook request" }, { status: 401 });
+      }
     }
-    driver = d;
-  }
 
-  let hospital: { name: string | null; intake_phone: string | null } | null =
-    null;
-  if (reqRow.hospital_id) {
-    const { data: h, error: hErr } = await admin
-      .from("hospitals")
-      .select("name, intake_phone")
-      .eq("id", reqRow.hospital_id)
-      .maybeSingle();
-    if (hErr) {
-      return NextResponse.json(
-        { error: "error loading hospital", detail: hErr.message },
-        { status: 500 },
-      );
+    const payload = (await req.json()) as WebhookPayload;
+
+    if (!payload || !payload.record) {
+      return NextResponse.json({ error: "Invalid webhook payload structure" }, { status: 400 });
     }
-    hospital = h;
-  }
 
-  const results: Record<string, unknown>[] = [];
+    const record = payload.record;
+    const oldRecord = payload.old_record;
+    const currentStatus = record.status;
+    const oldStatus = oldRecord?.status;
 
-  if (needsCaller) {
-    const e164 = toNigeriaE164(reqRow.contact_phone as string | null);
-    if (!e164) {
-      results.push({ role: "caller", skipped: "invalid or missing contact_phone" });
-    } else {
-      const text = callerDispatchSms({
-        driverName: driver?.display_name || "Assigned unit",
-        driverPhone: driver?.phone || null,
-        vehicleLabel: driver?.vehicle_label || null,
-        status,
+    // Only process if status changed or it's a new assignment
+    const isNewAssignment = record.driver_id && record.driver_id !== oldRecord?.driver_id;
+    const isStatusChanged = currentStatus !== oldStatus;
+
+    if (!isNewAssignment && !isStatusChanged && payload.type !== "INSERT") {
+      return NextResponse.json({ message: "No dispatch action required for this event." });
+    }
+
+    const supabase = getAdminSupabase();
+    const smsDispatches: Array<{
+      phone: string;
+      role: "caller" | "hospital" | "driver";
+      message: string;
+    }> = [];
+
+    // Fetch Driver metadata if assigned
+    let driverName = "Assigned Responder";
+    let driverPhone: string | null = null;
+    let vehicleLabel = "Rapid Response Unit";
+
+    if (record.driver_id) {
+      const { data: driverData } = await supabase
+        .from("drivers")
+        .select("display_name, full_name, phone, phone_number, vehicle_label, vehicle_plate")
+        .eq("id", record.driver_id)
+        .maybeSingle();
+
+      if (driverData) {
+        driverName = driverData.display_name || driverData.full_name || driverName;
+        driverPhone = driverData.phone || driverData.phone_number || null;
+        vehicleLabel = driverData.vehicle_label || driverData.vehicle_plate || vehicleLabel;
+      }
+    }
+
+    // Fetch Hospital metadata if assigned
+    let hospitalName: string | null = null;
+    let hospitalIntakePhone: string | null = null;
+
+    if (record.hospital_id) {
+      const { data: hospitalData } = await supabase
+        .from("hospitals")
+        .select("name, hospital_name, intake_phone, phone, emergency_contact")
+        .eq("id", record.hospital_id)
+        .maybeSingle();
+
+      if (hospitalData) {
+        hospitalName = hospitalData.name || hospitalData.hospital_name || null;
+        hospitalIntakePhone =
+          hospitalData.intake_phone || hospitalData.phone || hospitalData.emergency_contact || null;
+      }
+    }
+
+    // 2. Logic: Formulate SMS to Caller
+    if (record.contact_phone) {
+      const shortId = record.id.substring(0, 6).toUpperCase();
+
+      if (
+        (isNewAssignment || isStatusChanged) &&
+        (currentStatus === "Driver assigned" || currentStatus === "En route to patient")
+      ) {
+        const driverContactText = driverPhone ? ` Driver phone: ${driverPhone}.` : "";
+        const smsBody = `[EMERGENCY AID #${shortId}] Ambulance assigned. Responder: ${driverName} (${vehicleLabel}).${driverContactText} Unit is en route to your coordinates. Stay on the line.`;
+        smsDispatches.push({ phone: record.contact_phone, role: "caller", message: smsBody });
+      } else if (currentStatus === "Patient picked up") {
+        const hospText = hospitalName ? ` Heading to ${hospitalName}.` : "";
+        const smsBody = `[EMERGENCY AID #${shortId}] Patient is on board.${hospText} Emergency medical care is active in transit.`;
+        smsDispatches.push({ phone: record.contact_phone, role: "caller", message: smsBody });
+      } else if (currentStatus === "Arrived / intake") {
+        const hospText = hospitalName ? ` at ${hospitalName}` : "";
+        const smsBody = `[EMERGENCY AID #${shortId}] Patient has arrived${hospText} and is undergoing triage intake.`;
+        smsDispatches.push({ phone: record.contact_phone, role: "caller", message: smsBody });
+      }
+    }
+
+    // 3. Logic: Formulate Alert SMS to Receiving Hospital ER Desk
+    if (hospitalIntakePhone && (currentStatus === "En route to hospital" || currentStatus === "Patient picked up")) {
+      const condition = record.emergency_type || "Acute Emergency";
+      const priorityLabel = record.priority ? `Priority ${record.priority}` : "Emergency";
+      const smsBody = `[ER INTAKE ALERT] Incoming ambulance ${vehicleLabel}. Case: ${condition} (${priorityLabel}). Patient on board, en route to your ER bay.`;
+      smsDispatches.push({ phone: hospitalIntakePhone, role: "hospital", message: smsBody });
+    }
+
+    // 4. Dispatch SMS and log to immutable database log
+    const results = [];
+    for (const item of smsDispatches) {
+      const sendRes = await dispatchEmergencySms({
+        to: item.phone,
+        message: item.message,
       });
-      const sent = await sendSms({ toE164: e164, body: text });
-      await logSms(admin, {
-        request_id: requestId,
-        recipient_e164: e164,
-        recipient_role: "caller",
-        trigger_status: status,
-        template_key: "caller_dispatch",
-        body_preview: text,
-        provider: sent.provider,
-        provider_message_id: sent.messageId,
-        http_status: sent.httpStatus,
-        success: sent.ok,
-        error_message: sent.error,
-        meta: { provider: sent.provider, raw: sent.raw },
-      });
-      results.push({ role: "caller", ...sent });
-    }
-  }
 
-  if (needsHospital) {
-    const e164 = toNigeriaE164(hospital?.intake_phone || null);
-    if (!e164) {
+      // Record in public.sms_notifications_log
+      try {
+        await supabase.from("sms_notifications_log").insert({
+          request_id: record.id,
+          recipient_phone: item.phone,
+          recipient_role: item.role,
+          message_body: item.message,
+          provider: sendRes.provider,
+          status: sendRes.success ? "sent" : "failed",
+          provider_message_id: sendRes.messageId || null,
+          error_details: sendRes.error || null,
+        });
+      } catch (logErr) {
+        console.warn("Failed to write to sms_notifications_log:", logErr);
+      }
+
       results.push({
-        role: "hospital",
-        skipped: "invalid or missing hospitals.intake_phone",
+        recipient: item.phone,
+        role: item.role,
+        ...sendRes,
       });
-    } else {
-      const text = hospitalIntakeSms({
-        emergencyType: reqRow.emergency_type as string | null,
-        priority: reqRow.priority as number | null,
-        driverName: driver?.display_name || null,
-        vehicleLabel: driver?.vehicle_label || null,
-        patientAgeBand: reqRow.patient_age_band as string | null,
-        address: reqRow.patient_address as string | null,
-      });
-      const sent = await sendSms({ toE164: e164, body: text });
-      await logSms(admin, {
-        request_id: requestId,
-        recipient_e164: e164,
-        recipient_role: "hospital",
-        trigger_status: status,
-        template_key: "hospital_intake",
-        body_preview: text,
-        provider: sent.provider,
-        provider_message_id: sent.messageId,
-        http_status: sent.httpStatus,
-        success: sent.ok,
-        error_message: sent.error,
-        meta: { provider: sent.provider, raw: sent.raw },
-      });
-      results.push({ role: "hospital", ...sent });
     }
-  }
 
-  return NextResponse.json({ ok: true, provider: providerName, request_id: requestId, status, results });
-}
-
-export async function GET() {
-  let provider: string | null = null;
-  try {
-    provider = resolveSmsProvider();
-  } catch {
-    provider = null;
+    return NextResponse.json({
+      success: true,
+      processed: smsDispatches.length,
+      dispatches: results,
+    });
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.error("SMS Webhook error:", err);
+    return NextResponse.json({ error: errorMsg }, { status: 500 });
   }
-  return NextResponse.json({
-    service: "emergency-sms-webhook",
-    provider,
-    triggers: {
-      caller: [...CALLER_STATUSES],
-      hospital: [...HOSPITAL_STATUSES],
-    },
-  });
 }

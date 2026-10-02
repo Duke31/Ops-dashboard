@@ -1,94 +1,91 @@
 "use client";
 
-import { FormEvent, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
-import { homeForRole } from "@/lib/roles";
-import type { AppRole, Profile } from "@/lib/types";
+import { useActionState, Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { loginAction } from "./actions";
 
-export default function LoginPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+function LoginForm() {
+  const searchParams = useSearchParams();
+  const [state, formAction, isPending] = useActionState(loginAction, null);
+  const [localError, setLocalError] = useState<string | null>(null);
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    const supabase = createClient();
-    const { data, error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (authError || !data.user) {
-      setBusy(false);
-      setError(authError?.message || "Sign-in failed.");
-      return;
-    }
-
-    const { data: profile, error: pErr } = await supabase
-      .from("profiles")
-      .select("user_id, role, hospital_id, display_name")
-      .eq("user_id", data.user.id)
-      .maybeSingle<Profile>();
-
-    setBusy(false);
-    if (pErr || !profile) {
-      setError(
-        pErr?.message ||
-          "Signed in, but no staff profile / role was found for this account.",
+  const urlError = searchParams.get("error");
+  useEffect(() => {
+    if (urlError === "no-role") {
+      setLocalError(
+        "Signed in, but your user account does not have a staff profile in the 'profiles' table. Please assign an 'admin', 'dispatcher', or 'hospital' role in Supabase.",
       );
-      return;
+    } else if (urlError) {
+      setLocalError(`Authentication notice: ${urlError}`);
     }
-    router.replace(homeForRole(String(profile.role)));
-    router.refresh();
-  }
+  }, [urlError]);
+
+  const activeError = state?.error || localError;
 
   return (
-    <div className="min-h-dvh grid place-items-center p-4">
-      <form onSubmit={onSubmit} className="card w-full max-w-sm p-5 space-y-4">
-        <div>
-          <div className="text-[11px] uppercase tracking-[0.14em] text-[var(--muted)]">
-            Ops Dashboard
-          </div>
-          <h1 className="text-xl font-semibold mt-1">Staff sign in</h1>
-          <p className="text-sm text-[var(--muted)] mt-1">
-            Dispatcher, hospital, and admin access only.
-          </p>
+    <form action={formAction} className="card w-full max-w-sm p-5 space-y-4">
+      <div>
+        <div className="text-[11px] uppercase tracking-[0.14em] text-[var(--muted)]">
+          Ops Dashboard
         </div>
-        <label className="block text-sm">
-          Email
-          <input
-            className="input mt-1"
-            type="email"
-            autoComplete="username"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-        </label>
-        <label className="block text-sm">
-          Password
-          <input
-            className="input mt-1"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-        </label>
-        {error && (
-          <p className="text-sm text-[#b42318] bg-[#fef3f2] rounded-md px-3 py-2">
-            {error}
-          </p>
-        )}
-        <button className="btn btn-primary w-full py-2" disabled={busy}>
-          {busy ? "Signing in…" : "Sign in"}
-        </button>
-      </form>
+        <h1 className="text-xl font-semibold mt-1">Staff sign in</h1>
+        <p className="text-sm text-[var(--muted)] mt-1">
+          Dispatcher, hospital, and admin access only.
+        </p>
+      </div>
+
+      <label className="block text-sm">
+        Email
+        <input
+          name="email"
+          className="input mt-1"
+          type="email"
+          autoComplete="username"
+          required
+        />
+      </label>
+
+      <label className="block text-sm">
+        Password
+        <input
+          name="password"
+          className="input mt-1"
+          type="password"
+          autoComplete="current-password"
+          required
+        />
+      </label>
+
+      {activeError && (
+        <div className="text-xs text-[#b42318] bg-[#fef3f2] border border-[#fecdca] rounded-md px-3 py-2 leading-relaxed">
+          {activeError}
+        </div>
+      )}
+
+      <button className="btn btn-primary w-full py-2" disabled={isPending}>
+        {isPending ? "Signing in…" : "Sign in"}
+      </button>
+
+      <div className="pt-2 text-center">
+        <a
+          href="/login"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-[var(--muted)] hover:underline inline-flex items-center gap-1"
+        >
+          Open standalone tab ↗
+        </a>
+      </div>
+    </form>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <div className="min-h-dvh grid place-items-center p-4">
+      <Suspense fallback={<div className="card p-6 text-sm text-[var(--muted)]">Loading...</div>}>
+        <LoginForm />
+      </Suspense>
     </div>
   );
 }

@@ -5,16 +5,18 @@ import { requireProfile } from "@/lib/auth";
 import { fetchRequests, fetchTransitionRules } from "@/lib/queries";
 import type { EmergencyRequest, TransitionRule } from "@/lib/types";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function HospitalPage() {
   const { supabase, profile } = await requireProfile(["hospital", "admin", "dispatcher"]);
 
   let hospitalId = profile.hospital_id;
   let capacity: number | null = null;
-  let incomingRequests: EmergencyRequest[] = [];
-  let historyRequests: EmergencyRequest[] = [];
+  let requests: EmergencyRequest[] = [];
   let rules: TransitionRule[] = [];
 
-  // Fallback if admin/dispatcher doesn't have a specific hospital assigned
+  // If user is admin/dispatcher without a hospital_id, grab the first available hospital
   if (!hospitalId) {
     try {
       const { data: firstHosp } = await supabase
@@ -22,6 +24,7 @@ export default async function HospitalPage() {
         .select("id, available_capacity")
         .limit(1)
         .maybeSingle();
+
       if (firstHosp) {
         hospitalId = firstHosp.id;
         capacity = firstHosp.available_capacity ?? null;
@@ -44,20 +47,10 @@ export default async function HospitalPage() {
 
   if (hospitalId) {
     try {
-      // Fetch incoming active requests
-      incomingRequests = await fetchRequests(supabase, { hospitalId, activeOnly: true });
+      requests = await fetchRequests(supabase, { hospitalId, activeOnly: true });
     } catch (e) {
-      console.error("Error fetching active requests:", e);
-      incomingRequests = [];
-    }
-
-    try {
-      // Fetch completed admission records (History)
-      const allHospitalRequests = await fetchRequests(supabase, { hospitalId, activeOnly: false });
-      historyRequests = allHospitalRequests.filter((r) => r.status === "Completed");
-    } catch (e) {
-      console.error("Error fetching completed requests:", e);
-      historyRequests = [];
+      console.error("Error fetching requests:", e);
+      requests = [];
     }
 
     try {
@@ -77,17 +70,9 @@ export default async function HospitalPage() {
       </div>
 
       {hospitalId ? (
-        <div className="space-y-6 max-w-4xl mx-auto">
-          {/* Live Capacity Slider & Counter */}
+        <div className="space-y-4 max-w-4xl mx-auto">
           <HospitalCapacity hospitalId={hospitalId} value={capacity} />
-
-          {/* Incoming Dispatches + Modal + Handover Log */}
-          <HospitalCards
-            requests={incomingRequests}
-            historyRequests={historyRequests}
-            rules={rules}
-            availableCapacity={capacity}
-          />
+          <HospitalCards requests={requests} rules={rules} availableCapacity={capacity} />
         </div>
       ) : (
         <div className="card p-6 text-sm text-[#b42318] text-center">

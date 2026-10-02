@@ -177,37 +177,32 @@ export function HospitalManager({ hospitals }: { hospitals: Hospital[] }) {
 
   return (
     <div className="space-y-6">
-      <form onSubmit={onSubmit} className="card p-5 grid md:grid-cols-2 gap-4 shadow-sm border border-[var(--border,#e2e8f0)]">
-        <div className="md:col-span-2">
-          <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
-            {form.id ? "Edit Hospital Facility" : "Register New Hospital Facility"}
-          </h2>
-          <p className="text-xs text-[var(--muted)] mt-0.5">
-            Registered receiving centers will appear on dispatcher consoles and the hospital intake dashboard.
-          </p>
+      <form onSubmit={onSubmit} className="card p-4 grid md:grid-cols-2 gap-3">
+        <div className="md:col-span-2 text-sm font-semibold">
+          {form.id ? "Edit hospital" : "New hospital"}
         </div>
         <input
           className="input"
-          placeholder="Hospital name (e.g. St. Mary Specialist Hospital)"
+          placeholder="Name"
           value={form.name}
           onChange={(e) => setForm({ ...form, name: e.target.value })}
           required
         />
         <input
           className="input"
-          placeholder="ER Intake Phone (e.g. +234 800 000 0000)"
+          placeholder="Intake phone"
           value={form.intake_phone}
           onChange={(e) => setForm({ ...form, intake_phone: e.target.value })}
         />
         <input
           className="input md:col-span-2"
-          placeholder="Street Address & Landmark"
+          placeholder="Address"
           value={form.address}
           onChange={(e) => setForm({ ...form, address: e.target.value })}
         />
         <input
           className="input"
-          placeholder="Latitude (e.g. 8.1345)"
+          placeholder="Latitude"
           inputMode="decimal"
           value={form.lat}
           onChange={(e) => setForm({ ...form, lat: e.target.value })}
@@ -215,15 +210,15 @@ export function HospitalManager({ hospitals }: { hospitals: Hospital[] }) {
         />
         <input
           className="input"
-          placeholder="Longitude (e.g. 4.2456)"
+          placeholder="Longitude"
           inputMode="decimal"
           value={form.lng}
           onChange={(e) => setForm({ ...form, lng: e.target.value })}
           required
         />
-        <div className="md:col-span-2 flex gap-2 pt-2">
+        <div className="md:col-span-2 flex gap-2">
           <button className="btn btn-primary" type="submit" disabled={busy}>
-            {busy ? "Saving…" : form.id ? "Save Changes" : "Register Hospital"}
+            {busy ? "Saving…" : form.id ? "Save hospital" : "Add hospital"}
           </button>
           {form.id && (
             <button
@@ -231,7 +226,7 @@ export function HospitalManager({ hospitals }: { hospitals: Hospital[] }) {
               className="btn btn-ghost"
               onClick={() => setForm(empty)}
             >
-              Cancel
+              Cancel edit
             </button>
           )}
         </div>
@@ -241,49 +236,40 @@ export function HospitalManager({ hospitals }: { hospitals: Hospital[] }) {
         <table className="data">
           <thead>
             <tr>
-              <th>Hospital Name</th>
+              <th>Name</th>
               <th>Address</th>
-              <th>Intake Phone</th>
-              <th>Coordinates</th>
-              <th>Actions</th>
+              <th>Phone</th>
+              <th>Lat / lng</th>
+              <th />
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={5} className="text-center py-6 text-sm text-[var(--muted)]">
-                  No hospitals registered yet.
+                <td colSpan={5} className="text-[var(--muted)]">
+                  No hospitals yet.
                 </td>
               </tr>
             )}
             {rows.map((h) => (
               <tr key={h.id}>
-                <td className="font-semibold text-sm text-slate-900 dark:text-slate-100">
-                  {h.name}
-                </td>
-                <td className="text-xs text-[var(--muted)]">{h.address || "—"}</td>
+                <td className="font-medium">{h.name}</td>
+                <td>{h.address || "—"}</td>
                 <td>
-                  {(h as Hospital & { intake_phone?: string }).intake_phone ? (
-                    <a
-                      href={`tel:${(h as Hospital & { intake_phone?: string }).intake_phone}`}
-                      className="text-xs font-semibold text-blue-600 hover:underline inline-flex items-center gap-1"
-                    >
-                      <span>📞</span>
-                      <span>{(h as Hospital & { intake_phone?: string }).intake_phone}</span>
-                    </a>
-                  ) : (
-                    <span className="text-xs text-[var(--muted)]">—</span>
-                  )}
+                  {(h as Hospital & { intake_phone?: string }).intake_phone ||
+                    "—"}
                 </td>
-                <td className="whitespace-nowrap text-xs font-mono text-[var(--muted)]">
-                  {h.lat != null && h.lng != null ? `${Number(h.lat).toFixed(4)}, ${Number(h.lng).toFixed(4)}` : "—"}
+                <td className="whitespace-nowrap text-[var(--muted)]">
+                  {h.lat != null && h.lng != null
+                    ? `${h.lat}, ${h.lng}`
+                    : "—"}
                 </td>
                 <td>
                   <div className="flex gap-1">
-                    <button className="btn btn-ghost text-xs py-1 px-2.5" type="button" disabled={busy} onClick={() => fill(h)}>
+                    <button className="btn btn-ghost" type="button" disabled={busy} onClick={() => fill(h)}>
                       Edit
                     </button>
-                    <button className="btn btn-ghost text-xs py-1 px-2.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30" type="button" disabled={busy} onClick={() => onDelete(h)}>
+                    <button className="btn btn-ghost" type="button" disabled={busy} onClick={() => onDelete(h)}>
                       Delete
                     </button>
                   </div>

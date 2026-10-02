@@ -6,6 +6,7 @@ import { getSupabasePublishableKey, getSupabaseUrl } from "@/lib/env";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
+
   const url = getSupabaseUrl();
   const key = getSupabasePublishableKey();
   if (!url || !key) {
@@ -46,8 +47,7 @@ export async function updateSession(request: NextRequest) {
   const isRest =
     pathname === "/no-access" ||
     pathname === "/reset" ||
-    pathname === "/driver" ||
-    pathname === "/hospital";
+    pathname === "/driver";
   const isPublic = isLogin || isRest || pathname.startsWith("/auth");
 
   if (!user && !isPublic) {

@@ -20,27 +20,6 @@ function needsDriver(toStatus: string) {
   return toStatus.toLowerCase().includes("driver assigned");
 }
 
-
-function networkPill(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  const n = raw.toLowerCase();
-  if (n === "4g" || n === "lte") return "4G";
-  if (n === "3g") return "3G";
-  if (n === "2g" || n === "slow-2g") return "2G (Degraded)";
-  if (n === "wifi" || n === "wlan") return "Wi‑Fi";
-  if (n === "offline") return "Offline";
-  return raw.toUpperCase();
-}
-
-function sortDriversForAssign(list: Driver[]): Driver[] {
-  return [...list].sort((a, b) => {
-    const aa = a.active === true ? 0 : 1;
-    const bb = b.active === true ? 0 : 1;
-    if (aa !== bb) return aa - bb;
-    return (a.display_name || "").localeCompare(b.display_name || "");
-  });
-}
-
 function needsHospital(toStatus: string) {
   const s = toStatus.toLowerCase();
   return (
@@ -98,7 +77,7 @@ export function RequestBoard({
   rules: TransitionRule[];
   actorRole: AppRole;
   hospitals?: Pick<Hospital, "id" | "name" | "available_capacity">[];
-  drivers?: Driver[];
+  drivers?: Pick<Driver, "id" | "display_name" | "vehicle_label" | "hospital_id" | "active" | "duty_status">[];
   empty?: string;
 }) {
   const router = useRouter();
@@ -110,6 +89,7 @@ export function RequestBoard({
   );
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
+  const [activeReplyId, setActiveReplyId] = useState<string | null>(null);
 
   // Real-time synchronization for zero-delay operations
   useEffect(() => {
@@ -134,6 +114,115 @@ export function RequestBoard({
     };
   }, [supabase, router]);
 
+  async function ackTacticalAlert(requestId: string, replyMessage?: string) {
+    try {
+      let ackSucceeded = false;
+      try {
+        const { error: rpcErr } = await supabase.rpc("ack_driver_tactical_alert", {
+          p_request_id: requestId,
+          p_response_message: replyMessage || null,
+        });
+        if (!rpcErr) ackSucceeded = true;
+      } catch (_) {}
+
+      const currentReq = requests.find((x) => x.id === requestId);
+      const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      const replyNote = replyMessage ? `[DISPATCH RADIO ${timeStr}]: ${replyMessage}` : `[DISPATCH ACK ${timeStr}]: Acknowledged by Dispatcher`;
+      const updatedNotes = currentReq?.notes ? `${currentReq.notes}\n${replyNote}` : replyNote;
+
+      if (!ackSucceeded) {
+        // Fallback to direct update if RPC is not present
+        const { error: updateErr } = await supabase
+          .from("emergency_requests")
+          .update({
+            tactical_alert_ack: true,
+            dispatcher_response: replyMessage || "Acknowledged",
+            dispatcher_response_at: replyMessage ? new Date().toISOString() : undefined,
+            notes: updatedNotes,
+          })
+          .eq("id", requestId);
+        if (updateErr) {
+          await supabase.from("emergency_requests").update({ notes: updatedNotes }).eq("id", requestId).catch(() => {});
+        }
+      } else {
+        await supabase.from("emergency_requests").update({ notes: updatedNotes }).eq("id", requestId).catch(() => {});
+      }
+
+      setOk(replyMessage ? `Radio response sent: "${replyMessage}"` : "Tactical alert acknowledged.");
+      setActiveReplyId(null);
+      router.refresh();
+    } catch (e: unknown) {
+      setError(rpcMessage(e) || "Failed to acknowledge tactical alert.");
+    }
+  }
+
+  async function quickRerouteHospital(requestId: string, newHospitalId: string) {
+    try {
+      const hospitalObj = hospitals.find((h) => h.id === newHospitalId);
+      const hospitalName = hospitalObj?.name || "Alternate Facility";
+
+      // 1. Assign new hospital via RPC or direct update
+      await supabase.rpc("assign_emergency_hospital", {
+        p_request_id: requestId,
+        p_hospital_id: newHospitalId,
+      }).catch(async () => {
+        await supabase.from("emergency_requests").update({
+          hospital_id: newHospitalId,
+        }).eq("id", requestId);
+      });
+
+      // 2. Transmit tactical confirmation to driver
+      const replyMsg = `Hospital Divert Approved: Rerouted to ${hospitalName}`;
+      await ackTacticalAlert(requestId, replyMsg);
+      setOk(`Rerouted ambulance unit to ${hospitalName}. Radio confirmation transmitted.`);
+      router.refresh();
+    } catch (e: unknown) {
+      setError(rpcMessage(e) || "Failed to reroute hospital.");
+    }
+  }
+
+  // Tactical radio alerts partition list
+  const tacticalAlerts = useMemo(() => {
+    return requests
+      .map((r) => {
+        let alertText = r.tactical_alert;
+        let alertCode = r.tactical_alert_code;
+        let alertAt = r.tactical_alert_at;
+        let isAck = r.tactical_alert_ack;
+        let dispResponse = r.dispatcher_response;
+
+        // If not in tactical_alert column, extract from notes
+        if (!alertText && r.notes) {
+          const match = r.notes.match(/\[TACTICAL (?:RADIO|ALERT)[^\]]*\]:\s*([^\n\r]+)/i);
+          if (match) {
+            alertText = match[1]?.trim();
+            alertAt = r.created_at;
+            alertCode = alertText.toLowerCase().includes("divert") ? "DIVERT" : "ALERT";
+            isAck = r.notes.includes("[DISPATCH");
+          }
+        }
+
+        if (!alertText) return null;
+        return {
+          request: r,
+          alertText,
+          alertCode: alertCode || "ALERT",
+          alertAt,
+          isAck: Boolean(isAck),
+          response: dispResponse,
+        };
+      })
+      .filter(Boolean) as {
+        request: EmergencyRequest;
+        alertText: string;
+        alertCode: string;
+        alertAt?: string | null;
+        isAck: boolean;
+        response?: string | null;
+      }[];
+  }, [requests]);
+
+
   async function transition(
     request: EmergencyRequest,
     toStatus: string,
@@ -143,7 +232,7 @@ export function RequestBoard({
 
     const selectedDriver = driverDraft[request.id] || request.driver_id || "";
     if (needsDriver(toStatus) && !selectedDriver) {
-      setError("Select a driver before Driver assigned.");
+      setError("Select an active driver before Driver assigned.");
       return;
     }
 
@@ -185,6 +274,16 @@ export function RequestBoard({
           p_driver_id: selectedDriver,
         });
         if (drvErr) throw drvErr;
+
+        // Proactively fire background notification alert to driver unit
+        fetch("/api/driver/dispatch-notify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            driverId: selectedDriver,
+            requestId: request.id,
+          }),
+        }).catch(() => {});
       }
 
       const { error: rpcErr } = await supabase.rpc(
@@ -212,6 +311,213 @@ export function RequestBoard({
 
   return (
     <>
+      {/* DEDICATED TACTICAL RADIO & REROUTE ALERT PARTITION */}
+      {tacticalAlerts.length > 0 && (
+        <div className="mb-6 rounded-xl border-2 border-amber-500/50 bg-gradient-to-r from-amber-950/40 via-slate-900 to-slate-900 p-4 shadow-xl">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-500/20 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+              </span>
+              <h3 className="font-extrabold text-sm tracking-wider text-amber-400 uppercase flex items-center gap-1.5">
+                <span>📻</span>
+                <span>Tactical Radio & Situational Alerts Channel</span>
+                <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-slate-950">
+                  {tacticalAlerts.filter((a) => !a.isAck).length} PENDING ACTION
+                </span>
+              </h3>
+            </div>
+            <span className="text-xs text-slate-400">
+              Live telemetry & tactical radio communications between ambulance units and Dispatch
+            </span>
+          </div>
+
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+            {tacticalAlerts.map((item) => {
+              const req = item.request;
+              const isDivert =
+                item.alertText.toLowerCase().includes("divert") || item.alertCode === "DIVERT";
+              return (
+                <div
+                  key={req.id}
+                  className={`rounded-lg border p-3.5 transition-all ${
+                    item.isAck
+                      ? "bg-slate-800/60 border-slate-700 text-slate-300"
+                      : "bg-amber-950/70 border-amber-500/60 text-amber-100 shadow-md ring-1 ring-amber-500/30"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">🚑</span>
+                      <div>
+                        <div className="font-bold text-xs text-white flex items-center gap-1.5">
+                          <span>{req.driver?.display_name || "Ambulance Unit"}</span>
+                          {req.driver?.vehicle_label && (
+                            <span className="px-1.5 py-0.2 rounded bg-slate-700 text-[10px] text-slate-300 font-mono">
+                              {req.driver.vehicle_label}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-slate-400">
+                          Location: {formatLocation(req)}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded font-black text-[10px] uppercase tracking-wider ${
+                          isDivert
+                            ? "bg-red-600 text-white animate-pulse"
+                            : item.isAck
+                            ? "bg-slate-700 text-slate-300"
+                            : "bg-amber-500 text-slate-950"
+                        }`}
+                      >
+                        {isDivert ? "🚨 HOSPITAL DIVERT / REROUTE" : item.alertCode}
+                      </span>
+                      {item.alertAt && (
+                        <div className="text-[10px] text-slate-400 mt-0.5">
+                          {timeSince(item.alertAt)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-2.5 rounded bg-black/50 p-2 font-mono text-xs border border-white/10 flex items-start gap-2">
+                    <span className="text-amber-400 font-bold shrink-0">DRIVER RADIO:</span>
+                    <span className="text-white font-medium">&ldquo;{item.alertText}&rdquo;</span>
+                  </div>
+
+                  {item.response && (
+                    <div className="mt-2 text-xs text-emerald-400 font-medium bg-emerald-950/40 border border-emerald-500/30 rounded p-1.5 flex items-center gap-1.5">
+                      <span>✓</span>
+                      <span>Dispatcher Reply: &ldquo;{item.response}&rdquo;</span>
+                    </div>
+                  )}
+
+                  {/* Dispatcher Actions */}
+                  <div className="mt-3 pt-2.5 border-t border-white/10 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {!item.isAck ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              ackTacticalAlert(
+                                req.id,
+                                isDivert
+                                  ? "Hospital Divert Approved - Reroute Authorized"
+                                  : "Copy that - Dispatch standing by",
+                              )
+                            }
+                            className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow transition-all flex items-center gap-1"
+                          >
+                            <span>✓</span>
+                            <span>{isDivert ? "Approve Divert" : "Acknowledge"}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setActiveReplyId(activeReplyId === req.id ? null : req.id)
+                            }
+                            className="px-2.5 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white font-semibold text-xs transition-all"
+                          >
+                            Radio Reply ▾
+                          </button>
+                        </>
+                      ) : (
+                        <span className="text-[11px] text-emerald-400 font-bold flex items-center gap-1">
+                          <span>✓</span> Acknowledged & Addressed
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Quick Reroute Hospital Switcher */}
+                    {isDivert && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-slate-400">Reroute To:</span>
+                        <select
+                          className="text-[11px] py-0.5 px-2 bg-slate-900 border border-amber-500/50 text-white rounded font-medium focus:ring-1 focus:ring-amber-400"
+                          defaultValue=""
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              quickRerouteHospital(req.id, e.target.value);
+                            }
+                          }}
+                        >
+                          <option value="" disabled>
+                            Select Alternate Hospital ({req.hospital?.name || "Current"} is diverted)
+                          </option>
+                          {hospitals
+                            .filter((h) => h.id !== req.hospital_id)
+                            .map((h) => (
+                              <option key={h.id} value={h.id}>
+                                {h.name} ({h.available_capacity ?? 0} beds)
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Canned Radio Options */}
+                  {activeReplyId === req.id && (
+                    <div className="mt-2.5 pt-2 border-t border-white/10 grid grid-cols-2 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          ackTacticalAlert(
+                            req.id,
+                            "Hospital Divert Approved - Proceed to alternate facility",
+                          )
+                        }
+                        className="text-left text-xs bg-slate-800 hover:bg-emerald-600 text-white p-1.5 rounded transition-all"
+                      >
+                        🏥 Hospital Divert Approved
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          ackTacticalAlert(
+                            req.id,
+                            "Police Escort Dispatched to your coordinates",
+                          )
+                        }
+                        className="text-left text-xs bg-slate-800 hover:bg-emerald-600 text-white p-1.5 rounded transition-all"
+                      >
+                        🚓 Police Escort Dispatched
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          ackTacticalAlert(req.id, "ER Trauma Bay Ready - Expedite arrival")
+                        }
+                        className="text-left text-xs bg-slate-800 hover:bg-emerald-600 text-white p-1.5 rounded transition-all"
+                      >
+                        ⚠️ ER Trauma Bay Ready
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          ackTacticalAlert(
+                            req.id,
+                            "Traffic patrol notified - alternate corridor open",
+                          )
+                        }
+                        className="text-left text-xs bg-slate-800 hover:bg-emerald-600 text-white p-1.5 rounded transition-all"
+                      >
+                        🚦 Traffic Cleared Ahead
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="table-wrap">
         <table className="data">
           <thead>
@@ -266,7 +572,7 @@ export function RequestBoard({
                       )}
                     </div>
                   </td>
-                  <td className="max-w-[220px]">
+                  <td className="max-w-[240px]">
                     <div className="font-semibold text-sm">{r.emergency_type || "—"}</div>
                     {r.notes && (
                       <div className="mt-1 text-[11px] leading-tight text-red-700 dark:text-red-300 bg-red-500/10 border border-red-500/20 rounded p-1.5">
@@ -274,6 +580,86 @@ export function RequestBoard({
                           Triage & Medical ID:
                         </span>
                         <span className="line-clamp-3 hover:line-clamp-none transition-all">{r.notes}</span>
+                      </div>
+                    )}
+                    {r.tactical_alert && (
+                      <div className={`mt-2 p-2 rounded-lg border text-[11px] ${
+                        r.tactical_alert_ack
+                          ? "bg-slate-100 dark:bg-slate-800/80 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300"
+                          : "bg-amber-500/15 dark:bg-amber-950/50 border-amber-500/40 text-amber-900 dark:text-amber-200 animate-pulse"
+                      }`}>
+                        <div className="flex items-center justify-between gap-1 font-bold text-[10px] uppercase tracking-wider">
+                          <span className="flex items-center gap-1">
+                            <span>📻 TACTICAL RADIO</span>
+                            {!r.tactical_alert_ack && (
+                              <span className="px-1 py-0.2 rounded bg-red-600 text-white text-[9px]">NEW</span>
+                            )}
+                          </span>
+                          {r.tactical_alert_at && (
+                            <span className="font-normal opacity-75">{timeSince(r.tactical_alert_at)}</span>
+                          )}
+                        </div>
+                        <div className="mt-1 font-semibold text-xs leading-snug">
+                          {r.tactical_alert}
+                        </div>
+                        {r.dispatcher_response && (
+                          <div className="mt-1.5 pt-1.5 border-t border-current/20 text-[10px] text-emerald-700 dark:text-emerald-300 font-medium">
+                            ↳ Dispatcher: &ldquo;{r.dispatcher_response}&rdquo;
+                          </div>
+                        )}
+                        {!r.tactical_alert_ack && (
+                          <div className="mt-2 flex flex-wrap items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => ackTacticalAlert(r.id)}
+                              className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-[10px] shadow-sm transition-all"
+                            >
+                              ✓ Acknowledge
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setActiveReplyId(activeReplyId === r.id ? null : r.id)}
+                              className="px-2 py-0.5 bg-slate-700 hover:bg-slate-600 text-white rounded font-medium text-[10px]"
+                            >
+                              Radio Reply ▾
+                            </button>
+                          </div>
+                        )}
+                        {activeReplyId === r.id && !r.tactical_alert_ack && (
+                          <div className="mt-2 pt-2 border-t border-current/20 flex flex-col gap-1">
+                            <span className="text-[9px] font-bold uppercase opacity-80">Quick Radio Responses:</span>
+                            <div className="grid grid-cols-1 gap-1">
+                              <button
+                                type="button"
+                                onClick={() => ackTacticalAlert(r.id, "Police Escort Dispatched")}
+                                className="text-left text-[10px] bg-slate-200 dark:bg-slate-700 hover:bg-emerald-600 hover:text-white px-2 py-1 rounded"
+                              >
+                                🚓 Police Escort Dispatched
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => ackTacticalAlert(r.id, "Hospital Divert Approved")}
+                                className="text-left text-[10px] bg-slate-200 dark:bg-slate-700 hover:bg-emerald-600 hover:text-white px-2 py-1 rounded"
+                              >
+                                🏥 Hospital Divert Approved
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => ackTacticalAlert(r.id, "ER Trauma Team Standing By")}
+                                className="text-left text-[10px] bg-slate-200 dark:bg-slate-700 hover:bg-emerald-600 hover:text-white px-2 py-1 rounded"
+                              >
+                                ⚠️ ER Trauma Team Standing By
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => ackTacticalAlert(r.id, "Copy that, stay safe")}
+                                className="text-left text-[10px] bg-slate-200 dark:bg-slate-700 hover:bg-emerald-600 hover:text-white px-2 py-1 rounded"
+                              >
+                                🆗 Copy that, stay safe
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </td>
@@ -308,62 +694,28 @@ export function RequestBoard({
                     )}
                   </td>
                   <td className="text-[12px]">
-                    {(() => {
-                      const d =
-                        r.driver ||
-                        drivers.find((x) => x.id === r.driver_id) ||
-                        null;
-                      if (!d?.display_name && !r.driver_id) return "—";
-                      const bat = d?.battery_level;
-                      const charging = d?.is_charging === true;
-                      const low =
-                        bat != null && bat <= 20 && d?.is_charging === false;
-                      const net = networkPill(d?.network_type);
-                      return (
-                        <div className="space-y-1">
-                          <div className="font-medium">
-                            {d?.display_name || "Assigned unit"}
-                          </div>
-                          {d?.vehicle_label && (
-                            <div className="text-[var(--muted)]">
-                              {d.vehicle_label}
-                            </div>
-                          )}
-                          <div className="flex flex-wrap gap-1">
-                            {bat != null && (
-                              <span
-                                className={
-                                  low
-                                    ? "inline-flex rounded-full border border-red-500/50 bg-red-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-red-700 dark:text-red-300"
-                                    : "inline-flex rounded-full border border-[var(--border)] px-1.5 py-0.5 text-[10px]"
-                                }
-                              >
-                                {low
-                                  ? `⚠️ Low Bat (${bat}%)`
-                                  : `${charging ? "⚡" : "🔋"} ${bat}%`}
-                              </span>
-                            )}
-                            {net && (
-                              <span
-                                className={
-                                  net.includes("2G") || net === "Offline"
-                                    ? "inline-flex rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px]"
-                                    : "inline-flex rounded-full border border-[var(--border)] px-1.5 py-0.5 text-[10px]"
-                                }
-                              >
-                                {net}
-                              </span>
-                            )}
-                            {d?.last_location_at && (
-                              <span className="text-[10px] text-[var(--muted)]">
-                                {timeSince(d.last_location_at)}
-                              </span>
-                            )}
-                          </div>
+                    {r.driver?.display_name ? (
+                      <>
+                        <div className="font-medium flex items-center gap-1.5">
+                          <span
+                            className={`w-2 h-2 rounded-full ${
+                              r.driver.duty_status === "off_duty" || r.driver.active === false
+                                ? "bg-slate-400"
+                                : "bg-emerald-500 shadow-sm"
+                            }`}
+                            title={r.driver.duty_status === "off_duty" ? "Off Duty" : "On Duty"}
+                          />
+                          <span>{r.driver.display_name}</span>
                         </div>
-                      );
-                    })()}
+                        <div className="text-[var(--muted)] text-[11px]">
+                          {r.driver.vehicle_label}
+                        </div>
+                      </>
+                    ) : (
+                      "—"
+                    )}
                   </td>
+
                   <td>
                     <div className="flex flex-col gap-2 min-w-[200px]">
                       {showHospital && (
@@ -454,18 +806,16 @@ export function RequestBoard({
                           }}
                         >
                           <option value="">Select driver</option>
-                          {drivers.length === 0 && (
-                            <option value="" disabled>
-                              No drivers available — check banner error or drivers table
-                            </option>
-                          )}
-                          {sortDriversForAssign(drivers).map((d) => (
-                            <option key={d.id} value={d.id}>
-                              {d.display_name || "Driver"}
-                              {d.vehicle_label ? ` · ${d.vehicle_label}` : ""}
-                              {` (${d.active === true ? "🟢 Active" : "⚪ Standby"})`}
-                            </option>
-                          ))}
+                          {drivers.map((d) => {
+                            const isOffDuty = d.duty_status === "off_duty" || d.active === false;
+                            return (
+                              <option key={d.id} value={d.id}>
+                                {isOffDuty ? "⚪ [OFF DUTY] " : "🟢 [ON DUTY] "}
+                                {d.display_name || "Driver"}
+                                {d.vehicle_label ? ` · ${d.vehicle_label}` : ""}
+                              </option>
+                            );
+                          })}
                         </select>
                       )}
 

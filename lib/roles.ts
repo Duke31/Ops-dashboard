@@ -32,7 +32,6 @@ export function roleFromPath(pathname: string): AppRole | null {
 export function canAccessPath(role: AppRole, pathname: string): boolean {
   const required = roleFromPath(pathname);
   if (!required) return true;
-  // Admins and Dispatchers can access the hospital view for operations and testing
-  if (role === "admin" || role === "dispatcher") return true;
+  if (role === "admin") return true;
   return role === required;
 }

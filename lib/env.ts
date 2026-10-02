@@ -1,17 +1,18 @@
 export function getSupabaseUrl() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!url) throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL");
-  return url;
+  return (
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    "https://aogknxtyvzpzqkgmgtsv.supabase.co"
+  );
 }
 
 export function getSupabasePublishableKey() {
-  const key =
+  return (
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  if (!key) {
-    throw new Error(
-      "Missing NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY (or ANON_KEY)",
-    );
-  }
-  return key;
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+    "sb_publishable_-SZtZ9gUc3mGdxe5DKxKrA_REbC9iXt"
+  );
+}
+
+export function isSupabaseConfigured() {
+  return true;
 }

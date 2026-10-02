@@ -39,19 +39,10 @@ export function HospitalCards({
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
-  // Admission Modal State
-  const [admittingReq, setAdmittingReq] = useState<EmergencyRequest | null>(null);
-  const [selectedBay, setSelectedBay] = useState<string>("Trauma Bay 1");
-  const [customBay, setCustomBay] = useState<string>("");
-  const [admitNotes, setAdmitNotes] = useState<string>("");
-
-  const effectiveBay = customBay.trim() || selectedBay;
-  const isFacilityFull = availableCapacity === 0;
-
-  // Real-time synchronization for zero-delay operations
+  // Real-time synchronization for hospital intake desk
   useEffect(() => {
     const channel = supabase
-      .channel("ops-hospital-cards-sync")
+      .channel("hospital-intake-sync")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "emergency_requests" },
@@ -63,13 +54,22 @@ export function HospitalCards({
 
     const interval = setInterval(() => {
       router.refresh();
-    }, 3000);
+    }, 4000);
 
     return () => {
       supabase.removeChannel(channel);
       clearInterval(interval);
     };
   }, [supabase, router]);
+
+  // Admission Modal State
+  const [admittingReq, setAdmittingReq] = useState<EmergencyRequest | null>(null);
+  const [selectedBay, setSelectedBay] = useState<string>("Trauma Bay 1");
+  const [customBay, setCustomBay] = useState<string>("");
+  const [admitNotes, setAdmitNotes] = useState<string>("");
+
+  const effectiveBay = customBay.trim() || selectedBay;
+  const isFacilityFull = availableCapacity === 0;
 
   async function go(id: string, to: string) {
     const isAccepting =

@@ -2,36 +2,16 @@
 
 :root {
   --background: #f4f5f7;
-  --foreground: #111827;
+  --foreground: #12141a;
   --panel: #ffffff;
-  --muted: #4b5563;
-  --line: #dfe3ea;
-  --surface-raised: #f8fafc;
-  --surface-subtle: #f3f4f6;
+  --muted: #5c6473;
+  --line: #e2e5eb;
   --accent: #0f6b5c;
   --accent-fg: #ffffff;
   --danger: #b42318;
   --warn: #b54708;
   --ok: #027a48;
   --info: #175cd3;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0f172a;
-    --foreground: #e5e7eb;
-    --panel: #1a1f35;
-    --muted: #a3b1c2;
-    --line: #2d3748;
-    --surface-raised: #1f293a;
-    --surface-subtle: #111827;
-    --accent: #2dd4bf;
-    --accent-fg: #062c2a;
-    --danger: #fca5a5;
-    --warn: #fbbf24;
-    --ok: #6ee7b7;
-    --info: #93c5fd;
-  }
 }
 
 @theme inline {
@@ -53,7 +33,6 @@ body {
 
 body {
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  color: var(--foreground);
 }
 
 .badge {
@@ -69,23 +48,23 @@ body {
 
 .badge-neutral {
   background: #eef0f4;
-  color: #1f2937;
+  color: #344054;
 }
 .badge-ok {
   background: #ecfdf3;
-  color: #065f46;
+  color: #027a48;
 }
 .badge-warn {
   background: #fffaeb;
-  color: #92400e;
+  color: #b54708;
 }
 .badge-info {
   background: #eff8ff;
-  color: #1d4ed8;
+  color: #175cd3;
 }
 .badge-danger {
   background: #fef3f2;
-  color: #991b1b;
+  color: #b42318;
 }
 
 .btn {
@@ -106,18 +85,18 @@ body {
 }
 .btn-primary {
   background: var(--accent);
-  color: var(--accent-fg);
+  color: #fff;
 }
 .btn-primary:hover:not(:disabled) {
   filter: brightness(1.05);
 }
 .btn-ghost {
-  background: var(--panel);
+  background: #fff;
   border-color: var(--line);
   color: var(--foreground);
 }
 .btn-ghost:hover:not(:disabled) {
-  background: var(--surface-raised);
+  background: #f8f9fb;
 }
 .btn-danger {
   background: #b42318;
@@ -135,7 +114,7 @@ body {
   border-radius: 6px;
   padding: 8px 10px;
   font-size: 13px;
-  background: var(--panel);
+  background: #fff;
   color: var(--foreground);
 }
 .input:focus,
@@ -148,21 +127,19 @@ body {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 10px;
-  color: var(--foreground);
 }
 
 .table-wrap {
   overflow: auto;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--panel);
+  background: #fff;
 }
 
 table.data {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
-  color: var(--foreground);
 }
 table.data th {
   text-align: left;
@@ -173,14 +150,13 @@ table.data th {
   font-weight: 600;
   padding: 10px 12px;
   border-bottom: 1px solid var(--line);
-  background: var(--surface-raised);
+  background: #fafbfc;
   white-space: nowrap;
 }
 table.data td {
   padding: 10px 12px;
   border-bottom: 1px solid var(--line);
   vertical-align: top;
-  color: var(--foreground);
 }
 table.data tr:last-child td {
   border-bottom: none;
@@ -206,89 +182,4 @@ table.data tr:last-child td {
   background: #fff;
   border: 1px solid #abefc6;
   color: #054f31;
-}
-
-p,
-span,
-label,
-input,
-select,
-button,
-li,
-td,
-th,
-div {
-  color: inherit;
-}
-
-.text-muted,
-.text-slate-500,
-.text-[var(--muted)] {
-  color: var(--muted) !important;
-}
-
-@media (prefers-color-scheme: dark) {
-  .btn-ghost {
-    background: var(--panel);
-    border-color: var(--line);
-    color: var(--foreground);
-  }
-
-  .btn-ghost:hover:not(:disabled) {
-    background: var(--surface-raised);
-  }
-
-  .input,
-  .select {
-    background: var(--panel);
-    border-color: var(--line);
-    color: var(--foreground);
-  }
-
-  .input:focus,
-  .select:focus {
-    outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
-    border-color: var(--accent);
-  }
-
-  .table-wrap {
-    background: var(--panel);
-    border-color: var(--line);
-  }
-
-  table.data th {
-    background: var(--surface-raised);
-    color: var(--muted);
-    border-color: var(--line);
-  }
-
-  table.data td {
-    border-color: var(--line);
-    color: var(--foreground);
-  }
-
-  .toast {
-    background: var(--panel);
-    color: var(--foreground);
-    border: 1px solid var(--line);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-  }
-
-  .toast-error {
-    background: var(--panel);
-    border: 1px solid #7a271a;
-    color: #fca5a5;
-  }
-
-  .toast-ok {
-    background: var(--panel);
-    border: 1px solid #065f46;
-    color: #6ee7b7;
-  }
-
-  .card {
-    background: var(--panel);
-    border-color: var(--line);
-    color: var(--foreground);
-  }
 }

@@ -10,9 +10,10 @@ export default async function HospitalsPage() {
   return (
     <AppShell profile={profile}>
       <div className="mb-4">
-        <h1 className="text-xl font-bold">Manage Receiving Hospitals</h1>
-        <p className="text-xs text-[var(--muted)]">
-          Directory of registered hospital facilities, intake phones, and GPS coordinates across the network.
+        <h1 className="text-lg font-semibold">Manage hospitals</h1>
+        <p className="text-sm text-[var(--muted)]">
+          Full catalog from admin_list_hospitals, including sites with no
+          staff or driver yet.
         </p>
         {error && (
           <p className="text-sm text-[#b42318] mt-1">{error.message}</p>

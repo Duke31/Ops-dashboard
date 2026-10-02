@@ -8,10 +8,6 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { rpcMessage } from "@/lib/rpc-error";
-import {
-  DriverInAppNav,
-  type NavTarget,
-} from "@/components/DriverInAppNav";
 
 // Web Audio API siren alert for high-priority dispatch
 function playDispatchChime() {
@@ -124,57 +120,6 @@ export function DriverConsole({
     accuracy: number | null;
   } | null>(null);
   const [gpsError, setGpsError] = useState<string | null>(null);
-  const [wakeLockActive, setWakeLockActive] = useState(false);
-  const [gpsStalled, setGpsStalled] = useState(false);
-  const [deviceVitals, setDeviceVitals] = useState<{
-    battery_level: number | null;
-    is_charging: boolean | null;
-    network_type: string | null;
-  }>({ battery_level: null, is_charging: null, network_type: null });
-  const [navTarget, setNavTarget] = useState<NavTarget | null>(null);
-  const [reconnectToast, setReconnectToast] = useState<string | null>(null);
-  const forcePersistRef = useRef(false);
-
-  async function readDeviceVitals(): Promise<{
-    battery_level: number | null;
-    is_charging: boolean | null;
-    network_type: string | null;
-  }> {
-    let battery_level: number | null = null;
-    let is_charging: boolean | null = null;
-    let network_type: string | null = null;
-    try {
-      const nav = navigator as Navigator & {
-        getBattery?: () => Promise<{
-          level: number;
-          charging: boolean;
-        }>;
-        connection?: { effectiveType?: string; type?: string };
-      };
-      if (typeof nav.getBattery === "function") {
-        const bat = await nav.getBattery();
-        battery_level = Math.round(Math.min(1, Math.max(0, bat.level)) * 100);
-        is_charging = !!bat.charging;
-      }
-      const conn = nav.connection;
-      if (conn?.effectiveType) {
-        network_type = String(conn.effectiveType).toLowerCase();
-      } else if (conn?.type) {
-        network_type = String(conn.type).toLowerCase();
-      } else if (typeof navigator.onLine === "boolean") {
-        network_type = navigator.onLine ? "online" : "offline";
-      }
-    } catch {
-      /* Safari / denied — leave nulls */
-    }
-    return { battery_level, is_charging, network_type };
-  }
-
-
-  const lastGpsAtRef = useRef<number>(0);
-  const wakeLockRef = useRef<{ release: () => Promise<void>; addEventListener: (type: string, fn: () => void) => void } | null>(null);
-  const watchIdRef = useRef<number | null>(null);
-  const reacquireGpsRef = useRef<(() => void) | null>(null);
 
   // If initialDriverId changes or resolves, update state
   useEffect(() => {
@@ -261,102 +206,7 @@ export function DriverConsole({
 
   const lastDbUpdateRef = useRef<number>(0);
 
-  const hasActiveRun = assignedRequests.some((r) =>
-    [
-      "Driver assigned",
-      "En route to patient",
-      "Patient picked up",
-      "En route to hospital",
-      "Arrived / intake",
-    ].includes(r.status),
-  );
-
-  const trackingDesired = hasActiveRun || !!selectedDriverId || !!initialDriverId;
-
-  async function requestWakeLock() {
-    try {
-      if (typeof navigator === "undefined" || !("wakeLock" in navigator)) {
-        setWakeLockActive(false);
-        return;
-      }
-      if (document.visibilityState !== "visible") return;
-      // Release existing before re-request
-      try {
-        await wakeLockRef.current?.release();
-      } catch {
-        /* ignore */
-      }
-      wakeLockRef.current = null;
-      const sentinel = await navigator.wakeLock.request("screen");
-      wakeLockRef.current = sentinel;
-      setWakeLockActive(true);
-      sentinel.addEventListener("release", () => {
-        setWakeLockActive(false);
-        wakeLockRef.current = null;
-      });
-    } catch {
-      // Permission denied or unsupported — never throw
-      setWakeLockActive(false);
-      wakeLockRef.current = null;
-    }
-  }
-
-  async function releaseWakeLock() {
-    try {
-      await wakeLockRef.current?.release();
-    } catch {
-      /* ignore */
-    }
-    wakeLockRef.current = null;
-    setWakeLockActive(false);
-  }
-
-  // Screen Wake Lock while on an active run / tracking
-  useEffect(() => {
-    if (!trackingDesired) {
-      void releaseWakeLock();
-      return;
-    }
-    void requestWakeLock();
-    return () => {
-      void releaseWakeLock();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trackingDesired, hasActiveRun]);
-
-  // Re-acquire wake lock + verify GPS when tab becomes visible again
-  useEffect(() => {
-    function onVisibility() {
-      if (document.visibilityState !== "visible") return;
-      if (trackingDesired) void requestWakeLock();
-      forcePersistRef.current = true;
-      reacquireGpsRef.current?.();
-      setReconnectToast("Reconnected • Screen Lock Active • Telemetry Synced");
-      window.setTimeout(() => setReconnectToast(null), 4000);
-    }
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => document.removeEventListener("visibilitychange", onVisibility);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trackingDesired]);
-
-  // 15s telemetry watchdog (driver console)
-  useEffect(() => {
-    if (!hasActiveRun) {
-      setGpsStalled(false);
-      return;
-    }
-    const id = setInterval(() => {
-      const last = lastGpsAtRef.current;
-      if (!last) {
-        setGpsStalled(true);
-        return;
-      }
-      setGpsStalled(Date.now() - last > 15_000);
-    }, 2000);
-    return () => clearInterval(id);
-  }, [hasActiveRun]);
-
-    // Stream GPS Telemetry with immediate initial position fetch & continuous watching
+  // Stream GPS Telemetry with immediate initial position fetch & continuous watching
   useEffect(() => {
     const driverIdToStream = isDriverRole ? (initialDriverId || currentDriver?.id) : selectedDriverId;
     if (typeof window === "undefined" || !("geolocation" in navigator)) {
@@ -388,8 +238,6 @@ export function DriverConsole({
         updated_at: new Date().toISOString(),
       };
 
-      lastGpsAtRef.current = Date.now();
-      setGpsStalled(false);
       setGpsCoords({
         lat: pos.coords.latitude,
         lng: pos.coords.longitude,
@@ -430,58 +278,36 @@ export function DriverConsole({
         }
       });
 
-      // 3. Throttled DB write (force immediately after returning from external maps)
+      // 3. Throttled DB write: persist coordinate directly to drivers table every 3s
       const now = Date.now();
-      const force = forcePersistRef.current;
-      if (force || now - lastDbUpdateRef.current >= 2500) {
-        forcePersistRef.current = false;
+      if (now - lastDbUpdateRef.current >= 3000) {
         lastDbUpdateRef.current = now;
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        const heading = pos.coords.heading;
-        const speed = pos.coords.speed;
-        const stamp = new Date().toISOString();
 
-        void (async () => {
-          const vitals = await readDeviceVitals();
-          setDeviceVitals(vitals);
-
-          const row: Record<string, unknown> = {
-            current_lat: lat,
-            current_lng: lng,
-            heading,
-            speed,
-            last_location_at: stamp,
-          };
-          if (vitals.battery_level != null) row.battery_level = vitals.battery_level;
-          if (vitals.is_charging != null) row.is_charging = vitals.is_charging;
-          if (vitals.network_type != null) row.network_type = vitals.network_type;
-
-          const { error: updateErr } = await supabase
-            .from("drivers")
-            .update(row)
-            .eq("id", driverIdToStream);
-
-          if (!updateErr) return;
-
-          const { error: rpcErr } = await supabase.rpc("update_driver_location", {
-            p_driver_id: driverIdToStream,
-            p_lat: lat,
-            p_lng: lng,
-            p_heading: heading,
-            p_speed: speed,
-            p_battery_level: vitals.battery_level,
-            p_is_charging: vitals.is_charging,
-            p_network_type: vitals.network_type,
+        // Try direct update first
+        supabase
+          .from("drivers")
+          .update({
+            current_lat: pos.coords.latitude,
+            current_lng: pos.coords.longitude,
+            heading: pos.coords.heading,
+            speed: pos.coords.speed,
+            last_location_at: new Date().toISOString(),
+          })
+          .eq("id", driverIdToStream)
+          .then(({ error: updateErr }) => {
+            if (updateErr) {
+              // Fallback to RPC if RLS blocks direct update
+              supabase
+                .rpc("update_driver_location", {
+                  p_driver_id: driverIdToStream,
+                  p_lat: pos.coords.latitude,
+                  p_lng: pos.coords.longitude,
+                  p_heading: pos.coords.heading,
+                  p_speed: pos.coords.speed,
+                })
+                .then(() => {});
+            }
           });
-
-          if (rpcErr) {
-            console.error("driver location persist failed", updateErr, rpcErr);
-            setGpsError(
-              `Location not saved for patients: ${rpcErr.message || updateErr.message}. Run update_driver_location SQL.`,
-            );
-          }
-        })();
       }
     };
 
@@ -497,40 +323,23 @@ export function DriverConsole({
       setGpsError(msg);
     };
 
-    const geoOpts: PositionOptions = {
+    // 1. Immediately request current position
+    navigator.geolocation.getCurrentPosition(updateLocation, handleLocationError, {
+      enableHighAccuracy: true,
+      maximumAge: 10000,
+      timeout: 10000,
+    });
+
+    // 2. Watch continuously
+    const watchId = navigator.geolocation.watchPosition(updateLocation, handleLocationError, {
       enableHighAccuracy: true,
       maximumAge: 5000,
       timeout: 10000,
-    };
-
-    const startWatch = () => {
-      if (watchIdRef.current != null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
-        watchIdRef.current = null;
-      }
-      navigator.geolocation.getCurrentPosition(
-        updateLocation,
-        handleLocationError,
-        { ...geoOpts, maximumAge: 10000 },
-      );
-      watchIdRef.current = navigator.geolocation.watchPosition(
-        updateLocation,
-        handleLocationError,
-        geoOpts,
-      );
-    };
-
-    reacquireGpsRef.current = startWatch;
-    startWatch();
+    });
 
     return () => {
-      reacquireGpsRef.current = null;
-      if (watchIdRef.current != null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
-        watchIdRef.current = null;
-      }
+      navigator.geolocation.clearWatch(watchId);
       supabase.removeChannel(locChannel);
-      requestChannels.forEach((ch) => supabase.removeChannel(ch));
     };
   }, [supabase, isDriverRole, initialDriverId, selectedDriverId, currentDriver]);
 
@@ -556,100 +365,7 @@ export function DriverConsole({
     }
   }
 
-  function openPatientNav(r: EmergencyRequest) {
-    if (r.patient_lat == null || r.patient_lng == null) return;
-    setNavTarget({
-      lat: r.patient_lat,
-      lng: r.patient_lng,
-      label: r.emergency_type || "Patient",
-      address: r.patient_address || formatLocation(r),
-      kind: "patient",
-    });
-    void requestWakeLock();
-  }
-
-  function openHospitalNav(r: EmergencyRequest) {
-    if (r.hospital?.lat == null || r.hospital?.lng == null) return;
-    setNavTarget({
-      lat: r.hospital.lat,
-      lng: r.hospital.lng,
-      label: r.hospital.name || "Hospital",
-      address: r.hospital.address,
-      kind: "hospital",
-    });
-    void requestWakeLock();
-  }
-
-  function externalMapsUrl(target: NavTarget) {
-    return `https://www.google.com/maps/dir/?api=1&destination=${target.lat},${target.lng}&travelmode=driving`;
-  }
-
-  const navActions =
-    navTarget && assignedRequests[0]
-      ? (() => {
-          const r = assignedRequests[0];
-          const items: { label: string; onClick: () => void; busy?: boolean }[] =
-            [];
-          if (r.status === "Driver assigned" || r.status === "En route to patient") {
-            // mirror mission buttons loosely
-          }
-          if (
-            r.status === "Driver assigned" ||
-            r.status === "En route to patient"
-          ) {
-            items.push({
-              label: "Arrived at Scene",
-              busy: busy === r.id,
-              onClick: () => {
-                void executeTransition(r.id, "Patient picked up");
-              },
-            });
-          }
-          if (r.status === "Patient picked up") {
-            items.push({
-              label: "Patient Loaded · En route to hospital",
-              busy: busy === r.id,
-              onClick: () => {
-                void executeTransition(r.id, "En route to hospital");
-              },
-            });
-          }
-          if (r.status === "En route to hospital") {
-            items.push({
-              label: "Arrived Hospital",
-              busy: busy === r.id,
-              onClick: () => {
-                void executeTransition(r.id, "Arrived / intake");
-              },
-            });
-          }
-          return items;
-        })()
-      : [];
-
   return (
-    <>
-      {navTarget && (
-        <DriverInAppNav
-          target={navTarget}
-          gps={
-            gpsCoords
-              ? {
-                  lat: gpsCoords.lat,
-                  lng: gpsCoords.lng,
-                  heading: gpsCoords.heading,
-                  speed: gpsCoords.speed,
-                }
-              : null
-          }
-          onClose={() => setNavTarget(null)}
-          onOpenExternal={() => {
-            window.open(externalMapsUrl(navTarget), "_blank", "noopener,noreferrer");
-          }}
-          actions={navActions}
-          reconnectToast={reconnectToast}
-        />
-      )}
     <div className="space-y-4 max-w-xl mx-auto pb-12">
       {/* Unit Banner */}
       <div className="card p-4 bg-slate-900 text-white border-slate-800">
@@ -687,19 +403,6 @@ export function DriverConsole({
           )}
         </div>
 
-        <div className="mt-3 flex flex-wrap gap-2">
-          {wakeLockActive && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/20 border border-sky-400/50 text-sky-100 px-2.5 py-0.5 text-[11px] font-semibold">
-              <span aria-hidden>🔒</span> Screen Lock Active
-            </span>
-          )}
-          {hasActiveRun && !wakeLockActive && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-slate-700 border border-slate-600 text-slate-300 px-2.5 py-0.5 text-[11px]">
-              Screen lock unavailable
-            </span>
-          )}
-        </div>
-
         {/* Live GPS Telemetry Indicator */}
         <div className="mt-3 pt-2.5 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
           <div className="flex items-center gap-1.5">
@@ -723,49 +426,13 @@ export function DriverConsole({
                 : "Acquiring GPS Fix…"}
             </span>
           </div>
-          <div className="flex items-center gap-2 font-mono text-slate-300">
-            {gpsCoords?.speed != null && (
-              <span>{(gpsCoords.speed * 3.6).toFixed(0)} km/h</span>
-            )}
-            {deviceVitals.battery_level != null && (
-              <span>
-                {deviceVitals.is_charging ? "⚡" : "🔋"} {deviceVitals.battery_level}%
-              </span>
-            )}
-            {deviceVitals.network_type && (
-              <span className="uppercase text-[10px] opacity-80">
-                {deviceVitals.network_type}
-              </span>
-            )}
-          </div>
+          {gpsCoords?.speed != null && (
+            <span className="font-mono text-slate-300">
+              {(gpsCoords.speed * 3.6).toFixed(0)} km/h
+            </span>
+          )}
         </div>
       </div>
-
-      {reconnectToast && !navTarget && (
-        <div className="rounded-lg border border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2 text-sm text-emerald-900 dark:text-emerald-100 font-medium">
-          {reconnectToast}
-        </div>
-      )}
-
-      {deviceVitals.battery_level != null &&
-        deviceVitals.battery_level <= 20 &&
-        deviceVitals.is_charging === false && (
-        <div className="rounded-lg border border-amber-500/60 bg-amber-50 dark:bg-amber-950/50 px-3 py-2.5 text-sm text-amber-950 dark:text-amber-50">
-          <span className="font-semibold">
-            ⚠️ Battery Low ({deviceVitals.battery_level}%) — Connect vehicle dashboard charger to avoid losing GPS tracking.
-          </span>
-        </div>
-      )}
-
-      {gpsStalled && hasActiveRun && (
-        <div className="rounded-lg border border-amber-500/50 bg-amber-50 dark:bg-amber-950/40 px-3 py-2.5 text-sm text-amber-950 dark:text-amber-100">
-          <span className="font-semibold">GPS fix stalled — checking location services</span>
-          <p className="text-xs mt-1 opacity-90">
-            No coordinate update for over 15 seconds. Keep this tab visible, enable high-accuracy
-            location, or reopen the console after using Maps/Waze.
-          </p>
-        </div>
-      )}
 
       {/* No active dispatches */}
       {assignedRequests.length === 0 && (
@@ -893,15 +560,6 @@ export function DriverConsole({
                   Turn-by-Turn Navigation
                 </span>
 
-                {(r.patient_lat != null && r.patient_lng != null) && (
-                  <button
-                    type="button"
-                    className="btn btn-primary w-full mb-2"
-                    onClick={() => openPatientNav(r)}
-                  >
-                    In-app navigation to patient
-                  </button>
-                )}
                 {gmapsPatientUrl && (
                   <div className="flex gap-2">
                     <a
@@ -927,15 +585,6 @@ export function DriverConsole({
                   </div>
                 )}
 
-                {(r.hospital?.lat != null && r.hospital?.lng != null) && (
-                  <button
-                    type="button"
-                    className="btn btn-primary w-full mb-2"
-                    onClick={() => openHospitalNav(r)}
-                  >
-                    In-app navigation to hospital
-                  </button>
-                )}
                 {gmapsHospitalUrl && (
                   <div className="flex gap-2">
                     <a
@@ -1071,7 +720,6 @@ export function DriverConsole({
         </div>
       )}
     </div>
-    </>
   );
 }
 
