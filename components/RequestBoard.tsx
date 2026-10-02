@@ -282,6 +282,21 @@ export function RequestBoard({
         });
         if (drvErr) throw drvErr;
 
+        try {
+          const ch = supabase.channel(`driver_dispatch_realtime_${selectedDriver}`);
+          await ch.subscribe();
+          await ch.send({
+            type: "broadcast",
+            event: "emergency_assigned",
+            payload: {
+              request_id: request.id,
+              patient_address: request.patient_address,
+              emergency_type: request.emergency_type,
+              priority: request.priority,
+            },
+          });
+        } catch {}
+
         // Proactively fire background notification alert to driver unit
         fetch("/api/driver/dispatch-notify", {
           method: "POST",
@@ -289,6 +304,9 @@ export function RequestBoard({
           body: JSON.stringify({
             driverId: selectedDriver,
             requestId: request.id,
+            patientAddress: request.patient_address,
+            emergencyType: request.emergency_type,
+            priority: request.priority,
           }),
         }).catch(() => {});
       }
@@ -808,8 +826,39 @@ export function RequestBoard({
                                 p_driver_id: value,
                               },
                             );
-                            if (err) setError(rpcMessage(err));
-                            else router.refresh();
+                            if (err) {
+                              setError(rpcMessage(err));
+                            } else {
+                              try {
+                                const ch = supabase.channel(`driver_dispatch_realtime_${value}`);
+                                await ch.subscribe();
+                                await ch.send({
+                                  type: "broadcast",
+                                  event: "emergency_assigned",
+                                  payload: {
+                                    request_id: r.id,
+                                    patient_address: r.patient_address,
+                                    emergency_type: r.emergency_type,
+                                    priority: r.priority,
+                                  },
+                                });
+                              } catch {}
+
+                              fetch("/api/driver/dispatch-notify", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  driverId: value,
+                                  requestId: r.id,
+                                  patientAddress: r.patient_address,
+                                  emergencyType: r.emergency_type,
+                                  priority: r.priority,
+                                }),
+                              }).catch(() => {});
+
+                              setOk("Driver assigned & dispatch alert sent to ambulance unit.");
+                              router.refresh();
+                            }
                           }}
                         >
                           <option value="">Select driver</option>
