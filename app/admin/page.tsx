@@ -15,8 +15,22 @@ export default async function AdminQueuePage() {
       fetchTransitionRules(supabase, "dispatcher"),
       fetchTransitionRules(supabase, "hospital"),
       fetchTransitionRules(supabase, "admin"),
-      supabase.from("hospitals").select("id, name, available_capacity").order("name"),
-      supabase.from("drivers").select("id, display_name, vehicle_label, hospital_id, active").eq("active", true).order("display_name"),
+      supabase
+        .from("hospitals")
+        .select("id, name, available_capacity")
+        .order("name")
+        .then(
+          (res) => res,
+          () => ({ data: [] }) as any,
+        ),
+      supabase
+        .from("drivers")
+        .select("id, display_name, vehicle_label, hospital_id, active")
+        .order("display_name")
+        .then(
+          (res) => res,
+          () => ({ data: [] }) as any,
+        ),
     ]);
 
   return (

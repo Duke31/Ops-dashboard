@@ -24,10 +24,10 @@ const FULL_REQUEST_SELECT = [
   "dispatcher_response",
   "dispatcher_response_at",
   "hospital:hospitals(id, name, address, available_capacity)",
-  "driver:drivers(id, display_name, vehicle_label, hospital_id, status, active, duty_status)",
+  "driver:drivers(id, display_name, vehicle_label, hospital_id, active)",
 ].join(", ");
 
-const BASE_REQUEST_SELECT = [
+const SAFE_REQUEST_SELECT = [
   "id",
   "patient_address",
   "origin",
@@ -44,54 +44,100 @@ const BASE_REQUEST_SELECT = [
   "completed_at",
   "priority",
   "hospital:hospitals(id, name, address, available_capacity)",
-  "driver:drivers(id, display_name, vehicle_label, hospital_id, status, active, duty_status)",
+  "driver:drivers(id, display_name, vehicle_label, hospital_id, active)",
+].join(", ");
+
+const MINIMAL_REQUEST_SELECT = [
+  "id",
+  "patient_address",
+  "origin",
+  "patient_lat",
+  "patient_lng",
+  "emergency_type",
+  "status",
+  "created_at",
+  "hospital_id",
+  "driver_id",
+  "notes",
+  "contact_phone",
+  "patient_age_band",
+  "completed_at",
+  "priority",
 ].join(", ");
 
 export async function fetchRequests(
   supabase: SupabaseClient,
   opts?: { hospitalId?: string; activeOnly?: boolean },
-) {
-  let q = supabase
-    .from("emergency_requests")
-    .select(FULL_REQUEST_SELECT)
-    .order("created_at", { ascending: false });
-
-  if (opts?.hospitalId) q = q.eq("hospital_id", opts.hospitalId);
-  if (opts?.activeOnly !== false) {
-    q = q.not("status", "in", '("Completed","Cancelled / failed")');
-  }
-
-  const { data, error } = await q;
-  if (error) {
-    // Resilient fallback if tactical_alert columns are not yet in remote schema
-    let fallbackQ = supabase
+): Promise<EmergencyRequest[]> {
+  try {
+    let q = supabase
       .from("emergency_requests")
-      .select(BASE_REQUEST_SELECT)
+      .select(FULL_REQUEST_SELECT)
       .order("created_at", { ascending: false });
 
-    if (opts?.hospitalId) fallbackQ = fallbackQ.eq("hospital_id", opts.hospitalId);
+    if (opts?.hospitalId) q = q.eq("hospital_id", opts.hospitalId);
     if (opts?.activeOnly !== false) {
-      fallbackQ = fallbackQ.not("status", "in", '("Completed","Cancelled / failed")');
+      q = q.not("status", "in", '("Completed","Cancelled / failed")');
     }
 
-    const fallbackRes = await fallbackQ;
-    if (fallbackRes.error) throw fallbackRes.error;
-    return (fallbackRes.data ?? []) as unknown as EmergencyRequest[];
+    const { data, error } = await q;
+    if (!error && data) return data as unknown as EmergencyRequest[];
+
+    // Second attempt: standard schema without tactical columns
+    let safeQ = supabase
+      .from("emergency_requests")
+      .select(SAFE_REQUEST_SELECT)
+      .order("created_at", { ascending: false });
+
+    if (opts?.hospitalId) safeQ = safeQ.eq("hospital_id", opts.hospitalId);
+    if (opts?.activeOnly !== false) {
+      safeQ = safeQ.not("status", "in", '("Completed","Cancelled / failed")');
+    }
+
+    const safeRes = await safeQ;
+    if (!safeRes.error && safeRes.data) return safeRes.data as unknown as EmergencyRequest[];
+
+    // Third attempt: minimal columns without foreign joins
+    let minQ = supabase
+      .from("emergency_requests")
+      .select(MINIMAL_REQUEST_SELECT)
+      .order("created_at", { ascending: false });
+
+    if (opts?.hospitalId) minQ = minQ.eq("hospital_id", opts.hospitalId);
+    if (opts?.activeOnly !== false) {
+      minQ = minQ.not("status", "in", '("Completed","Cancelled / failed")');
+    }
+
+    const minRes = await minQ;
+    if (!minRes.error && minRes.data) return minRes.data as unknown as EmergencyRequest[];
+
+    return [];
+  } catch (err) {
+    console.error("fetchRequests fallback catch:", err);
+    return [];
   }
-  return (data ?? []) as unknown as EmergencyRequest[];
 }
 
 export async function fetchTransitionRules(
   supabase: SupabaseClient,
   actorRole: string,
-) {
-  const { data, error } = await supabase
-    .from("emergency_transition_rules")
-    .select("from_status, to_status, actor_role")
-    .eq("actor_role", actorRole);
-  if (error) throw error;
-  return (data ?? []) as TransitionRule[];
+): Promise<TransitionRule[]> {
+  try {
+    const { data, error } = await supabase
+      .from("emergency_transition_rules")
+      .select("from_status, to_status, actor_role")
+      .eq("actor_role", actorRole);
+    if (error) {
+      console.warn(`fetchTransitionRules notice for ${actorRole}:`, error.message);
+      return [];
+    }
+    return (data ?? []) as TransitionRule[];
+  } catch (err) {
+    console.error(`fetchTransitionRules catch for ${actorRole}:`, err);
+    return [];
+  }
 }
+
 
 export function allowedTargets(
   rules: TransitionRule[],

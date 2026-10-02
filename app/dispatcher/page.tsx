@@ -12,11 +12,22 @@ export default async function DispatcherPage() {
   const [requests, rules, hospitalsRes, driversRes] = await Promise.all([
     fetchRequests(supabase, { activeOnly: true }),
     fetchTransitionRules(supabase, "dispatcher"),
-    supabase.from("hospitals").select("id, name, available_capacity").order("name"),
+    supabase
+      .from("hospitals")
+      .select("id, name, available_capacity")
+      .order("name")
+      .then(
+        (res) => res,
+        () => ({ data: [] }) as any,
+      ),
     supabase
       .from("drivers")
-      .select("id, display_name, vehicle_label, hospital_id, active, duty_status")
-      .order("display_name"),
+      .select("id, display_name, vehicle_label, hospital_id, active")
+      .order("display_name")
+      .then(
+        (res) => res,
+        () => ({ data: [] }) as any,
+      ),
   ]);
 
   return (
