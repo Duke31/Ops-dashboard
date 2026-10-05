@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 export async function GET() {
+  try {
     const token = process.env.GITHUB_TOKEN;
     if (!token) {
       return NextResponse.json({ error: "GITHUB_TOKEN not configured" }, { status: 500 });
