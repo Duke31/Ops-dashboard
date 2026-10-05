@@ -469,14 +469,22 @@ export default function BrandingPage() {
               </div>
             )}
 
-            <div className="pt-2">
+            <div className="pt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
               <a
                 href="/solace-driver.apk"
                 download="solace-driver.apk"
                 className="btn btn-secondary w-full py-2.5 text-xs font-semibold flex items-center justify-center gap-2"
               >
                 <span>📲</span>
-                <span>Download Current Solace Driver APK</span>
+                <span>Download Driver APK</span>
+              </a>
+              <a
+                href="/solace-client.apk"
+                download="solace-client.apk"
+                className="btn btn-secondary w-full py-2.5 text-xs font-semibold flex items-center justify-center gap-2 border-primary/40 text-primary"
+              >
+                <span>🚑</span>
+                <span>Download Client APK</span>
               </a>
             </div>
           </div>
