@@ -15,7 +15,7 @@ interface BuildStatus {
 export default function BrandingPage() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [fitMode, setFitMode] = useState<"contain" | "cover">("contain");
+  const [fitMode, setFitMode] = useState<"original" | "contain" | "cover">("original");
   const [bgColor, setBgColor] = useState<string>("#07193F");
   const [loading, setLoading] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -176,11 +176,22 @@ export default function BrandingPage() {
               <label className="block text-xs font-semibold uppercase text-white/70">
                 Fit Mode
               </label>
-              <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setFitMode("original")}
+                  className={`py-2 px-2 rounded-lg border font-medium text-center transition ${
+                    fitMode === "original"
+                      ? "border-[#00D4FF] bg-[#00D4FF]/15 text-[#00D4FF]"
+                      : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10"
+                  }`}
+                >
+                  Original (Unaltered)
+                </button>
                 <button
                   type="button"
                   onClick={() => setFitMode("contain")}
-                  className={`py-2 px-3 rounded-lg border font-medium transition ${
+                  className={`py-2 px-2 rounded-lg border font-medium text-center transition ${
                     fitMode === "contain"
                       ? "border-[#00D4FF] bg-[#00D4FF]/15 text-[#00D4FF]"
                       : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10"
@@ -191,13 +202,13 @@ export default function BrandingPage() {
                 <button
                   type="button"
                   onClick={() => setFitMode("cover")}
-                  className={`py-2 px-3 rounded-lg border font-medium transition ${
+                  className={`py-2 px-2 rounded-lg border font-medium text-center transition ${
                     fitMode === "cover"
                       ? "border-[#00D4FF] bg-[#00D4FF]/15 text-[#00D4FF]"
                       : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10"
                   }`}
                 >
-                  Cover (Edge-to-Edge)
+                  Cover (Full)
                 </button>
               </div>
 
@@ -320,8 +331,8 @@ export default function BrandingPage() {
                   Launcher Squircle
                 </span>
                 <div
-                  style={{ backgroundColor: bgColor }}
-                  className="w-24 h-24 rounded-[26px] shadow-2xl flex items-center justify-center overflow-hidden border border-white/10"
+                  style={{ backgroundColor: fitMode === "original" ? "transparent" : bgColor }}
+                  className="w-24 h-24 rounded-[26px] shadow-2xl flex items-center justify-center overflow-hidden border border-white/10 bg-white/5"
                 >
                   {previewUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -329,7 +340,11 @@ export default function BrandingPage() {
                       src={previewUrl}
                       alt="Preview"
                       className={`w-full h-full ${
-                        fitMode === "cover" ? "object-cover" : "object-contain p-2.5"
+                        fitMode === "cover"
+                          ? "object-cover"
+                          : fitMode === "original"
+                          ? "object-contain"
+                          : "object-contain p-2.5"
                       }`}
                     />
                   ) : (
@@ -350,8 +365,8 @@ export default function BrandingPage() {
                   Round Launcher
                 </span>
                 <div
-                  style={{ backgroundColor: bgColor }}
-                  className="w-24 h-24 rounded-full shadow-2xl flex items-center justify-center overflow-hidden border border-white/10"
+                  style={{ backgroundColor: fitMode === "original" ? "transparent" : bgColor }}
+                  className="w-24 h-24 rounded-full shadow-2xl flex items-center justify-center overflow-hidden border border-white/10 bg-white/5"
                 >
                   {previewUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -359,7 +374,11 @@ export default function BrandingPage() {
                       src={previewUrl}
                       alt="Preview"
                       className={`w-full h-full ${
-                        fitMode === "cover" ? "object-cover" : "object-contain p-3.5"
+                        fitMode === "cover"
+                          ? "object-cover"
+                          : fitMode === "original"
+                          ? "object-contain"
+                          : "object-contain p-3.5"
                       }`}
                     />
                   ) : (

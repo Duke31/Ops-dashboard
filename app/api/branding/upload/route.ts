@@ -42,14 +42,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid image file format" }, { status: 400 });
     }
 
-    // 1. Process 512x512 Master Play Store & App Icon in-memory
+    // 1. Process Master Icon - Support 'original' mode (Zero alterations, transparent background)
     let master512: Buffer;
-    if (mode === "cover") {
+    let masterForeground432: Buffer;
+
+    if (mode === "original") {
+      // 100% UNALTERED: keep exact image, exact transparency, zero artificial background or margins
+      master512 = await sharp(buffer)
+        .resize(512, 512, {
+          fit: "contain",
+          background: { r: 0, g: 0, b: 0, alpha: 0 },
+        })
+        .png()
+        .toBuffer();
+
+      masterForeground432 = await sharp(buffer)
+        .resize(432, 432, {
+          fit: "contain",
+          background: { r: 0, g: 0, b: 0, alpha: 0 },
+        })
+        .png()
+        .toBuffer();
+    } else if (mode === "cover") {
       master512 = await sharp(buffer)
         .resize(512, 512, { fit: "cover", position: "center" })
         .png()
         .toBuffer();
+
+      masterForeground432 = await sharp(buffer)
+        .resize(432, 432, { fit: "cover", position: "center" })
+        .png()
+        .toBuffer();
     } else {
+      // Contain mode with chosen background color
       const resized = await sharp(buffer)
         .resize(460, 460, { fit: "inside" })
         .png()
@@ -66,25 +91,24 @@ export async function POST(req: NextRequest) {
         .composite([{ input: resized, gravity: "center" }])
         .png()
         .toBuffer();
+
+      const innerForeground = await sharp(buffer)
+        .resize(320, 320, { fit: "inside" })
+        .png()
+        .toBuffer();
+
+      masterForeground432 = await sharp({
+        create: {
+          width: 432,
+          height: 432,
+          channels: 4,
+          background: { r: 0, g: 0, b: 0, alpha: 0 },
+        },
+      })
+        .composite([{ input: innerForeground, gravity: "center" }])
+        .png()
+        .toBuffer();
     }
-
-    // 2. Generate Adaptive Foreground (for Android 8+ Adaptive Icons) in-memory
-    const innerForeground = await sharp(buffer)
-      .resize(300, 300, { fit: "inside" })
-      .png()
-      .toBuffer();
-
-    const masterForeground432 = await sharp({
-      create: {
-        width: 432,
-        height: 432,
-        channels: 4,
-        background: { r: 0, g: 0, b: 0, alpha: 0 },
-      },
-    })
-      .composite([{ input: innerForeground, gravity: "center" }])
-      .png()
-      .toBuffer();
 
     // 3. Prepare all Android Mipmap densities in-memory (No disk writes!)
     const filesToUpload: FileEntry[] = [];
