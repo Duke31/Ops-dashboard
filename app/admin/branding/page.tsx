@@ -22,7 +22,13 @@ export default function BrandingPage() {
   const [error, setError] = useState<string | null>(null);
   const [buildStatus, setBuildStatus] = useState<BuildStatus | null>(null);
   const [isPolling, setIsPolling] = useState<boolean>(false);
+  const [githubToken, setGithubToken] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("github_token");
+    if (saved) setGithubToken(saved);
+  }, []);
 
   // Handle file selection
   function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -53,7 +59,9 @@ export default function BrandingPage() {
     if (isPolling) {
       interval = setInterval(async () => {
         try {
-          const res = await fetch("/api/branding/status");
+          const res = await fetch("/api/branding/status", {
+            headers: githubToken ? { "x-github-token": githubToken } : {},
+          });
           if (res.ok) {
             const data = await res.json();
             setBuildStatus(data);
@@ -68,7 +76,7 @@ export default function BrandingPage() {
       }, 5000);
     }
     return () => clearInterval(interval);
-  }, [isPolling]);
+  }, [isPolling, githubToken]);
 
   // Submit to API
   async function handleUploadAndDeploy() {
@@ -86,10 +94,15 @@ export default function BrandingPage() {
       fd.append("file", file);
       fd.append("mode", fitMode);
       fd.append("bgColor", bgColor);
+      if (githubToken) {
+        fd.append("githubToken", githubToken);
+        localStorage.setItem("github_token", githubToken);
+      }
 
       const res = await fetch("/api/branding/upload", {
         method: "POST",
         body: fd,
+        headers: githubToken ? { "x-github-token": githubToken } : {},
       });
 
       const data = await res.json();
@@ -230,6 +243,29 @@ export default function BrandingPage() {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* GitHub Token configuration */}
+            <div className="pt-2 border-t border-white/10 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-semibold uppercase text-white/70">
+                  GitHub Personal Access Token
+                </label>
+                <span className="text-[10px] text-white/40">Optional if set in Vercel</span>
+              </div>
+              <input
+                type="password"
+                placeholder="ghp_..."
+                value={githubToken}
+                onChange={(e) => {
+                  setGithubToken(e.target.value);
+                  localStorage.setItem("github_token", e.target.value);
+                }}
+                className="input py-1.5 px-3 text-xs w-full font-mono placeholder:text-white/30"
+              />
+              <p className="text-[10px] text-[var(--muted)]">
+                Used to push updated icons to Duke31/Driver-mobile-app and trigger APK compilation.
+              </p>
             </div>
 
             {/* Error & Status notices */}

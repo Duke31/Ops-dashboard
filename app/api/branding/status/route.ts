@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const token = process.env.GITHUB_TOKEN;
+    const token = req.headers.get("x-github-token") || process.env.GITHUB_TOKEN;
     if (!token) {
       return NextResponse.json({ error: "GITHUB_TOKEN not configured" }, { status: 500 });
     }
