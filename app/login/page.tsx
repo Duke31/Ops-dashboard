@@ -23,14 +23,20 @@ function LoginForm() {
   const activeError = state?.error || localError;
 
   return (
-    <form action={formAction} className="card w-full max-w-sm p-5 space-y-4">
-      <div>
-        <div className="text-[11px] uppercase tracking-[0.14em] text-[var(--muted)]">
-          Ops Dashboard
+    <form action={formAction} className="card w-full max-w-sm p-6 space-y-4">
+      <div className="flex flex-col items-center text-center pb-2">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/solace_icon.png"
+          alt="Solace Emergency Dispatch"
+          className="w-16 h-16 rounded-2xl shadow-lg mb-3 object-contain"
+        />
+        <h1 className="text-2xl font-black text-[#0B2256] tracking-tight">Solace</h1>
+        <div className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#0091FF] mt-0.5">
+          EMERGENCY DISPATCH • OPS PORTAL
         </div>
-        <h1 className="text-xl font-semibold mt-1">Staff sign in</h1>
-        <p className="text-sm text-[var(--muted)] mt-1">
-          Dispatcher, hospital, and admin access only.
+        <p className="text-xs text-[var(--muted)] mt-2">
+          Dispatcher, hospital intake, and fleet supervisor sign in.
         </p>
       </div>
 
@@ -66,15 +72,32 @@ function LoginForm() {
         {isPending ? "Signing in…" : "Sign in"}
       </button>
 
-      <div className="pt-2 text-center">
+      <div className="pt-2 flex flex-col items-center gap-2.5">
         <a
-          href="/login"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs text-[var(--muted)] hover:underline inline-flex items-center gap-1"
+          href="/solace-driver.apk"
+          download="solace-driver.apk"
+          className="w-full py-2 px-3 rounded-lg border border-[#0091FF]/30 bg-[#0091FF]/10 hover:bg-[#0091FF]/20 text-[#0077FE] text-xs font-semibold flex items-center justify-center gap-2 transition"
         >
-          Open standalone tab ↗
+          <span>📲</span>
+          <span>Download Solace Driver APK (Android)</span>
         </a>
+
+        <div className="flex items-center justify-between w-full text-xs text-[var(--muted)] px-1">
+          <a
+            href="/branding"
+            className="text-[#00D4FF] hover:underline inline-flex items-center gap-1 font-medium"
+          >
+            🎨 App Logo & Branding Studio →
+          </a>
+          <a
+            href="/login"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:underline inline-flex items-center gap-1"
+          >
+            Standalone tab ↗
+          </a>
+        </div>
       </div>
     </form>
   );

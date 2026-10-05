@@ -47,7 +47,9 @@ export async function updateSession(request: NextRequest) {
   const isRest =
     pathname === "/no-access" ||
     pathname === "/reset" ||
-    pathname === "/driver";
+    pathname === "/driver" ||
+    pathname === "/branding" ||
+    pathname.startsWith("/api/branding");
   const isPublic = isLogin || isRest || pathname.startsWith("/auth");
 
   if (!user && !isPublic) {
