@@ -344,17 +344,17 @@ export function HospitalCards({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
           <div className="card max-w-lg w-full p-6 space-y-5 shadow-2xl bg-[var(--surface)] border border-[var(--border,#e5e7eb)] rounded-2xl">
             {/* Header */}
-            <div className="flex items-start justify-between border-b pb-3">
+            <div className="flex items-start justify-between border-b border-[var(--border)] pb-3">
               <div>
                 <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 tracking-wider uppercase block">
                   ER BED HANDOVER & ADMISSION
                 </span>
-                <h3 className="text-xl font-bold mt-1">
+                <h3 className="text-xl font-bold mt-1 text-[var(--foreground)]">
                   Admit {admittingReq.emergency_type || "Emergency Patient"}
                 </h3>
               </div>
               <button
-                className="text-xs font-semibold text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex items-center gap-1"
+                className="text-xs font-semibold text-[var(--muted)] hover:text-[var(--foreground)] flex items-center gap-1 transition-colors"
                 onClick={() => setAdmittingReq(null)}
               >
                 ✕ Close
@@ -460,7 +460,7 @@ export function HospitalCards({
                 className={`btn py-2.5 px-5 text-xs font-bold text-white rounded-lg shadow-md flex-1 text-center ${
                   isFacilityFull
                     ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-[#046A38] hover:bg-[#03542c]"
+                    : "bg-emerald-600 hover:bg-emerald-700"
                 }`}
                 onClick={handleConfirmAdmit}
                 disabled={busy === admittingReq.id || isFacilityFull}
