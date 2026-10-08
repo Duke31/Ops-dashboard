@@ -1,8 +1,8 @@
-import BrandingPage from "../admin/branding/page.tsx";
+import { BrandingStudio } from "@/components/BrandingStudio";
 
 export default function StandaloneBrandingPage() {
   return (
-    <div className="min-h-dvh bg-[#07193F] text-white p-4 sm:p-8">
+    <div className="min-h-dvh bg-[#07193F] text-white p-4 sm:p-8" data-theme="dark">
       <div className="max-w-4xl mx-auto mb-6 flex items-center justify-between border-b border-white/10 pb-4">
         <div className="flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -20,12 +20,12 @@ export default function StandaloneBrandingPage() {
         </div>
         <a
           href="/login"
-          className="text-xs text-[#00D4FF] hover:underline border border-[#00D4FF]/30 px-3 py-1.5 rounded-lg bg-[#00D4FF]/10"
+          className="text-xs text-[#00D4FF] hover:underline border border-[#00D4FF]/30 px-3 py-1.5 rounded-lg bg-[#00D4FF]/10 transition-colors"
         >
           Staff Sign In →
         </a>
       </div>
-      <BrandingPage />
+      <BrandingStudio />
     </div>
   );
 }
