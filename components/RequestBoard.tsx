@@ -453,15 +453,15 @@ export function RequestBoard({
   return (
     <>
       {/* QUICK LINK TO PATIENT REVIEWS & QA PATHWAY */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900/80 px-4 py-2.5 text-xs">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] px-4 py-2.5 text-xs">
         <div className="flex items-center gap-2">
           <span className="text-base">⭐</span>
-          <span className="font-bold text-white">Patient Remarks & Quality of Service Audit</span>
-          <span className="text-slate-400 hidden sm:inline">• Read feedback & remarks submitted directly by patients</span>
+          <span className="font-bold text-[var(--foreground)]">Patient Remarks & Quality of Service Audit</span>
+          <span className="text-[var(--muted)] hidden sm:inline">• Read feedback & remarks submitted directly by patients</span>
         </div>
         <Link
           href={`/${actorRole}/reviews`}
-          className="inline-flex items-center gap-1.5 rounded-md bg-amber-500/20 border border-amber-500/40 px-3 py-1 font-bold text-amber-300 hover:bg-amber-500 hover:text-slate-950 transition-all text-xs"
+          className="inline-flex items-center gap-1.5 rounded-md bg-amber-500/15 border border-amber-500/40 px-3 py-1 font-bold text-amber-700 dark:text-amber-300 hover:bg-amber-500 hover:text-white dark:hover:text-slate-950 transition-all text-xs"
         >
           <span>Audit Patient Remarks</span>
           <span>→</span>
@@ -470,14 +470,14 @@ export function RequestBoard({
 
       {/* DEDICATED TACTICAL RADIO & REROUTE ALERT PARTITION */}
       {tacticalAlerts.length > 0 && (
-        <div className="mb-6 rounded-xl border-2 border-amber-500/50 bg-gradient-to-r from-amber-950/40 via-slate-900 to-slate-900 p-4 shadow-xl">
+        <div className="mb-6 rounded-xl border-2 border-amber-500/50 bg-amber-50/50 dark:bg-gradient-to-r dark:from-amber-950/40 dark:via-slate-900 dark:to-slate-900 p-4 shadow-sm dark:shadow-xl">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-500/20 pb-3">
             <div className="flex items-center gap-2">
               <span className="relative flex h-3 w-3">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
               </span>
-              <h3 className="font-extrabold text-sm tracking-wider text-amber-400 uppercase flex items-center gap-1.5">
+              <h3 className="font-extrabold text-sm tracking-wider text-amber-700 dark:text-amber-400 uppercase flex items-center gap-1.5">
                 <span>📻</span>
                 <span>Tactical Radio & Situational Alerts Channel</span>
                 <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-slate-950">
@@ -485,7 +485,7 @@ export function RequestBoard({
                 </span>
               </h3>
             </div>
-            <span className="text-xs text-slate-400">
+            <span className="text-xs text-[var(--muted)]">
               Live telemetry & tactical radio communications between ambulance units and Dispatch
             </span>
           </div>
@@ -500,23 +500,23 @@ export function RequestBoard({
                   key={req.id}
                   className={`rounded-lg border p-3.5 transition-all ${
                     item.isAck
-                      ? "bg-slate-800/60 border-slate-700 text-slate-300"
-                      : "bg-amber-950/70 border-amber-500/60 text-amber-100 shadow-md ring-1 ring-amber-500/30"
+                      ? "bg-[var(--surface)] border-[var(--border)] text-[var(--foreground)]"
+                      : "bg-amber-500/10 dark:bg-amber-950/70 border-amber-500/60 text-[var(--foreground)] shadow-md ring-1 ring-amber-500/30"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <span className="text-xl">🚑</span>
                       <div>
-                        <div className="font-bold text-xs text-white flex items-center gap-1.5">
+                        <div className="font-bold text-xs text-[var(--foreground)] flex items-center gap-1.5">
                           <span>{req.driver?.display_name || "Ambulance Unit"}</span>
                           {req.driver?.vehicle_label && (
-                            <span className="px-1.5 py-0.2 rounded bg-slate-700 text-[10px] text-slate-300 font-mono">
+                            <span className="px-1.5 py-0.2 rounded bg-[var(--surface-raised)] border border-[var(--border)] text-[10px] text-[var(--muted)] font-mono">
                               {req.driver.vehicle_label}
                             </span>
                           )}
                         </div>
-                        <div className="text-[11px] text-slate-400">
+                        <div className="text-[11px] text-[var(--muted)]">
                           Location: {formatLocation(req)}
                         </div>
                       </div>
@@ -527,34 +527,34 @@ export function RequestBoard({
                           isDivert
                             ? "bg-red-600 text-white animate-pulse"
                             : item.isAck
-                            ? "bg-slate-700 text-slate-300"
-                            : "bg-amber-500 text-slate-950"
+                            ? "bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--muted)]"
+                            : "bg-amber-500 text-slate-950 font-bold"
                         }`}
                       >
                         {isDivert ? "🚨 HOSPITAL DIVERT / REROUTE" : item.alertCode}
                       </span>
                       {item.alertAt && (
-                        <div className="text-[10px] text-slate-400 mt-0.5">
+                        <div className="text-[10px] text-[var(--muted)] mt-0.5">
                           {timeSince(item.alertAt)}
                         </div>
                       )}
                     </div>
                   </div>
 
-                  <div className="mt-2.5 rounded bg-black/50 p-2 font-mono text-xs border border-white/10 flex items-start gap-2">
-                    <span className="text-amber-400 font-bold shrink-0">DRIVER RADIO:</span>
-                    <span className="text-white font-medium">&ldquo;{item.alertText}&rdquo;</span>
+                  <div className="mt-2.5 rounded bg-[var(--surface-raised)] dark:bg-black/50 p-2 font-mono text-xs border border-[var(--border)] dark:border-white/10 flex items-start gap-2">
+                    <span className="text-amber-600 dark:text-amber-400 font-bold shrink-0">DRIVER RADIO:</span>
+                    <span className="text-[var(--foreground)] font-medium">&ldquo;{item.alertText}&rdquo;</span>
                   </div>
 
                   {item.response && (
-                    <div className="mt-2 text-xs text-emerald-400 font-medium bg-emerald-950/40 border border-emerald-500/30 rounded p-1.5 flex items-center gap-1.5">
+                    <div className="mt-2 text-xs text-emerald-700 dark:text-emerald-400 font-medium bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-500/30 rounded p-1.5 flex items-center gap-1.5">
                       <span>✓</span>
                       <span>Dispatcher Reply: &ldquo;{item.response}&rdquo;</span>
                     </div>
                   )}
 
                   {/* Dispatcher Actions */}
-                  <div className="mt-3 pt-2.5 border-t border-white/10 flex flex-wrap items-center justify-between gap-2">
+                  <div className="mt-3 pt-2.5 border-t border-[var(--border)] dark:border-white/10 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-1.5">
                       {!item.isAck ? (
                         <>
@@ -578,13 +578,13 @@ export function RequestBoard({
                             onClick={() =>
                               setActiveReplyId(activeReplyId === req.id ? null : req.id)
                             }
-                            className="px-2.5 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white font-semibold text-xs transition-all"
+                            className="px-2.5 py-1 rounded bg-[var(--surface-raised)] hover:bg-[var(--surface)] text-[var(--foreground)] border border-[var(--border)] font-semibold text-xs transition-all"
                           >
                             Radio Reply ▾
                           </button>
                         </>
                       ) : (
-                        <span className="text-[11px] text-emerald-400 font-bold flex items-center gap-1">
+                        <span className="text-[11px] text-emerald-700 dark:text-emerald-400 font-bold flex items-center gap-1">
                           <span>✓</span> Acknowledged & Addressed
                         </span>
                       )}
@@ -593,9 +593,9 @@ export function RequestBoard({
                     {/* Quick Reroute Hospital Switcher */}
                     {isDivert && (
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] text-slate-400">Reroute To:</span>
+                        <span className="text-[10px] text-[var(--muted)]">Reroute To:</span>
                         <select
-                          className="text-[11px] py-0.5 px-2 bg-slate-900 border border-amber-500/50 text-white rounded font-medium focus:ring-1 focus:ring-amber-400"
+                          className="text-[11px] py-0.5 px-2 bg-[var(--surface)] border border-amber-500/50 text-[var(--foreground)] rounded font-medium focus:ring-1 focus:ring-amber-400"
                           defaultValue=""
                           onChange={(e) => {
                             if (e.target.value) {
@@ -620,7 +620,7 @@ export function RequestBoard({
 
                   {/* Canned Radio Options */}
                   {activeReplyId === req.id && (
-                    <div className="mt-2.5 pt-2 border-t border-white/10 grid grid-cols-2 gap-1.5">
+                    <div className="mt-2.5 pt-2 border-t border-[var(--border)] dark:border-white/10 grid grid-cols-2 gap-1.5">
                       <button
                         type="button"
                         onClick={() =>
@@ -629,7 +629,7 @@ export function RequestBoard({
                             "Hospital Divert Approved - Proceed to alternate facility",
                           )
                         }
-                        className="text-left text-xs bg-slate-800 hover:bg-emerald-600 text-white p-1.5 rounded transition-all"
+                        className="text-left text-xs bg-[var(--surface-raised)] hover:bg-emerald-600 hover:text-white text-[var(--foreground)] border border-[var(--border)] p-1.5 rounded transition-all"
                       >
                         🏥 Hospital Divert Approved
                       </button>
@@ -641,7 +641,7 @@ export function RequestBoard({
                             "Police Escort Dispatched to your coordinates",
                           )
                         }
-                        className="text-left text-xs bg-slate-800 hover:bg-emerald-600 text-white p-1.5 rounded transition-all"
+                        className="text-left text-xs bg-[var(--surface-raised)] hover:bg-emerald-600 hover:text-white text-[var(--foreground)] border border-[var(--border)] p-1.5 rounded transition-all"
                       >
                         🚓 Police Escort Dispatched
                       </button>
@@ -650,7 +650,7 @@ export function RequestBoard({
                         onClick={() =>
                           ackTacticalAlert(req.id, "ER Trauma Bay Ready - Expedite arrival")
                         }
-                        className="text-left text-xs bg-slate-800 hover:bg-emerald-600 text-white p-1.5 rounded transition-all"
+                        className="text-left text-xs bg-[var(--surface-raised)] hover:bg-emerald-600 hover:text-white text-[var(--foreground)] border border-[var(--border)] p-1.5 rounded transition-all"
                       >
                         ⚠️ ER Trauma Bay Ready
                       </button>
@@ -662,7 +662,7 @@ export function RequestBoard({
                             "Traffic patrol notified - alternate corridor open",
                           )
                         }
-                        className="text-left text-xs bg-slate-800 hover:bg-emerald-600 text-white p-1.5 rounded transition-all"
+                        className="text-left text-xs bg-[var(--surface-raised)] hover:bg-emerald-600 hover:text-white text-[var(--foreground)] border border-[var(--border)] p-1.5 rounded transition-all"
                       >
                         🚦 Traffic Cleared Ahead
                       </button>
@@ -745,21 +745,21 @@ export function RequestBoard({
                             </div>
                           )}
                           {review && (
-                            <div className="mt-1.5 rounded-lg bg-amber-500/15 border border-amber-500/30 p-2 text-xs shadow-sm">
+                            <div className="mt-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 p-2 text-xs shadow-sm">
                               <div className="flex items-center justify-between gap-1">
-                                <span className="flex items-center gap-1 font-black text-amber-400 text-[10px] uppercase tracking-wider">
+                                <span className="flex items-center gap-1 font-black text-amber-800 dark:text-amber-400 text-[10px] uppercase tracking-wider">
                                   <span>⭐</span>
                                   <span>Patient Rating:</span>
-                                  <span className="text-amber-300 font-bold ml-0.5">{"★".repeat(review.rating)} ({review.rating}/5)</span>
+                                  <span className="text-amber-700 dark:text-amber-300 font-bold ml-0.5">{"★".repeat(review.rating)} ({review.rating}/5)</span>
                                 </span>
                               </div>
-                              <div className="mt-1 text-amber-100 italic text-[11px] leading-snug font-medium">
+                              <div className="mt-1 text-amber-950 dark:text-amber-100 italic text-[11px] leading-snug font-medium">
                                 &ldquo;{review.remark}&rdquo;
                               </div>
                               {review.tags.length > 0 && (
                                 <div className="mt-1.5 flex flex-wrap gap-1">
                                   {review.tags.map((t) => (
-                                    <span key={t} className="px-1.5 py-0.2 rounded bg-amber-400/20 text-[9px] font-semibold text-amber-300 border border-amber-400/30">
+                                    <span key={t} className="px-1.5 py-0.2 rounded bg-amber-500/15 text-[9px] font-semibold text-amber-800 dark:text-amber-300 border border-amber-500/30">
                                       ✓ {t}
                                     </span>
                                   ))}
@@ -773,8 +773,8 @@ export function RequestBoard({
                     {r.tactical_alert && (
                       <div className={`mt-2 p-2 rounded-lg border text-[11px] ${
                         r.tactical_alert_ack
-                          ? "bg-slate-100 dark:bg-slate-800/80 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300"
-                          : "bg-amber-500/15 dark:bg-amber-950/50 border-amber-500/40 text-amber-900 dark:text-amber-200 animate-pulse"
+                          ? "bg-[var(--surface-raised)] border-[var(--border)] text-[var(--foreground)]"
+                          : "bg-amber-500/10 dark:bg-amber-950/50 border-amber-500/40 text-amber-950 dark:text-amber-200 animate-pulse"
                       }`}>
                         <div className="flex items-center justify-between gap-1 font-bold text-[10px] uppercase tracking-wider">
                           <span className="flex items-center gap-1">
@@ -791,7 +791,7 @@ export function RequestBoard({
                           {r.tactical_alert}
                         </div>
                         {r.dispatcher_response && (
-                          <div className="mt-1.5 pt-1.5 border-t border-current/20 text-[10px] text-emerald-700 dark:text-emerald-300 font-medium">
+                          <div className="mt-1.5 pt-1.5 border-t border-current/20 text-[10px] text-emerald-800 dark:text-emerald-300 font-medium">
                             ↳ Dispatcher: &ldquo;{r.dispatcher_response}&rdquo;
                           </div>
                         )}
@@ -807,7 +807,7 @@ export function RequestBoard({
                             <button
                               type="button"
                               onClick={() => setActiveReplyId(activeReplyId === r.id ? null : r.id)}
-                              className="px-2 py-0.5 bg-slate-700 hover:bg-slate-600 text-white rounded font-medium text-[10px]"
+                              className="px-2 py-0.5 bg-[var(--surface-raised)] hover:bg-[var(--border)] text-[var(--foreground)] border border-[var(--border)] rounded font-medium text-[10px] transition-all"
                             >
                               Radio Reply ▾
                             </button>
@@ -820,28 +820,28 @@ export function RequestBoard({
                               <button
                                 type="button"
                                 onClick={() => ackTacticalAlert(r.id, "Police Escort Dispatched")}
-                                className="text-left text-[10px] bg-slate-200 dark:bg-slate-700 hover:bg-emerald-600 hover:text-white px-2 py-1 rounded"
+                                className="text-left text-[10px] bg-[var(--surface-raised)] hover:bg-emerald-600 hover:text-white text-[var(--foreground)] border border-[var(--border)] px-2 py-1 rounded transition-colors"
                               >
                                 🚓 Police Escort Dispatched
                               </button>
                               <button
                                 type="button"
                                 onClick={() => ackTacticalAlert(r.id, "Hospital Divert Approved")}
-                                className="text-left text-[10px] bg-slate-200 dark:bg-slate-700 hover:bg-emerald-600 hover:text-white px-2 py-1 rounded"
+                                className="text-left text-[10px] bg-[var(--surface-raised)] hover:bg-emerald-600 hover:text-white text-[var(--foreground)] border border-[var(--border)] px-2 py-1 rounded transition-colors"
                               >
                                 🏥 Hospital Divert Approved
                               </button>
                               <button
                                 type="button"
                                 onClick={() => ackTacticalAlert(r.id, "ER Trauma Team Standing By")}
-                                className="text-left text-[10px] bg-slate-200 dark:bg-slate-700 hover:bg-emerald-600 hover:text-white px-2 py-1 rounded"
+                                className="text-left text-[10px] bg-[var(--surface-raised)] hover:bg-emerald-600 hover:text-white text-[var(--foreground)] border border-[var(--border)] px-2 py-1 rounded transition-colors"
                               >
                                 ⚠️ ER Trauma Team Standing By
                               </button>
                               <button
                                 type="button"
                                 onClick={() => ackTacticalAlert(r.id, "Copy that, stay safe")}
-                                className="text-left text-[10px] bg-slate-200 dark:bg-slate-700 hover:bg-emerald-600 hover:text-white px-2 py-1 rounded"
+                                className="text-left text-[10px] bg-[var(--surface-raised)] hover:bg-emerald-600 hover:text-white text-[var(--foreground)] border border-[var(--border)] px-2 py-1 rounded transition-colors"
                               >
                                 🆗 Copy that, stay safe
                               </button>
