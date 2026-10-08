@@ -368,17 +368,17 @@ export function DriverConsole({
   return (
     <div className="space-y-4 max-w-xl mx-auto pb-12">
       {/* Unit Banner */}
-      <div className="card p-4 bg-slate-900 text-white border-slate-800">
+      <div className="card p-4 bg-[var(--surface)] text-[var(--foreground)] border border-[var(--border)] shadow-sm">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
+            <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--muted)] block">
               Active Responder Unit
             </span>
-            <div className="text-base font-semibold text-emerald-400 flex items-center gap-1.5 mt-0.5">
+            <div className="text-base font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 mt-0.5">
               <span>🚑</span>
               <span>{currentDriver?.display_name || "Ambulance Unit"}</span>
               {currentDriver?.vehicle_label && (
-                <span className="text-xs text-slate-300 font-normal">
+                <span className="text-xs text-[var(--muted)] font-normal">
                   ({currentDriver.vehicle_label})
                 </span>
               )}
@@ -388,7 +388,7 @@ export function DriverConsole({
           {!isDriverRole && (
             <div className="flex items-center gap-2">
               <select
-                className="select text-xs bg-slate-800 text-white border-slate-700 py-1.5"
+                className="select text-xs py-1.5"
                 value={selectedDriverId}
                 onChange={(e) => handleSelectDriver(e.target.value)}
               >
@@ -404,7 +404,7 @@ export function DriverConsole({
         </div>
 
         {/* Live GPS Telemetry Indicator */}
-        <div className="mt-3 pt-2.5 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+        <div className="mt-3 pt-2.5 border-t border-[var(--border)] flex items-center justify-between text-[11px] text-[var(--muted)]">
           <div className="flex items-center gap-1.5">
             <span className="relative flex h-2 w-2">
               <span
@@ -427,7 +427,7 @@ export function DriverConsole({
             </span>
           </div>
           {gpsCoords?.speed != null && (
-            <span className="font-mono text-slate-300">
+            <span className="font-mono text-[var(--foreground)] font-semibold">
               {(gpsCoords.speed * 3.6).toFixed(0)} km/h
             </span>
           )}
@@ -591,7 +591,7 @@ export function DriverConsole({
                       href={gmapsHospitalUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-1 btn py-2.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white rounded-lg flex items-center justify-center gap-1.5"
+                      className="flex-1 btn py-2.5 text-xs font-semibold bg-slate-700 hover:bg-slate-800 text-white dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg flex items-center justify-center gap-1.5 shadow-sm"
                     >
                       <span>🏥</span>
                       <span>Google Maps to Hospital</span>
@@ -601,7 +601,7 @@ export function DriverConsole({
                         href={wazeHospitalUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="btn py-2.5 px-3 text-xs font-semibold bg-cyan-800 hover:bg-cyan-700 text-white rounded-lg flex items-center justify-center gap-1"
+                        className="btn py-2.5 px-3 text-xs font-semibold bg-cyan-700 hover:bg-cyan-800 text-white dark:bg-cyan-800 dark:hover:bg-cyan-700 rounded-lg flex items-center justify-center gap-1 shadow-sm"
                       >
                         <span>🚗</span>
                         <span>Waze</span>
