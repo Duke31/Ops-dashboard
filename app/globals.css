@@ -1,11 +1,15 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
 :root {
   --background: #f4f5f7;
   --foreground: #12141a;
   --surface: #ffffff;
   --surface-raised: #f8f9fb;
   --panel: #ffffff;
+  --card: #ffffff;
+  --card-foreground: #12141a;
   --muted: #5c6473;
   --border: #e2e5eb;
   --line: #e2e5eb;
@@ -27,6 +31,8 @@ html[data-theme="dark"] {
   --surface: #161b22;
   --surface-raised: #21262d;
   --panel: #0d1117;
+  --card: #161b22;
+  --card-foreground: #e6edf3;
   --muted: #8b949e;
   --border: #30363d;
   --line: #30363d;
@@ -49,6 +55,8 @@ html[data-theme="dark"] {
     --surface: #161b22;
     --surface-raised: #21262d;
     --panel: #0d1117;
+    --card: #161b22;
+    --card-foreground: #e6edf3;
     --muted: #8b949e;
     --border: #30363d;
     --line: #30363d;
@@ -69,6 +77,7 @@ html[data-theme="dark"] {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-surface: var(--surface);
+  --color-card: var(--card);
   --color-panel: var(--panel);
   --color-muted: var(--muted);
   --color-border: var(--border);
@@ -107,18 +116,22 @@ body {
 .badge-ok {
   background: rgba(63, 185, 80, 0.15);
   color: var(--ok);
+  border: 1px solid rgba(63, 185, 80, 0.3);
 }
 .badge-warn {
   background: rgba(251, 133, 0, 0.15);
   color: var(--warn);
+  border: 1px solid rgba(251, 133, 0, 0.3);
 }
 .badge-info {
   background: rgba(88, 166, 255, 0.15);
   color: var(--info);
+  border: 1px solid rgba(88, 166, 255, 0.3);
 }
 .badge-danger {
   background: rgba(248, 81, 73, 0.15);
   color: var(--danger);
+  border: 1px solid rgba(248, 81, 73, 0.3);
 }
 
 .btn {
