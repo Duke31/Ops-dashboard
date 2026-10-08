@@ -8,10 +8,14 @@ import { createClient } from "@/lib/supabase/client";
 
 const NAV: Record<string, { href: string; label: string }[]> = {
   driver: [{ href: "/driver", label: "Ambulance Console" }],
-  dispatcher: [{ href: "/dispatcher", label: "Active requests" }],
+  dispatcher: [
+    { href: "/dispatcher", label: "Active requests" },
+    { href: "/dispatcher/reviews", label: "⭐ Patient Reviews" },
+  ],
   hospital: [{ href: "/hospital", label: "Incoming" }],
   admin: [
     { href: "/admin", label: "Network queue" },
+    { href: "/admin/reviews", label: "⭐ Patient Reviews" },
     { href: "/driver", label: "Ambulance View" },
     { href: "/admin/hospitals", label: "Hospitals" },
     { href: "/admin/approvals", label: "Approvals" },

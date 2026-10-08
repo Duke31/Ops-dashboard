@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 
 import { useEffect, useMemo, useState } from "react";
 import type {
@@ -133,19 +134,20 @@ export function RequestBoard({
           router.refresh();
         },
       )
-      .on("broadcast", { event: "driver_tactical_alert" }, (payload: any) => {
+      .on("broadcast", { event: "driver_tactical_alert" }, (payload: { payload?: Record<string, unknown> }) => {
         const data = payload?.payload;
-        if (data?.request_id) {
+        if (data?.request_id && typeof data.request_id === "string") {
           playAlertChime();
+          const reqId = data.request_id;
           setLiveAlerts((prev) => ({
             ...prev,
-            [data.request_id]: {
-              requestId: data.request_id,
-              driverName: data.driver_name || "Ambulance Unit",
-              vehicleLabel: data.vehicle_label,
-              alertCode: data.alert_code || "EMERGENCY",
-              alertText: data.alert_message || "URGENT DRIVER ALERT",
-              alertAt: data.created_at || new Date().toISOString(),
+            [reqId]: {
+              requestId: reqId,
+              driverName: (data.driver_name as string) || "Ambulance Unit",
+              vehicleLabel: (data.vehicle_label as string) || undefined,
+              alertCode: (data.alert_code as string) || "EMERGENCY",
+              alertText: (data.alert_message as string) || "URGENT DRIVER ALERT",
+              alertAt: (data.created_at as string) || new Date().toISOString(),
               isAck: false,
             },
           }));
@@ -418,6 +420,22 @@ export function RequestBoard({
 
   return (
     <>
+      {/* QUICK LINK TO PATIENT REVIEWS & QA PATHWAY */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900/80 px-4 py-2.5 text-xs">
+        <div className="flex items-center gap-2">
+          <span className="text-base">⭐</span>
+          <span className="font-bold text-white">Patient Remarks & Quality of Service Audit</span>
+          <span className="text-slate-400 hidden sm:inline">• Read feedback & remarks submitted directly by patients</span>
+        </div>
+        <Link
+          href={`/${actorRole}/reviews`}
+          className="inline-flex items-center gap-1.5 rounded-md bg-amber-500/20 border border-amber-500/40 px-3 py-1 font-bold text-amber-300 hover:bg-amber-500 hover:text-slate-950 transition-all text-xs"
+        >
+          <span>Audit Patient Remarks</span>
+          <span>→</span>
+        </Link>
+      </div>
+
       {/* DEDICATED TACTICAL RADIO & REROUTE ALERT PARTITION */}
       {tacticalAlerts.length > 0 && (
         <div className="mb-6 rounded-xl border-2 border-amber-500/50 bg-gradient-to-r from-amber-950/40 via-slate-900 to-slate-900 p-4 shadow-xl">
@@ -681,14 +699,45 @@ export function RequestBoard({
                   </td>
                   <td className="max-w-[240px]">
                     <div className="font-semibold text-sm">{r.emergency_type || "—"}</div>
-                    {r.notes && (
-                      <div className="mt-1 text-[11px] leading-tight text-red-700 dark:text-red-300 bg-red-500/10 border border-red-500/20 rounded p-1.5">
-                        <span className="font-bold uppercase tracking-wider text-[9px] block opacity-75 mb-0.5">
-                          Triage & Medical ID:
-                        </span>
-                        <span className="line-clamp-3 hover:line-clamp-none transition-all">{r.notes}</span>
-                      </div>
-                    )}
+                    {(() => {
+                      const review = parsePatientReview(r.notes);
+                      const cleanNotes = getCleanMedicalNotes(r.notes);
+                      return (
+                        <>
+                          {cleanNotes && (
+                            <div className="mt-1 text-[11px] leading-tight text-red-700 dark:text-red-300 bg-red-500/10 border border-red-500/20 rounded p-1.5">
+                              <span className="font-bold uppercase tracking-wider text-[9px] block opacity-75 mb-0.5">
+                                Triage & Medical ID:
+                              </span>
+                              <span className="line-clamp-3 hover:line-clamp-none transition-all">{cleanNotes}</span>
+                            </div>
+                          )}
+                          {review && (
+                            <div className="mt-1.5 rounded-lg bg-amber-500/15 border border-amber-500/30 p-2 text-xs shadow-sm">
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="flex items-center gap-1 font-black text-amber-400 text-[10px] uppercase tracking-wider">
+                                  <span>⭐</span>
+                                  <span>Patient Rating:</span>
+                                  <span className="text-amber-300 font-bold ml-0.5">{"★".repeat(review.rating)} ({review.rating}/5)</span>
+                                </span>
+                              </div>
+                              <div className="mt-1 text-amber-100 italic text-[11px] leading-snug font-medium">
+                                &ldquo;{review.remark}&rdquo;
+                              </div>
+                              {review.tags.length > 0 && (
+                                <div className="mt-1.5 flex flex-wrap gap-1">
+                                  {review.tags.map((t) => (
+                                    <span key={t} className="px-1.5 py-0.2 rounded bg-amber-400/20 text-[9px] font-semibold text-amber-300 border border-amber-400/30">
+                                      ✓ {t}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                     {r.tactical_alert && (
                       <div className={`mt-2 p-2 rounded-lg border text-[11px] ${
                         r.tactical_alert_ack

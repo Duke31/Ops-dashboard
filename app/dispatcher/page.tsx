@@ -18,7 +18,7 @@ export default async function DispatcherPage() {
       .order("name")
       .then(
         (res) => res,
-        () => ({ data: [] }) as any,
+        () => ({ data: [] as { id: string; name: string; available_capacity: number | null }[], error: null, count: null, status: 200, statusText: "OK" }),
       ),
     supabase
       .from("drivers")
@@ -26,7 +26,7 @@ export default async function DispatcherPage() {
       .order("display_name")
       .then(
         (res) => res,
-        () => ({ data: [] }) as any,
+        () => ({ data: [] as { id: string; display_name: string; vehicle_label: string | null; hospital_id: string | null; active: boolean }[], error: null, count: null, status: 200, statusText: "OK" }),
       ),
   ]);
 
