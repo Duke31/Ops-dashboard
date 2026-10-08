@@ -1,5 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient as createJsClient } from "@supabase/supabase-js";
+import { getSupabaseUrl } from "@/lib/env";
+import { createClient as createServerClient } from "@/lib/supabase/server";
+
+async function getDbClient() {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (serviceKey) {
+    return createJsClient(getSupabaseUrl(), serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+  }
+  return await createServerClient();
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,7 +34,7 @@ export async function POST(req: NextRequest) {
       minute: "2-digit",
     });
 
-    const supabase = await createClient();
+    const supabase = await getDbClient();
 
     // 1. Fetch existing notes
     const { data: existing, error: fetchErr } = await supabase
@@ -36,14 +48,12 @@ export async function POST(req: NextRequest) {
     }
 
     const currentNotes = existing?.notes || "";
-
     // Remove any previous [PATIENT REVIEW ...] block to allow updating cleanly
     const sanitizedNotes = currentNotes
       .replace(/\[PATIENT (?:REVIEW|FEEDBACK|RATING)[^\]]*\]/gi, "")
       .trim();
 
     const reviewBlock = `[PATIENT REVIEW ${"★".repeat(numRating)}${"☆".repeat(5 - numRating)} (${numRating}/5)]: ${cleanRemark || "Service completed"} | TAGS: ${cleanTags.join(", ") || "None"} | SUBMITTED: ${dateFormatted}]`;
-
     const updatedNotes = sanitizedNotes
       ? `${sanitizedNotes}\n${reviewBlock}`
       : reviewBlock;
@@ -89,6 +99,7 @@ export async function POST(req: NextRequest) {
       rating: numRating,
       remark: cleanRemark,
       tags: cleanTags,
+      notes: updatedNotes,
     });
   } catch (err: unknown) {
     console.error("Error in /api/reviews:", err);
@@ -101,7 +112,7 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await getDbClient();
     const { data: requests, error } = await supabase
       .from("emergency_requests")
       .select(

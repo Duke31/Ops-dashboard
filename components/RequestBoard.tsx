@@ -254,6 +254,21 @@ export function RequestBoard({
         }).eq("id", requestId);
       }
 
+      // Broadcast immediately so client tracking screen updates hospital card live
+      try {
+        const ch = supabase.channel(`request-status:${requestId}`);
+        await ch.subscribe();
+        await ch.send({
+          type: "broadcast",
+          event: "hospital_assigned",
+          payload: {
+            hospital_id: newHospitalId,
+            hospital_name: hospitalName,
+            hospital_address: hospitalObj?.address || "",
+          },
+        });
+      } catch {}
+
       // 2. Transmit tactical confirmation to driver
       const replyMsg = `Hospital Divert Approved: Rerouted to ${hospitalName}`;
       await ackTacticalAlert(requestId, replyMsg);
@@ -358,6 +373,22 @@ export function RequestBoard({
           },
         );
         if (hospErr) throw hospErr;
+
+        try {
+          const hospObj = hospitals.find((h) => h.id === hospitalId);
+          const chHosp = supabase.channel(`request-status:${request.id}`);
+          await chHosp.subscribe();
+          await chHosp.send({
+            type: "broadcast",
+            event: "hospital_assigned",
+            payload: {
+              hospital_id: hospitalId,
+              hospital_name: hospObj?.name || "Assigned Facility",
+              hospital_address: hospObj?.address || "",
+              status: toStatus,
+            },
+          });
+        } catch {}
       }
 
       if (needsDriver(toStatus) && selectedDriver !== request.driver_id) {
@@ -910,8 +941,25 @@ export function RequestBoard({
                                 p_hospital_id: value,
                               },
                             );
-                            if (err) setError(rpcMessage(err));
-                            else router.refresh();
+                            if (err) {
+                              setError(rpcMessage(err));
+                            } else {
+                              try {
+                                const hospObj = hospitals.find((h) => h.id === value);
+                                const chHosp = supabase.channel(`request-status:${r.id}`);
+                                await chHosp.subscribe();
+                                await chHosp.send({
+                                  type: "broadcast",
+                                  event: "hospital_assigned",
+                                  payload: {
+                                    hospital_id: value,
+                                    hospital_name: hospObj?.name || "Assigned Facility",
+                                    hospital_address: hospObj?.address || "",
+                                  },
+                                });
+                              } catch {}
+                              router.refresh();
+                            }
                           }}
                         >
                           <option value="">Select hospital</option>
