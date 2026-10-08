@@ -35,7 +35,7 @@ export default async function DispatcherPage() {
       <div className="mb-4">
         <div className="flex flex-wrap items-center gap-2.5">
           <h1 className="text-lg font-semibold">Active emergency requests</h1>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
             <span>🟢</span>
             <span>Live Network • Oyo Dispatch</span>
           </span>
