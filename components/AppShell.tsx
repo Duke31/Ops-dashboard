@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { Profile } from "@/lib/types";
@@ -37,26 +37,6 @@ export function AppShell({
   const router = useRouter();
   const items = NAV[profile.role] ?? [];
   const [open, setOpen] = useState(false);
-  const [theme, setTheme] = useState<"light" | "dark">("light");
-
-  useEffect(() => {
-    const currentTheme =
-      document.documentElement.getAttribute("data-theme") === "dark" ||
-      (!document.documentElement.hasAttribute("data-theme") &&
-        window.matchMedia("(prefers-color-scheme: dark)").matches)
-        ? "dark"
-        : "light";
-    setTheme(currentTheme);
-  }, []);
-
-  function toggleTheme() {
-    const next = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    document.documentElement.setAttribute("data-theme", next);
-    try {
-      localStorage.setItem("ops_theme", next);
-    } catch {}
-  }
 
   async function signOut() {
     const supabase = createClient();
@@ -65,30 +45,18 @@ export function AppShell({
     router.refresh();
   }
 
-  const themeButton = (
-    <button
-      type="button"
-      onClick={toggleTheme}
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold border transition-all border-[var(--border)] bg-[var(--surface-raised)] text-[var(--foreground)] hover:bg-[var(--border)]"
-      title={`Switch to ${theme === "dark" ? "Light" : "Dark"} Mode`}
-      aria-label="Toggle theme"
-    >
-      <span>{theme === "dark" ? "☀️ Light" : "🌙 Dark"}</span>
-    </button>
-  );
-
   const nav = (
     <>
       <div className="px-4 py-4 border-b border-white/10 flex items-center gap-3">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/solace_icon.png"
-          alt="Solace Emergency Dispatch"
+          alt="Solace EMS"
           className="w-10 h-10 rounded-xl shadow-md shrink-0 object-contain"
         />
         <div className="min-w-0">
           <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#00D4FF]">
-            SOLACE DISPATCH
+            SOLACE EMS
           </div>
           <div className="text-sm font-bold text-white truncate">Emergency Fleet</div>
         </div>
@@ -103,10 +71,10 @@ export function AppShell({
               key={item.href}
               href={item.href}
               onClick={() => setOpen(false)}
-              className={`block rounded-md px-3 py-2.5 text-[15px] md:text-[13px] font-medium transition-colors ${
+              className={`block rounded-md px-3 py-2.5 text-[15px] md:text-[13px] ${
                 active
-                  ? "bg-white/15 text-white font-semibold"
-                  : "text-white/70 hover:bg-white/10 hover:text-white"
+                  ? "bg-white/10 text-white"
+                  : "text-white/70 hover:bg-white/5 hover:text-white"
               }`}
             >
               {item.label}
@@ -115,25 +83,16 @@ export function AppShell({
         })}
       </nav>
       <div className="px-4 py-4 border-t border-white/10 text-xs">
-        <div className="font-medium truncate text-white">
+        <div className="font-medium truncate">
           {profile.display_name || profile.email || "Signed in"}
         </div>
-        <div className="text-white/60 mt-0.5 capitalize">{profile.role}</div>
-        <div className="mt-3 flex items-center justify-between gap-2">
-          <button
-            onClick={signOut}
-            className="text-white/70 hover:text-white underline-offset-2 hover:underline"
-          >
-            Sign out
-          </button>
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="text-[11px] text-white/80 hover:text-white px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 transition-all"
-          >
-            {theme === "dark" ? "☀️ Light" : "🌙 Dark"}
-          </button>
-        </div>
+        <div className="text-white/50 mt-0.5 capitalize">{profile.role}</div>
+        <button
+          onClick={signOut}
+          className="mt-3 text-white/70 hover:text-white underline-offset-2 hover:underline"
+        >
+          Sign out
+        </button>
       </div>
     </>
   );
@@ -147,40 +106,26 @@ export function AppShell({
       {open && (
         <div className="md:hidden fixed inset-0 z-40">
           <button
-            className="absolute inset-0 bg-black/60"
+            className="absolute inset-0 bg-black/50"
             aria-label="Close menu"
             onClick={() => setOpen(false)}
           />
-          <aside className="relative z-50 h-full w-[min(80vw,280px)] bg-[#12141a] text-white flex flex-col shadow-2xl">
+          <aside className="relative z-50 h-full w-[min(80vw,280px)] bg-[#12141a] text-white flex flex-col">
             {nav}
           </aside>
         </div>
       )}
 
       <main className="min-w-0">
-        <header className="sticky top-0 z-30 h-13 border-b border-[var(--border)] bg-[var(--surface)] flex items-center justify-between gap-3 px-3 md:px-6 text-sm text-[var(--foreground)] transition-colors">
-          <div className="flex items-center gap-3 min-w-0">
-            <button
-              className="md:hidden btn btn-ghost px-2.5 py-1 text-xs"
-              onClick={() => setOpen(true)}
-              aria-label="Open menu"
-            >
-              ☰ Menu
-            </button>
-            <div className="flex items-center gap-2 truncate">
-              <span className="font-semibold text-xs tracking-wider uppercase text-[var(--muted)]">
-                Ops Live
-              </span>
-              <span className="text-[var(--border)]">•</span>
-              <span className="capitalize text-xs font-semibold px-2 py-0.5 rounded-full bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--foreground)]">
-                {profile.role}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 shrink-0">
-            {themeButton}
-          </div>
+        <header className="sticky top-0 z-30 h-12 border-b border-[var(--line)] bg-white flex items-center gap-3 px-3 md:px-6 text-sm text-[var(--muted)]">
+          <button
+            className="md:hidden btn btn-ghost px-2 py-1"
+            onClick={() => setOpen(true)}
+            aria-label="Open menu"
+          >
+            Menu
+          </button>
+          <span className="truncate">Live operations</span>
         </header>
         <div className="p-3 md:p-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
           {children}

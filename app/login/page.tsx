@@ -28,10 +28,10 @@ function LoginForm() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/solace_icon.png"
-          alt="Solace Emergency Dispatch"
+          alt="Solace EMS"
           className="w-16 h-16 rounded-2xl shadow-lg mb-3 object-contain"
         />
-        <h1 className="text-2xl font-black text-[var(--foreground)] tracking-tight">Solace</h1>
+        <h1 className="text-2xl font-black text-[#0B2256] tracking-tight">Solace EMS</h1>
         <div className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#0091FF] mt-0.5">
           EMERGENCY DISPATCH • OPS PORTAL
         </div>
@@ -63,7 +63,7 @@ function LoginForm() {
       </label>
 
       {activeError && (
-        <div className="text-xs text-red-700 dark:text-red-300 bg-red-500/10 border border-red-500/30 rounded-md px-3 py-2 leading-relaxed">
+        <div className="text-xs text-[#b42318] bg-[#fef3f2] border border-[#fecdca] rounded-md px-3 py-2 leading-relaxed">
           {activeError}
         </div>
       )}
@@ -76,7 +76,7 @@ function LoginForm() {
         <a
           href="/solace-driver.apk"
           download="solace-driver.apk"
-          className="w-full py-2 px-3 rounded-lg border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 text-sky-700 dark:text-sky-300 text-xs font-semibold flex items-center justify-center gap-2 transition"
+          className="w-full py-2 px-3 rounded-lg border border-[#0091FF]/30 bg-[#0091FF]/10 hover:bg-[#0091FF]/20 text-[#0077FE] text-xs font-semibold flex items-center justify-center gap-2 transition"
         >
           <span>📲</span>
           <span>Download Solace Driver APK (Android)</span>
