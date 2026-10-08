@@ -2,12 +2,14 @@
 -- Migration: Fix Patient Review Persistence & Realtime Hospital Allocation RLS
 -- ==============================================================================
 
--- 1. Grant base SELECT privileges on core tables to anon and authenticated roles
-grant select on public.hospitals to anon, authenticated;
-grant select on public.drivers to anon, authenticated;
-grant select on public.emergency_requests to anon, authenticated;
+-- 1. Grant schema and table privileges to anon, authenticated, and service_role
+grant usage on schema public to anon, authenticated, service_role;
+grant select, update, insert on public.emergency_requests to anon, authenticated, service_role;
+grant select on public.hospitals to anon, authenticated, service_role;
+grant select on public.drivers to anon, authenticated, service_role;
 
 -- 2. Open read policy for public hospitals directory during live emergencies
+alter table public.hospitals enable row level security;
 drop policy if exists "hospitals_public_read" on public.hospitals;
 create policy "hospitals_public_read"
 on public.hospitals
@@ -15,10 +17,33 @@ for select
 to authenticated, anon
 using (true);
 
--- 3. Ensure emergency_requests has replica identity full so hospital_id & status stream to clients
+-- 3. Open read policy for public drivers during live emergencies
+alter table public.drivers enable row level security;
+drop policy if exists "drivers_public_read" on public.drivers;
+create policy "drivers_public_read"
+on public.drivers
+for select
+to authenticated, anon
+using (true);
+
+-- 4. Enable full replica identity on emergency_requests so that all columns stream in realtime
 alter table if exists public.emergency_requests replica identity full;
 
--- 4. Enable public read policy on emergency requests for live tracking by ID
+-- Ensure public.emergency_requests is in the supabase_realtime publication
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables 
+    where pubname = 'supabase_realtime' 
+      and schemaname = 'public' 
+      and tablename = 'emergency_requests'
+  ) then
+    alter publication supabase_realtime add table public.emergency_requests;
+  end if;
+end;
+$$;
+
+-- 5. Open SELECT policy on emergency requests for live tracking
 drop policy if exists "emergency_requests_read_all" on public.emergency_requests;
 create policy "emergency_requests_read_all"
 on public.emergency_requests
@@ -26,7 +51,16 @@ for select
 to authenticated, anon
 using (true);
 
--- 5. Dedicated SECURITY DEFINER RPC to permanently save Patient Reviews and Remarks
+-- 6. Open UPDATE policy on emergency requests so patient app can update notes/reviews
+drop policy if exists "emergency_requests_client_update" on public.emergency_requests;
+create policy "emergency_requests_client_update"
+on public.emergency_requests
+for update
+to authenticated, anon
+using (true)
+with check (true);
+
+-- 7. Dedicated SECURITY DEFINER RPC to permanently save Patient Reviews and Remarks
 -- This guarantees that patients can write ratings and remarks without being blocked by RLS,
 -- formatting notes with standard [PATIENT REVIEW ...] block readable by Admin & Dispatcher.
 create or replace function public.client_submit_patient_review(
@@ -57,6 +91,7 @@ begin
 
   v_rating_clamped := least(greatest(coalesce(p_rating, 5), 1), 5);
   v_date_str := to_char(now(), 'YYYY-MM-DD HH24:MI:SS');
+
   v_review_block := format(
     '[PATIENT REVIEW %s%s (%s/5)]: %s | TAGS: %s | SUBMITTED: %s]',
     repeat('★', v_rating_clamped),
@@ -68,7 +103,7 @@ begin
   );
 
   -- Strip any previous review block to keep clean notes
-  v_clean_notes := regexp_replace(coalesce(v_old_notes, ''), '\[PATIENT (?:REVIEW|FEEDBACK|RATING)[^\]]*\]', '', 'gi');
+  v_clean_notes := regexp_replace(coalesce(v_old_notes, ''), '\[PATIENT\s+(?:REVIEW|FEEDBACK|RATING)[^\]]*\]', '', 'gi');
   v_clean_notes := trim(v_clean_notes);
 
   if length(v_clean_notes) > 0 then
@@ -90,9 +125,10 @@ begin
   );
 end;
 $$;
+
 grant execute on function public.client_submit_patient_review(uuid, integer, text, text[]) to anon, authenticated, service_role;
 
--- 6. SECURITY DEFINER RPC: client_get_request_detail
+-- 8. SECURITY DEFINER RPC: client_get_request_detail
 -- Returns the full request, assigned hospital, and driver info even without auth session
 create or replace function public.client_get_request_detail(p_request_id uuid)
 returns jsonb
@@ -152,4 +188,5 @@ begin
   );
 end;
 $$;
+
 grant execute on function public.client_get_request_detail(uuid) to anon, authenticated, service_role;

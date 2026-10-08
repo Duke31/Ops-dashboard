@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createJsClient } from "@supabase/supabase-js";
 import { getSupabaseUrl } from "@/lib/env";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { parsePatientReview } from "@/lib/patientReview";
 
 async function getDbClient() {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing requestId" }, { status: 400 });
     }
 
-    const numRating = Number(rating) || 5;
+    const numRating = Math.min(Math.max(Number(rating) || 5, 1), 5);
     const cleanRemark = typeof remark === "string" ? remark.trim() : "";
     const cleanTags = Array.isArray(tags) ? tags.filter(Boolean) : [];
     const nowIso = new Date().toISOString();
@@ -48,12 +49,14 @@ export async function POST(req: NextRequest) {
     }
 
     const currentNotes = existing?.notes || "";
+
     // Remove any previous [PATIENT REVIEW ...] block to allow updating cleanly
     const sanitizedNotes = currentNotes
-      .replace(/\[PATIENT (?:REVIEW|FEEDBACK|RATING)[^\]]*\]/gi, "")
+      .replace(/\[PATIENT\s+(?:REVIEW|FEEDBACK|RATING)[^\]]*\]/gi, "")
       .trim();
 
     const reviewBlock = `[PATIENT REVIEW ${"★".repeat(numRating)}${"☆".repeat(5 - numRating)} (${numRating}/5)]: ${cleanRemark || "Service completed"} | TAGS: ${cleanTags.join(", ") || "None"} | SUBMITTED: ${dateFormatted}]`;
+
     const updatedNotes = sanitizedNotes
       ? `${sanitizedNotes}\n${reviewBlock}`
       : reviewBlock;
@@ -127,29 +130,8 @@ export async function GET(req: NextRequest) {
 
     const reviews = [];
     for (const r of requests || []) {
-      const notes = r.notes || "";
-      const match = notes.match(
-        /\[PATIENT (?:REVIEW|FEEDBACK|RATING)[^:]*:\s*([1-5])(?:\/5)?(?:★|\s*stars?)?[^\]]*\]/i
-      );
-      if (match) {
-        const starNum = parseInt(match[1], 10) || 5;
-        let remark = "";
-        const remarkMatch =
-          notes.match(/\[PATIENT REVIEW [^:]+:\s*([^|\]]+)/i) ||
-          notes.match(/(?:REMARK|Note):\s*([^|\]]+)/i);
-        if (remarkMatch) {
-          remark = remarkMatch[1].trim();
-        }
-
-        const tags: string[] = [];
-        const tagsMatch = notes.match(/(?:Tags|TAGS):\s*([^|\]]+)/i);
-        if (tagsMatch) {
-          tagsMatch[1].split(",").forEach((t: string) => {
-            const tr = t.trim();
-            if (tr && tr !== "None") tags.push(tr);
-          });
-        }
-
+      const review = parsePatientReview(r.notes);
+      if (review) {
         reviews.push({
           requestId: r.id,
           emergencyType: r.emergency_type,
@@ -160,10 +142,11 @@ export async function GET(req: NextRequest) {
           hospitalName: (r.hospital as { name?: string } | null)?.name || "Emergency ER",
           driverName: (r.driver as { display_name?: string } | null)?.display_name || "Solace Unit",
           vehicleLabel: (r.driver as { vehicle_label?: string } | null)?.vehicle_label,
-          rating: starNum,
-          remark: remark || "Service completed",
-          tags,
-          fullNotes: notes,
+          rating: review.rating,
+          remark: review.remark,
+          tags: review.tags,
+          submittedAt: review.submittedAt,
+          fullNotes: r.notes,
         });
       }
     }

@@ -44,12 +44,14 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
   const isLogin = pathname === "/login";
-  const isRest =
+    const isRest =
     pathname === "/no-access" ||
     pathname === "/reset" ||
     pathname === "/driver" ||
     pathname === "/branding" ||
-    pathname.startsWith("/api/branding");
+    pathname.startsWith("/api/branding") ||
+    pathname.startsWith("/api/reviews") ||
+    pathname.startsWith("/api/hospitals");
   const isPublic = isLogin || isRest || pathname.startsWith("/auth");
 
   if (!user && !isPublic) {
