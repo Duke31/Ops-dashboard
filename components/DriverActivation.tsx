@@ -92,7 +92,7 @@ export function DriverActivation({ drivers }: { drivers: DriverRow[] }) {
                         disabled={busy === d.id}
                         onClick={() => flip(d, !on)}
                         className={`relative h-6 w-11 rounded-full transition-colors ${
-                          on ? "bg-[var(--accent)]" : "bg-[#d0d5dd]"
+                          on ? "bg-[var(--accent)]" : "bg-slate-300 dark:bg-slate-700"
                         }`}
                       >
                         <span
