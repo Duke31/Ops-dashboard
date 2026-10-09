@@ -1,217 +1,208 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Ambulance, ArrowRight, Phone, MessageSquare, ShieldCheck } from "lucide-react";
+import { ShieldCheck, Phone, ArrowRight } from "lucide-react";
 
 export const metadata = {
-  title: "Solace EMS — Pre-Hospital Coordination & Maternal Emergency Transit",
+  title: "Solace EMS — Emergency Request & Ambulance Dispatch Network",
   description:
-    "Closing the survival gap across Southwestern Nigeria (Ibadan & Osogbo). Real-time emergency vehicle telematics, direct ER intake integration, and specialized maternal transit.",
+    "Rapid emergency medical response, pre-hospital coordination, and direct receiving hospital integration across Southwestern Nigeria.",
 };
 
 export default function MarketingLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen bg-[#090A0F] text-slate-100 selection:bg-emerald-500 selection:text-black flex flex-col antialiased">
-      {/* Top Banner Announcement */}
-      <div className="bg-[#11141E] border-b border-white/5 px-4 py-2 text-xs text-slate-300">
+    <div className="min-h-screen bg-[#07090E] text-slate-100 flex flex-col antialiased">
+      {/* Top Operations Notice */}
+      <div className="bg-[#0D111A] border-b border-white/5 px-4 py-2 text-xs text-slate-300">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Pilot Live
+              Active Network
             </span>
-            <span className="text-slate-400 hidden sm:inline">·</span>
+            <span className="text-slate-500 hidden sm:inline">·</span>
             <span className="text-slate-300">
-              Southwestern Nigeria Pilot Corridors: Ibadan &amp; Osogbo
+              Emergency Dispatch &amp; Ambulance Telematics — Oyo &amp; Osun Corridors
             </span>
           </div>
 
           <div className="flex items-center gap-4 text-[11px] text-slate-400">
             <span className="hidden md:inline">24/7 Operations Desk:</span>
             <a
-              href="tel:+2348133355709"
-              className="inline-flex items-center gap-1 text-slate-300 hover:text-emerald-400 transition-colors font-mono"
+              href="tel:+2348000000000"
+              className="inline-flex items-center gap-1 text-slate-300 hover:text-emerald-400 transition-colors font-mono font-medium"
             >
               <Phone className="w-3 h-3 text-emerald-400" />
-              +234 813 335 5709
+              Emergency Response Line
             </a>
           </div>
         </div>
       </div>
 
-      {/* Main Top Navigation */}
-      <header className="sticky top-0 z-40 bg-[#090A0F]/90 backdrop-blur-md border-b border-white/5">
+      {/* Main Header / Navigation */}
+      <header className="sticky top-0 z-40 bg-[#07090E]/90 backdrop-blur-md border-b border-white/5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          {/* Logo & Platform Title */}
+          {/* Official Brand Logo */}
           <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center shadow-lg shadow-emerald-500/20 border border-emerald-400/30">
-              <Ambulance className="w-5 h-5 text-white" />
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/solace_icon.png"
+              alt="Solace EMS Logo"
+              className="w-9 h-9 rounded-xl object-contain shadow-md border border-white/10 group-hover:border-[#00D4FF]/40 transition-colors"
+            />
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-base font-black tracking-tight text-white group-hover:text-emerald-300 transition-colors">
+                <span className="text-sm font-black uppercase tracking-[0.14em] text-white group-hover:text-[#00D4FF] transition-colors">
                   SOLACE
                 </span>
-                <span className="text-[10px] font-mono tracking-wider px-1.5 py-0.2 rounded bg-white/5 text-slate-400 border border-white/10 uppercase">
+                <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#00D4FF]/10 text-[#00D4FF] border border-[#00D4FF]/25">
                   EMS
                 </span>
               </div>
               <p className="text-[10px] text-slate-400 tracking-wide font-medium">
-                Clinical Dispatch &amp; Transit
+                Emergency Fleet Network
               </p>
             </div>
           </Link>
 
-          {/* Nav Links */}
-          <nav className="hidden md:flex items-center gap-8 text-sm text-slate-300 font-medium">
-            <Link
-              href="/#features"
-              className="hover:text-emerald-400 transition-colors text-xs uppercase tracking-wider font-semibold"
-            >
-              Platform Core
+          {/* Desktop Nav Links */}
+          <nav className="hidden md:flex items-center gap-7 text-xs font-semibold text-slate-300 uppercase tracking-wider">
+            <Link href="/#how-it-works" className="hover:text-[#00D4FF] transition-colors">
+              How It Works
             </Link>
-            <Link
-              href="/#safe-delivery"
-              className="hover:text-emerald-400 transition-colors text-xs uppercase tracking-wider font-semibold flex items-center gap-1.5"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-              Safe Delivery Pass
+            <Link href="/#who-its-for" className="hover:text-[#00D4FF] transition-colors">
+              Stakeholders
             </Link>
-            <Link
-              href="/#hospitals"
-              className="hover:text-emerald-400 transition-colors text-xs uppercase tracking-wider font-semibold"
-            >
-              For Hospitals
+            <Link href="/#safety" className="hover:text-[#00D4FF] transition-colors">
+              Trust &amp; Safety
             </Link>
-            <Link
-              href="/#pilot-regions"
-              className="hover:text-emerald-400 transition-colors text-xs uppercase tracking-wider font-semibold"
-            >
-              Corridors
+            <Link href="/download" className="hover:text-[#00D4FF] transition-colors">
+              Mobile App
             </Link>
           </nav>
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2.5 sm:gap-3">
+          {/* Header Action Controls */}
+          <div className="flex items-center gap-3">
+            {/* Single Distinct Staff Sign In Entry */}
             <Link
-              href="/hospital"
-              className="px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white rounded-lg border border-white/10 hover:border-white/20 hover:bg-white/5 transition-all"
+              href="/login"
+              className="px-3.5 py-1.5 text-xs font-semibold text-slate-200 hover:text-white rounded-lg border border-white/15 hover:border-white/30 hover:bg-white/5 transition-all"
             >
-              Hospital Desk
+              Staff Sign In
             </Link>
 
+            {/* Public Action CTA */}
             <Link
               href="/download"
-              className="px-3.5 py-1.5 text-xs font-bold text-black bg-emerald-400 hover:bg-emerald-300 rounded-lg shadow-sm shadow-emerald-500/30 transition-all flex items-center gap-1.5"
+              className="px-3.5 py-1.5 text-xs font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-lg shadow-sm shadow-emerald-500/20 transition-all flex items-center gap-1.5"
             >
-              <span>Get Mobile App</span>
+              <span>Get App</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
         </div>
       </header>
 
-      {/* Page Content */}
+      {/* Main Content Area */}
       <main className="flex-1">{children}</main>
 
-      {/* Global Footer */}
-      <footer className="bg-[#07080C] border-t border-white/5 text-slate-400 text-xs py-12">
+      {/* Unified Professional Footer */}
+      <footer className="bg-[#05060A] border-t border-white/5 text-slate-400 text-xs py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            {/* Brand Col */}
+            {/* Brand Information */}
             <div className="space-y-3 md:col-span-1">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-md bg-emerald-500 flex items-center justify-center text-black font-black text-xs">
-                  S
-                </div>
-                <span className="text-white font-bold tracking-tight text-sm">
+              <div className="flex items-center gap-2.5">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/solace_icon.png"
+                  alt="Solace EMS"
+                  className="w-7 h-7 rounded-lg object-contain shadow-sm"
+                />
+                <span className="text-white font-black tracking-wider text-xs uppercase">
                   SOLACE EMS
                 </span>
               </div>
               <p className="text-slate-400 leading-relaxed text-xs">
-                Pre-hospital telematics, automated emergency dispatch, and audited clinical handover designed for Southwestern Nigerian transport networks.
+                Pre-hospital coordination, rapid emergency dispatch, and audited receiving hospital integration for acute trauma and obstetric emergencies.
               </p>
-              <div className="flex items-center gap-2 pt-1 text-emerald-400 font-mono text-[11px]">
+              <div className="flex items-center gap-1.5 pt-1 text-emerald-400 font-mono text-[11px]">
                 <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Zero-Delay Emergency Standard</span>
+                <span>Clinical Governance Standard</span>
               </div>
             </div>
 
-            {/* Platform Col */}
+            {/* Public Quick Links */}
             <div className="space-y-2">
               <div className="text-xs font-bold uppercase tracking-wider text-slate-200">
-                Navigation
+                Network Information
               </div>
               <ul className="space-y-1.5 text-xs">
                 <li>
-                  <Link href="/#features" className="hover:text-slate-200 transition-colors">
-                    Emergency Telematics &amp; GPS
+                  <Link href="/#how-it-works" className="hover:text-slate-200 transition-colors">
+                    Emergency Transit Lifecycle
                   </Link>
                 </li>
                 <li>
-                  <Link href="/#safe-delivery" className="hover:text-slate-200 transition-colors">
-                    Obstetric &amp; Maternal Pass
+                  <Link href="/#who-its-for" className="hover:text-slate-200 transition-colors">
+                    Participating Care Providers
                   </Link>
                 </li>
                 <li>
-                  <Link href="/#hospitals" className="hover:text-slate-200 transition-colors">
-                    Hospital Bed &amp; Triage Desk
+                  <Link href="/#safety" className="hover:text-slate-200 transition-colors">
+                    Clinical Governance &amp; Protocols
                   </Link>
                 </li>
                 <li>
                   <Link href="/download" className="hover:text-emerald-400 transition-colors font-semibold">
-                    Download Android APK (v1.0.2)
+                    Download Mobile App
                   </Link>
                 </li>
               </ul>
             </div>
 
-            {/* Operational Desk Access */}
+            {/* Authorized Operations Entry (Exactly ONE Staff Link) */}
             <div className="space-y-2">
               <div className="text-xs font-bold uppercase tracking-wider text-slate-200">
-                Operational Desks
-              </div>
-              <ul className="space-y-1.5 text-xs">
-                <li>
-                  <Link href="/hospital" className="hover:text-emerald-400 transition-colors">
-                    Hospital Intake Console →
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/login" className="hover:text-slate-200 transition-colors">
-                    Dispatcher &amp; Admin Sign In →
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/hospital/history" className="hover:text-slate-200 transition-colors">
-                    Clinical Handover Archives
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            {/* Contact & Pilot Notice */}
-            <div className="space-y-2">
-              <div className="text-xs font-bold uppercase tracking-wider text-slate-200">
-                Pilot Operations
+                Authorized Personnel
               </div>
               <p className="text-[11px] text-slate-400 leading-relaxed">
-                Operating in partnership with primary and tertiary health facilities, including OAUTHC complex annexes, private maternity homes, and regional fleet teams.
+                Registered dispatchers, ambulance personnel, and hospital intake staff can access operational consoles via the secure sign-in portal.
               </p>
-              <div className="pt-1 space-y-1 text-slate-300 font-mono text-[11px]">
-                <div>Email: <a href="mailto:samueloluwapelumi55@gmail.com" className="hover:underline text-slate-200">samueloluwapelumi55@gmail.com</a></div>
-                <div>Hotline: <a href="tel:+2348133355709" className="hover:underline text-emerald-400">+234 813 335 5709</a></div>
+              <div className="pt-2">
+                <Link
+                  href="/login"
+                  className="inline-flex items-center gap-1.5 text-xs text-[#00D4FF] hover:underline font-semibold"
+                >
+                  <span>Staff Portal Sign In</span>
+                  <ArrowRight className="w-3 h-3" />
+                </Link>
+              </div>
+            </div>
+
+            {/* General Contact */}
+            <div className="space-y-2">
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-200">
+                Operational Support
+              </div>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                For administrative inquiries, health partner onboarding, or patient assistance, contact our central operations desk.
+              </p>
+              <div className="pt-1 space-y-1 text-slate-300 text-[11px]">
+                <div>Email: <span className="text-slate-200">contact@solace.health</span></div>
+                <div>Status: <span className="text-emerald-400 font-medium">Network Operational</span></div>
               </div>
             </div>
           </div>
 
+          {/* Legal / Copyright Bar */}
           <div className="pt-6 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-slate-400">
             <div>
-              &copy; {new Date().getFullYear()} Solace EMS. Southwestern Nigeria Emergency Operations. All rights reserved.
+              &copy; {new Date().getFullYear()} Solace Emergency Medical Services. All rights reserved.
             </div>
-            <div className="flex items-center gap-4">
-              <span>Ibadan: Ring Road · Iwo Road · Bodija</span>
+            <div className="flex items-center gap-4 text-slate-400">
+              <span>Emergency Dispatch Network</span>
               <span aria-hidden="true">·</span>
-              <span>Osogbo: Oke-Fia · Ogo-Oluwa · Biket</span>
+              <span>Regional Pre-Hospital Coordination</span>
             </div>
           </div>
         </div>
