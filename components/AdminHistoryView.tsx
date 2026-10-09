@@ -9,8 +9,12 @@ import { getCleanMedicalNotes, parsePatientReview } from "@/lib/patientReview";
 
 export function AdminHistoryView({
   requests,
+  scopeRole = "admin",
+  emptyMessage,
 }: {
   requests: EmergencyRequest[];
+  scopeRole?: "admin" | "hospital" | string;
+  emptyMessage?: string;
 }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -208,8 +212,8 @@ export function AdminHistoryView({
               ))}
             </select>
 
-            {/* Hospital Select */}
-            {uniqueHospitals.length > 0 && (
+            {/* Hospital Select (only for network admin/dispatcher views) */}
+            {scopeRole !== "hospital" && uniqueHospitals.length > 0 && (
               <select
                 value={hospitalFilter}
                 onChange={(e) => setHospitalFilter(e.target.value)}
@@ -253,10 +257,12 @@ export function AdminHistoryView({
       {filtered.length === 0 ? (
         <div className="card p-12 text-center text-sm text-[var(--muted)]">
           <p className="text-base font-semibold text-[var(--foreground)] mb-1">
-            No matching requests found
+            {emptyMessage || "No matching requests found"}
           </p>
           <p className="text-xs">
-            Try adjusting your search query, filter criteria, or click Reset.
+            {requests.length === 0
+              ? "Closed emergency admissions and cancelled tickets will be archived here."
+              : "Try adjusting your search query, filter criteria, or click Reset."}
           </p>
         </div>
       ) : (
@@ -307,10 +313,13 @@ export function AdminHistoryView({
                       </span>
                       {(() => {
                         const age = resolvePatientAgeBand(r);
-                        if (!age) return null;
                         return (
-                          <div className="text-[11px] text-[var(--muted)] mt-1">
-                            {age === "unknown" ? "Age: Not specified" : `Age: ${age} yrs`}
+                          <div className="text-[11px] text-[var(--muted)] mt-1 font-medium">
+                            {age && age.toLowerCase() !== "unknown"
+                              ? `Age: ${age}`
+                              : age === "unknown"
+                              ? "Age: Unknown"
+                              : "Age: —"}
                           </div>
                         );
                       })()}
