@@ -9,6 +9,7 @@ import { Toast } from "@/components/Toast";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { rpcMessage } from "@/lib/rpc-error";
+import { useDeskAlerts } from "@/components/alerts/DeskAlertProvider";
 
 const PRESET_BAYS = [
   "Trauma Bay 1",
@@ -34,6 +35,7 @@ export function HospitalCards({
 }) {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
+  const { highlightedRequestId } = useDeskAlerts();
 
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -173,10 +175,16 @@ export function HospitalCards({
                 const showAdmitButton =
                   r.status === "Arrived / intake" || r.status === "En route to hospital";
 
+                const isHighlighted = highlightedRequestId === r.id;
+
                 return (
                   <article
                     key={r.id}
-                    className="card p-4 space-y-3 border-l-4 border-l-blue-600 bg-[var(--surface)] shadow-sm"
+                    className={`card p-4 space-y-3 border-l-4 border-l-blue-600 bg-[var(--surface)] shadow-sm transition-all duration-500 ${
+                      isHighlighted
+                        ? "ring-2 ring-blue-500 bg-blue-500/15 dark:bg-blue-950/60 animate-pulse"
+                        : ""
+                    }`}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="space-y-1">
@@ -195,10 +203,13 @@ export function HospitalCards({
                         <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
                           {(() => {
                             const age = resolvePatientAgeBand(r);
-                            if (!age) return null;
                             return (
                               <span className="inline-flex items-center px-2 py-0.5 rounded font-medium bg-[var(--surface-raised,#f3f4f6)] text-[var(--foreground)] border border-[var(--border,#e5e7eb)]">
-                                Age: {age === "unknown" ? "Unknown" : `${age} yrs`}
+                                {age && age.toLowerCase() !== "unknown"
+                                  ? `Age: ${age}`
+                                  : age === "unknown"
+                                  ? "Age: Unknown"
+                                  : "Age: —"}
                               </span>
                             );
                           })()}
