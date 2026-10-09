@@ -162,3 +162,16 @@ export function formatLocation(r: EmergencyRequest): string {
   }
   return "—";
 }
+
+export function resolvePatientAgeBand(
+  r: { patient_age_band?: string | null; notes?: string | null },
+): string | null {
+  const col = r.patient_age_band?.trim();
+  if (col && col.length > 0 && col.toLowerCase() !== "unknown") return col;
+  if (col && col.toLowerCase() === "unknown") return "unknown";
+  const notes = r.notes ?? "";
+  const m = notes.match(/Age\s*band:\s*([0-9+\-]+)/i);
+  if (m?.[1]) return m[1];
+  return col || null;
+}
+
