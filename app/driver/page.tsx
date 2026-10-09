@@ -13,50 +13,44 @@ export default async function DriverPage() {
 
   const isDriverRole = profile.role === "driver";
 
-  const [requests, rules, driversRes, ownDriverRes] = await Promise.all([
+  const fullSelect =
+    "id, display_name, vehicle_label, hospital_id, active, user_id, current_lat, current_lng, last_location_at, battery_level, is_charging, network_type";
+  const basicSelect = "id, display_name, vehicle_label, hospital_id, active";
+
+  const [requests, rules, driversPrimary] = await Promise.all([
     fetchRequests(supabase, { activeOnly: true }),
     fetchTransitionRules(supabase, "driver").catch(() => []),
-    supabase
-      .from("drivers")
-      .select(
-        "id, display_name, vehicle_label, hospital_id, active, user_id, current_lat, current_lng, last_location_at, battery_level, is_charging, network_type",
-      )
-      .order("display_name"),
-    isDriverRole
-      ? supabase
-          .from("drivers")
-          .select(
-            "id, display_name, vehicle_label, hospital_id, active, user_id, current_lat, current_lng, last_location_at, battery_level, is_charging, network_type",
-          )
-          .eq("user_id", profile.user_id)
-          .maybeSingle()
-      : Promise.resolve({ data: null, error: null }),
+    supabase.from("drivers").select(fullSelect).order("display_name"),
   ]);
 
-  // Fall back if user_id column missing from select (older schema)
-  let drivers = (driversRes.data ?? []) as Driver[];
+  let driversRes = driversPrimary;
   if (driversRes.error) {
-    const fallback = await supabase
+    driversRes = await supabase
       .from("drivers")
-      .select("id, display_name, vehicle_label, hospital_id, active")
+      .select(basicSelect)
       .order("display_name");
-    drivers = (fallback.data ?? []) as Driver[];
   }
 
-  let activeDriverRecord =
-    (ownDriverRes && "data" in ownDriverRes
-      ? (ownDriverRes.data as Driver | null)
-      : null) ?? null;
+  const drivers = (driversRes.data ?? []) as Driver[];
 
-  if (isDriverRole && !activeDriverRecord) {
-    // Last resort: match by display_name if user_id not populated yet
-    activeDriverRecord =
-      drivers.find(
-        (d) =>
-          d.display_name &&
-          profile.display_name &&
-          d.display_name.toLowerCase() === profile.display_name.toLowerCase(),
-      ) ?? null;
+  let activeDriverRecord: Driver | null = null;
+  if (isDriverRole) {
+    const own = await supabase
+      .from("drivers")
+      .select(fullSelect)
+      .eq("user_id", profile.user_id)
+      .maybeSingle();
+    if (!own.error && own.data) {
+      activeDriverRecord = own.data as Driver;
+    } else {
+      activeDriverRecord =
+        drivers.find(
+          (d) =>
+            d.display_name &&
+            profile.display_name &&
+            d.display_name.toLowerCase() === profile.display_name.toLowerCase(),
+        ) ?? null;
+    }
   }
 
   const initialDriverId = isDriverRole ? activeDriverRecord?.id ?? null : null;
@@ -74,7 +68,7 @@ export default async function DriverPage() {
             <p className="text-xs text-[var(--muted)]">
               {isDriverRole
                 ? "Live dispatches, navigation, and patient triage for your unit."
-                : "Read-only view of units and jobs. Your browser GPS will NOT be sent as an ambulance location."}
+                : "Select any unit to follow live GPS from the driver device. Your browser location is never published as an ambulance."}
             </p>
           </div>
           <span
@@ -86,7 +80,9 @@ export default async function DriverPage() {
           >
             <span>●</span>
             <span>
-              {isDriverRole ? "Live unit GPS enabled" : "Desk GPS write disabled"}
+              {isDriverRole
+                ? "Live unit GPS enabled"
+                : "Desk track read-only"}
             </span>
           </span>
         </div>
