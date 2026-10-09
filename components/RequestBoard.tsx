@@ -17,6 +17,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { rpcMessage } from "@/lib/rpc-error";
 import { parsePatientReview, getCleanMedicalNotes } from "@/lib/patientReview";
+import { useDeskAlerts } from "@/components/alerts/DeskAlertProvider";
 
 function needsDriver(toStatus: string) {
   return toStatus.toLowerCase().includes("driver assigned");
@@ -84,6 +85,7 @@ export function RequestBoard({
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
+  const { highlightedRequestId } = useDeskAlerts();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [driverDraft, setDriverDraft] = useState<Record<string, string>>({});
   const [hospitalDraft, setHospitalDraft] = useState<Record<string, string>>(
@@ -702,10 +704,17 @@ export function RequestBoard({
                 r,
                 hospitals,
               );
-              const isSelectedHospitalFull = effectiveCap === 0;
+              const isHighlighted = highlightedRequestId === r.id;
 
               return (
-                <tr key={r.id}>
+                <tr
+                  key={r.id}
+                  className={`transition-all duration-500 ${
+                    isHighlighted
+                      ? "bg-amber-500/20 dark:bg-amber-950/70 ring-2 ring-amber-500 animate-pulse"
+                      : ""
+                  }`}
+                >
                   <td className="max-w-[260px]">
                     <div className="font-semibold text-sm leading-snug text-slate-900 dark:text-slate-100 flex items-start gap-1">
                       <span className="text-red-600 mt-0.5">📍</span>
@@ -724,10 +733,13 @@ export function RequestBoard({
                       )}
                       {(() => {
                         const age = resolvePatientAgeBand(r);
-                        if (!age) return null;
                         return (
                           <span className="px-1.5 py-0.5 rounded bg-[var(--surface-raised,#f3f4f6)] text-[var(--muted)] border border-[var(--border,#e5e7eb)] font-medium">
-                            {age === "unknown" ? "Age: ?" : `${age} yrs`}
+                            {age && age.toLowerCase() !== "unknown"
+                              ? `Age: ${age}`
+                              : age === "unknown"
+                              ? "Age: ?"
+                              : "Age: —"}
                           </span>
                         );
                       })()}
