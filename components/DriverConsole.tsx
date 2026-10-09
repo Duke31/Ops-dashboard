@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Driver, EmergencyRequest, TransitionRule } from "@/lib/types";
-import { formatLocation } from "@/lib/queries";
+import { formatLocation, resolvePatientAgeBand } from "@/lib/queries";
 import { timeSince } from "@/lib/format";
 import { StatusBadge } from "@/components/StatusBadge";
 import { createClient } from "@/lib/supabase/client";
@@ -206,27 +206,15 @@ export function DriverConsole({
 
   const lastDbUpdateRef = useRef<number>(0);
 
-  // Stream GPS Telemetry — ONLY for authenticated driver role linked to a unit.
-  // Admin/dispatcher desk must NEVER write browser GPS as an ambulance location
-  // (that was feeding the patient map with the desk operator's coordinates).
+  // Stream GPS Telemetry with immediate initial position fetch & continuous watching
   useEffect(() => {
-    if (!isDriverRole) {
-      setGpsCoords(null);
-      setGpsError(
-        "Desk monitor mode: location is not streamed from this browser. Open the driver account on the unit device to send live GPS.",
-      );
-      return;
-    }
-
-    const driverIdToStream = initialDriverId || currentDriver?.id || null;
+    const driverIdToStream = isDriverRole ? (initialDriverId || currentDriver?.id) : selectedDriverId;
     if (typeof window === "undefined" || !("geolocation" in navigator)) {
       setGpsError("Geolocation not supported by browser");
       return;
     }
     if (!driverIdToStream) {
-      setGpsError(
-        "No driver unit linked to this login. Ask admin to link your profile to a drivers row (user_id).",
-      );
+      setGpsError("Select a vehicle unit to start GPS");
       return;
     }
 
@@ -513,11 +501,18 @@ export function DriverConsole({
                   </span>
                 )}
 
-                {r.patient_age_band && (
-                  <span className="px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">
-                    Age: {r.patient_age_band === "unknown" ? "Unknown" : `${r.patient_age_band} yrs`}
-                  </span>
-                )}
+                {(() => {
+                  const age = resolvePatientAgeBand(r);
+                  return (
+                    <span className="px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">
+                      {age && age.toLowerCase() !== "unknown"
+                        ? `Age: ${age}`
+                        : age === "unknown"
+                        ? "Age: Unknown"
+                        : "Age: —"}
+                    </span>
+                  );
+                })()}
                 {r.priority && (
                   <span className="px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200">
                     Priority {r.priority}
