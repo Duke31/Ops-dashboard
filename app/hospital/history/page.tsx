@@ -1,5 +1,5 @@
 import { AppShell } from "@/components/AppShell";
-import { AdminHistoryView } from "@/components/AdminHistoryView";
+import { HospitalAuditHistoryView } from "@/components/hospital/HospitalAuditHistoryView";
 import { requireProfile } from "@/lib/auth";
 import { fetchHospitalHistory } from "@/lib/queries";
 import type { EmergencyRequest } from "@/lib/types";
@@ -44,19 +44,22 @@ export default async function HospitalHistoryPage() {
 
   let requests: EmergencyRequest[] = [];
   if (hospitalId) {
-    requests = await fetchHospitalHistory(supabase, hospitalId, 100);
+    requests = await fetchHospitalHistory(supabase, hospitalId, 150);
   }
 
   return (
     <AppShell profile={profile}>
-      <div className="mb-5">
+      <div className="mb-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-bold text-[var(--foreground)]">
-              Hospital Emergency History & Admissions
-            </h1>
-            <p className="text-sm text-[var(--muted)] mt-0.5">
-              Closed cases, completed admissions, and transfers assigned to{" "}
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🏥</span>
+              <h1 className="text-xl font-bold text-[var(--foreground)]">
+                Hospital Clinical & Emergency Audit Log
+              </h1>
+            </div>
+            <p className="text-xs text-[var(--muted)] mt-1">
+              Official institutional record of all patient transfers, bed admissions, clinical handovers, and closed emergency tickets for{" "}
               <strong className="text-[var(--foreground)]">
                 {hospitalName || "your hospital facility"}
               </strong>
@@ -64,16 +67,15 @@ export default async function HospitalHistoryPage() {
             </p>
           </div>
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30">
-            <span>🏥</span>
-            <span>Facility Archive</span>
+            <span>🔒</span>
+            <span>Accredited Clinical Audit Archive</span>
           </span>
         </div>
       </div>
 
-      <AdminHistoryView
+      <HospitalAuditHistoryView
         requests={requests}
-        scopeRole="hospital"
-        emptyMessage="No closed cases for this hospital yet"
+        hospitalName={hospitalName}
       />
     </AppShell>
   );
