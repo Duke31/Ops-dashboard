@@ -102,6 +102,34 @@ export function AppShell({
     } catch {}
   }
 
+  // 30-minute idle session timeout for clinical / ops workstations
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+
+    const resetTimer = () => {
+      clearTimeout(timeoutId);
+      // 30 minutes = 1800000 ms
+      timeoutId = setTimeout(async () => {
+        try {
+          const supabase = createClient();
+          await supabase.auth.signOut();
+          router.replace("/login?error=Session+timed+out+due+to+inactivity");
+        } catch {
+          // ignore
+        }
+      }, 30 * 60 * 1000);
+    };
+
+    const events = ["mousedown", "mousemove", "keydown", "scroll", "touchstart"];
+    events.forEach((evt) => window.addEventListener(evt, resetTimer, { passive: true }));
+    resetTimer();
+
+    return () => {
+      clearTimeout(timeoutId);
+      events.forEach((evt) => window.removeEventListener(evt, resetTimer));
+    };
+  }, [router]);
+
   async function signOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -226,6 +254,14 @@ export function AppShell({
             <div className="flex items-center gap-2 shrink-0">
               <DeskAlertControls />
               {themeButton}
+              <button
+                type="button"
+                onClick={signOut}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold border transition-all border-red-500/20 bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20"
+                title="Sign out of operational desk"
+              >
+                <span>Sign out</span>
+              </button>
             </div>
           </header>
           <div className="p-3 md:p-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
