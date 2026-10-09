@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import type { EmergencyRequest } from "@/lib/types";
 import { StatusBadge } from "@/components/StatusBadge";
-import { formatLocation } from "@/lib/queries";
+import { formatLocation, resolvePatientAgeBand } from "@/lib/queries";
 import { formatDateTime, timeSince } from "@/lib/format";
 import { getCleanMedicalNotes, parsePatientReview } from "@/lib/patientReview";
 
@@ -305,13 +305,18 @@ export function AdminHistoryView({
                       <span className="inline-block px-2 py-0.5 rounded text-[11px] font-bold bg-[var(--surface-raised)] border border-[var(--border)]">
                         {r.emergency_type || "General"}
                       </span>
-                      {r.patient_age_band && (
-                        <div className="text-[11px] text-[var(--muted)] mt-1">
-                          {r.patient_age_band === "unknown"
-                            ? "Age: Not specified"
-                            : `Age: ${r.patient_age_band} yrs`}
-                        </div>
-                      )}
+                      {(() => {
+                        const age = resolvePatientAgeBand(r);
+                        return (
+                          <div className="text-[11px] text-[var(--muted)] mt-1 font-medium">
+                            {age && age.toLowerCase() !== "unknown"
+                              ? `Age: ${age}`
+                              : age === "unknown"
+                              ? "Age: Unknown"
+                              : "Age: —"}
+                          </div>
+                        );
+                      })()}
                       {r.priority != null && (
                         <div className="text-[10px] text-[var(--muted)] mt-0.5">
                           Priority {r.priority}
