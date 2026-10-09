@@ -43,16 +43,18 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
+  const isMarketing =
+    pathname === "/" ||
+    pathname === "/download" ||
+    pathname === "/request-access";
   const isLogin = pathname === "/login";
-    const isRest =
+  const isRest =
     pathname === "/no-access" ||
     pathname === "/reset" ||
     pathname === "/driver" ||
     pathname === "/branding" ||
-    pathname.startsWith("/api/branding") ||
-    pathname.startsWith("/api/reviews") ||
-    pathname.startsWith("/api/hospitals");
-  const isPublic = isLogin || isRest || pathname.startsWith("/auth");
+    pathname.startsWith("/api/branding");
+  const isPublic = isMarketing || isLogin || isRest || pathname.startsWith("/auth");
 
   if (!user && !isPublic) {
     const redirectUrl = request.nextUrl.clone();
