@@ -26,6 +26,11 @@ export type Driver = {
   display_name: string | null;
   vehicle_label: string | null;
   hospital_id: string | null;
+  active?: boolean | null;
+  status?: string | null;
+  duty_status?: "on_duty" | "off_duty" | string | null;
+  fcm_token?: string | null;
+  last_active_at?: string | null;
   user_id?: string | null;
   current_lat?: number | null;
   current_lng?: number | null;
@@ -33,11 +38,8 @@ export type Driver = {
   battery_level?: number | null;
   is_charging?: boolean | null;
   network_type?: string | null;
-  active?: boolean | null;
-  status?: string | null;
-  duty_status?: "on_duty" | "off_duty" | string | null;
-  fcm_token?: string | null;
-  last_active_at?: string | null;
+  heading?: number | null;
+  speed?: number | null;
 };
 
 export type EmergencyRequest = {
