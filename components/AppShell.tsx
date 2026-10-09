@@ -5,6 +5,44 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { Profile } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
+import { DeskAlertProvider, useDeskAlerts } from "@/components/alerts/DeskAlertProvider";
+
+function DeskAlertControls() {
+  const { muted, toggleMute, playTestAlert, requestPermission, permissionGranted } = useDeskAlerts();
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <button
+        type="button"
+        onClick={toggleMute}
+        className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-semibold border transition-all ${
+          muted
+            ? "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30"
+            : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+        }`}
+        title={muted ? "Sound Alerts Muted (Click to Unmute)" : "Sound Alerts Active (Click to Mute)"}
+        aria-label="Toggle alert sound"
+      >
+        <span>{muted ? "🔇 Muted" : "🔊 Sound"}</span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => {
+          if (!permissionGranted) {
+            requestPermission();
+          } else {
+            playTestAlert("urgent");
+          }
+        }}
+        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium border border-[var(--border)] bg-[var(--surface-raised)] text-[var(--foreground)] hover:bg-[var(--border)] transition-all"
+        title="Test emergency alert sound and notification"
+      >
+        <span>⚡ Test</span>
+      </button>
+    </div>
+  );
+}
 
 const NAV: Record<string, { href: string; label: string }[]> = {
   driver: [{ href: "/driver", label: "Ambulance Console" }],
@@ -29,9 +67,11 @@ const NAV: Record<string, { href: string; label: string }[]> = {
 
 export function AppShell({
   profile,
+  driverUnitId,
   children,
 }: {
   profile: Profile;
+  driverUnitId?: string | null;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -140,53 +180,56 @@ export function AppShell({
   );
 
   return (
-    <div className="min-h-dvh md:grid md:grid-cols-[220px_1fr]">
-      <aside className="hidden md:flex bg-[#12141a] text-white flex-col min-h-dvh">
-        {nav}
-      </aside>
+    <DeskAlertProvider profile={profile} driverUnitId={driverUnitId}>
+      <div className="min-h-dvh md:grid md:grid-cols-[220px_1fr]">
+        <aside className="hidden md:flex bg-[#12141a] text-white flex-col min-h-dvh">
+          {nav}
+        </aside>
 
-      {open && (
-        <div className="md:hidden fixed inset-0 z-40">
-          <button
-            className="absolute inset-0 bg-black/60"
-            aria-label="Close menu"
-            onClick={() => setOpen(false)}
-          />
-          <aside className="relative z-50 h-full w-[min(80vw,280px)] bg-[#12141a] text-white flex flex-col shadow-2xl">
-            {nav}
-          </aside>
-        </div>
-      )}
-
-      <main className="min-w-0">
-        <header className="sticky top-0 z-30 h-13 border-b border-[var(--border)] bg-[var(--surface)] flex items-center justify-between gap-3 px-3 md:px-6 text-sm text-[var(--foreground)] transition-colors">
-          <div className="flex items-center gap-3 min-w-0">
+        {open && (
+          <div className="md:hidden fixed inset-0 z-40">
             <button
-              className="md:hidden btn btn-ghost px-2.5 py-1 text-xs"
-              onClick={() => setOpen(true)}
-              aria-label="Open menu"
-            >
-              ☰ Menu
-            </button>
-            <div className="flex items-center gap-2 truncate">
-              <span className="font-semibold text-xs tracking-wider uppercase text-[var(--muted)]">
-                Ops Live
-              </span>
-              <span className="text-[var(--border)]">•</span>
-              <span className="capitalize text-xs font-semibold px-2 py-0.5 rounded-full bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--foreground)]">
-                {profile.role}
-              </span>
-            </div>
+              className="absolute inset-0 bg-black/60"
+              aria-label="Close menu"
+              onClick={() => setOpen(false)}
+            />
+            <aside className="relative z-50 h-full w-[min(80vw,280px)] bg-[#12141a] text-white flex flex-col shadow-2xl">
+              {nav}
+            </aside>
           </div>
+        )}
 
-          <div className="flex items-center gap-2.5 shrink-0">
-            {themeButton}
+        <main className="min-w-0">
+          <header className="sticky top-0 z-30 h-13 border-b border-[var(--border)] bg-[var(--surface)] flex items-center justify-between gap-3 px-3 md:px-6 text-sm text-[var(--foreground)] transition-colors">
+            <div className="flex items-center gap-3 min-w-0">
+              <button
+                className="md:hidden btn btn-ghost px-2.5 py-1 text-xs"
+                onClick={() => setOpen(true)}
+                aria-label="Open menu"
+              >
+                ☰ Menu
+              </button>
+              <div className="flex items-center gap-2 truncate">
+                <span className="font-semibold text-xs tracking-wider uppercase text-[var(--muted)]">
+                  Ops Live
+                </span>
+                <span className="text-[var(--border)]">•</span>
+                <span className="capitalize text-xs font-semibold px-2 py-0.5 rounded-full bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--foreground)]">
+                  {profile.role}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <DeskAlertControls />
+              {themeButton}
+            </div>
+          </header>
+          <div className="p-3 md:p-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            {children}
           </div>
-        </header>
-        <div className="p-3 md:p-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          {children}
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
+    </DeskAlertProvider>
   );
 }
