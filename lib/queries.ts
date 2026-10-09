@@ -118,6 +118,39 @@ export async function fetchRequests(
   }
 }
 
+export async function fetchHospitalHistory(
+  supabase: SupabaseClient,
+  hospitalId: string,
+  limit: number = 100,
+): Promise<EmergencyRequest[]> {
+  try {
+    // 1. First attempt: standard fetchRequests with activeOnly: false
+    const directResults = await fetchRequests(supabase, {
+      hospitalId,
+      activeOnly: false,
+    });
+
+    if (directResults && directResults.length > 0) {
+      return directResults.slice(0, limit);
+    }
+
+    // 2. If direct select returned 0 rows (e.g. RLS blocks terminal states), try scoped RPC
+    const { data: rpcData, error: rpcError } = await supabase.rpc(
+      "hospital_list_history",
+      { p_hospital_id: hospitalId, p_limit: limit },
+    );
+
+    if (!rpcError && Array.isArray(rpcData) && rpcData.length > 0) {
+      return rpcData as unknown as EmergencyRequest[];
+    }
+
+    return directResults ?? [];
+  } catch (err) {
+    console.error("fetchHospitalHistory catch:", err);
+    return [];
+  }
+}
+
 export async function fetchTransitionRules(
   supabase: SupabaseClient,
   actorRole: string,
@@ -170,8 +203,8 @@ export function resolvePatientAgeBand(
   if (col && col.length > 0 && col.toLowerCase() !== "unknown") return col;
   if (col && col.toLowerCase() === "unknown") return "unknown";
   const notes = r.notes ?? "";
-  const m = notes.match(/(?:Patient Age|Age band|Age):\s*([0-9+\-]+)/i);
-  if (m?.[1]) return m[1].trim();
+  const m = notes.match(/Age\s*band:\s*([0-9+\-]+)/i);
+  if (m?.[1]) return m[1];
   return col || null;
 }
 
