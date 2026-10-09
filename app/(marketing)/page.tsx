@@ -256,14 +256,8 @@ export default function MarketingLandingPage() {
                 Field drivers receive assigned mission calls, rapid turn-by-turn routing to the patient, and direct route navigation to the confirmed hospital bed.
               </p>
             </div>
-            <div className="pt-4 border-t border-white/5">
-              <Link
-                href="/login"
-                className="inline-flex items-center gap-1.5 text-xs text-teal-400 font-bold hover:underline"
-              >
-                <span>Responder Sign In</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
+            <div className="pt-4 border-t border-white/5 text-xs text-slate-500 font-medium">
+              Equipped with real-time telematics &amp; direct receiving routing
             </div>
           </div>
         </div>
@@ -340,11 +334,11 @@ export default function MarketingLandingPage() {
             </Link>
 
             <Link
-              href="/login"
+              href="/request-access"
               className="w-full sm:w-auto px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-200 hover:text-white font-semibold text-sm border border-white/10 transition-colors flex items-center justify-center gap-2"
             >
               <Building2 className="w-4 h-4 text-emerald-400" />
-              <span>Staff Portal Sign In</span>
+              <span>Request Staff Access</span>
             </Link>
           </div>
         </div>
