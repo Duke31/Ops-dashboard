@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { rpcMessage } from "@/lib/rpc-error";
+import { useDeskAlerts } from "@/components/alerts/DeskAlertProvider";
 
 // Web Audio API siren alert for high-priority dispatch
 function playDispatchChime() {
@@ -90,6 +91,7 @@ export function DriverConsole({
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
+  const { highlightedRequestId } = useDeskAlerts();
 
   // For drivers, ALWAYS use initialDriverId (NEVER read from localStorage)
   const [selectedDriverId, setSelectedDriverId] = useState<string>(() => {
@@ -611,10 +613,16 @@ export function DriverConsole({
         const gmapsHospitalUrl = getGoogleMapsHospitalUrl(r);
         const wazeHospitalUrl = getWazeHospitalUrl(r);
 
+        const isHighlighted = highlightedRequestId === r.id;
+
         return (
           <article
             key={r.id}
-            className="card p-5 border-2 border-red-500/40 shadow-lg space-y-4 bg-[var(--surface)]"
+            className={`card p-5 border-2 shadow-lg space-y-4 bg-[var(--surface)] transition-all duration-500 ${
+              isHighlighted
+                ? "border-amber-500 ring-4 ring-amber-400/50 animate-pulse bg-amber-500/10 dark:bg-amber-950/40"
+                : "border-red-500/40"
+            }`}
           >
             <div className="flex items-start justify-between gap-3">
               <div>
