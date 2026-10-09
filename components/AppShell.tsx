@@ -15,6 +15,7 @@ const NAV: Record<string, { href: string; label: string }[]> = {
   hospital: [{ href: "/hospital", label: "Incoming" }],
   admin: [
     { href: "/admin", label: "Network queue" },
+    { href: "/admin/history", label: "📜 Emergency History" },
     { href: "/admin/reviews", label: "⭐ Patient Reviews" },
     { href: "/driver", label: "Ambulance View" },
     { href: "/admin/hospitals", label: "Hospitals" },
