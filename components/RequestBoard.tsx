@@ -704,6 +704,7 @@ export function RequestBoard({
                 r,
                 hospitals,
               );
+              const isSelectedHospitalFull = effectiveCap === 0;
               const isHighlighted = highlightedRequestId === r.id;
 
               return (
