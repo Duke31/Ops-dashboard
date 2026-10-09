@@ -26,6 +26,13 @@ export type Driver = {
   display_name: string | null;
   vehicle_label: string | null;
   hospital_id: string | null;
+  user_id?: string | null;
+  current_lat?: number | null;
+  current_lng?: number | null;
+  last_location_at?: string | null;
+  battery_level?: number | null;
+  is_charging?: boolean | null;
+  network_type?: string | null;
   active?: boolean | null;
   status?: string | null;
   duty_status?: "on_duty" | "off_duty" | string | null;
