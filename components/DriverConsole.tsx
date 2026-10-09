@@ -111,7 +111,7 @@ export function DriverConsole({
   const [ok, setOk] = useState<string | null>(null);
   const prevCountRef = useRef(initialRequests.length);
 
-  // GPS Telemetry State
+  // GPS Telemetry State (for driver device write path)
   const [gpsCoords, setGpsCoords] = useState<{
     lat: number;
     lng: number;
@@ -120,6 +120,16 @@ export function DriverConsole({
     accuracy: number | null;
   } | null>(null);
   const [gpsError, setGpsError] = useState<string | null>(null);
+
+  // Read-only tracked unit state (for desk follow path & driver display)
+  const [trackedUnit, setTrackedUnit] = useState<{
+    lat: number;
+    lng: number;
+    heading?: number | null;
+    speed?: number | null;
+    updatedAt?: string | null;
+    source: "gps" | "db" | "broadcast";
+  } | null>(null);
 
   // If initialDriverId changes or resolves, update state
   useEffect(() => {
@@ -206,26 +216,30 @@ export function DriverConsole({
 
   const lastDbUpdateRef = useRef<number>(0);
 
-  // Stream GPS Telemetry with immediate initial position fetch & continuous watching
+  // ==========================================
+  // GPS WRITE PATH: ONLY FOR REAL DRIVER ROLES
+  // ==========================================
   useEffect(() => {
-    const driverIdToStream = isDriverRole ? (initialDriverId || currentDriver?.id) : selectedDriverId;
+    // SECURITY & SAFETY GUARD: Desk admin/dispatcher browsers must NEVER stream GPS
+    if (!isDriverRole) return;
+
+    const driverIdToStream = initialDriverId || currentDriver?.id;
     if (typeof window === "undefined" || !("geolocation" in navigator)) {
-      setGpsError("Geolocation not supported by browser");
+      setGpsError("Geolocation not supported by device");
       return;
     }
     if (!driverIdToStream) {
-      setGpsError("Select a vehicle unit to start GPS");
+      setGpsError("No driver profile linked to this account");
       return;
     }
 
-    // Channel for system-wide responders and request-specific tracking
     const locChannel = supabase.channel("responder_locations");
     locChannel.subscribe();
 
-    // Map of subscribed request channels to avoid re-creating/unsubscribed sends
     const requestChannels = new Map<string, ReturnType<typeof supabase.channel>>();
 
     const updateLocation = (pos: GeolocationPosition) => {
+      const nowIso = new Date().toISOString();
       const payload = {
         driver_id: driverIdToStream,
         driver_name: currentDriver?.display_name || "Ambulance Unit",
@@ -235,7 +249,7 @@ export function DriverConsole({
         heading: pos.coords.heading,
         speed: pos.coords.speed,
         accuracy: pos.coords.accuracy,
-        updated_at: new Date().toISOString(),
+        updated_at: nowIso,
       };
 
       setGpsCoords({
@@ -244,6 +258,14 @@ export function DriverConsole({
         heading: pos.coords.heading,
         speed: pos.coords.speed,
         accuracy: pos.coords.accuracy,
+      });
+      setTrackedUnit({
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        heading: pos.coords.heading,
+        speed: pos.coords.speed,
+        updatedAt: nowIso,
+        source: "gps",
       });
       setGpsError(null);
 
@@ -283,7 +305,6 @@ export function DriverConsole({
       if (now - lastDbUpdateRef.current >= 3000) {
         lastDbUpdateRef.current = now;
 
-        // Try direct update first
         supabase
           .from("drivers")
           .update({
@@ -291,12 +312,11 @@ export function DriverConsole({
             current_lng: pos.coords.longitude,
             heading: pos.coords.heading,
             speed: pos.coords.speed,
-            last_location_at: new Date().toISOString(),
+            last_location_at: nowIso,
           })
           .eq("id", driverIdToStream)
           .then(({ error: updateErr }) => {
             if (updateErr) {
-              // Fallback to RPC if RLS blocks direct update
               supabase
                 .rpc("update_driver_location", {
                   p_driver_id: driverIdToStream,
@@ -314,7 +334,7 @@ export function DriverConsole({
     const handleLocationError = (err: GeolocationPositionError) => {
       let msg = err.message;
       if (err.code === 1) {
-        msg = "GPS permission denied. Please allow location access in your browser settings.";
+        msg = "GPS permission denied. Please allow location access on this device.";
       } else if (err.code === 2) {
         msg = "Location unavailable. Check device GPS.";
       } else if (err.code === 3) {
@@ -323,14 +343,12 @@ export function DriverConsole({
       setGpsError(msg);
     };
 
-    // 1. Immediately request current position
     navigator.geolocation.getCurrentPosition(updateLocation, handleLocationError, {
       enableHighAccuracy: true,
       maximumAge: 10000,
       timeout: 10000,
     });
 
-    // 2. Watch continuously
     const watchId = navigator.geolocation.watchPosition(updateLocation, handleLocationError, {
       enableHighAccuracy: true,
       maximumAge: 5000,
@@ -341,7 +359,81 @@ export function DriverConsole({
       navigator.geolocation.clearWatch(watchId);
       supabase.removeChannel(locChannel);
     };
-  }, [supabase, isDriverRole, initialDriverId, selectedDriverId, currentDriver]);
+  }, [supabase, isDriverRole, initialDriverId, currentDriver]);
+
+  // ==========================================
+  // GPS READ / TRACK PATH: DESK FOLLOW MODE
+  // ==========================================
+  useEffect(() => {
+    // If running as driver, local GPS provides the telemetry
+    if (isDriverRole) return;
+
+    const unitId = selectedDriverId || drivers[0]?.id;
+    if (!unitId) {
+      setTrackedUnit(null);
+      return;
+    }
+
+    // Initialize from pre-loaded drivers list if coordinates exist
+    const selectedDriver = drivers.find((d) => d.id === unitId);
+    if (selectedDriver?.current_lat != null && selectedDriver?.current_lng != null) {
+      setTrackedUnit({
+        lat: selectedDriver.current_lat,
+        lng: selectedDriver.current_lng,
+        heading: selectedDriver.heading,
+        speed: selectedDriver.speed,
+        updatedAt: selectedDriver.last_location_at,
+        source: "db",
+      });
+    } else {
+      setTrackedUnit(null);
+    }
+
+    // 1. Listen for live Realtime broadcast from the ambulance
+    const broadcastChan = supabase
+      .channel(`desk-follow:${unitId}`)
+      .on("broadcast", { event: "location_update" }, ({ payload }) => {
+        if (payload && payload.driver_id === unitId && payload.lat != null && payload.lng != null) {
+          setTrackedUnit({
+            lat: payload.lat,
+            lng: payload.lng,
+            heading: payload.heading,
+            speed: payload.speed,
+            updatedAt: payload.updated_at || new Date().toISOString(),
+            source: "broadcast",
+          });
+        }
+      })
+      .subscribe();
+
+    // 2. Poll DB every 3 seconds for updated position
+    const pollInterval = setInterval(async () => {
+      const { data } = await supabase
+        .from("drivers")
+        .select("current_lat, current_lng, heading, speed, last_location_at")
+        .eq("id", unitId)
+        .maybeSingle();
+
+      if (data && data.current_lat != null && data.current_lng != null) {
+        setTrackedUnit((prev) => {
+          // If we recently received a broadcast with newer or same time, don't regress
+          return {
+            lat: data.current_lat,
+            lng: data.current_lng,
+            heading: data.heading,
+            speed: data.speed,
+            updatedAt: data.last_location_at,
+            source: prev?.source === "broadcast" ? "broadcast" : "db",
+          };
+        });
+      }
+    }, 3000);
+
+    return () => {
+      supabase.removeChannel(broadcastChan);
+      clearInterval(pollInterval);
+    };
+  }, [supabase, isDriverRole, selectedDriverId, drivers]);
 
   async function executeTransition(requestId: string, nextStatus: string) {
     setBusy(requestId);
@@ -371,9 +463,16 @@ export function DriverConsole({
       <div className="card p-4 bg-[var(--surface)] text-[var(--foreground)] border border-[var(--border)] shadow-sm">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--muted)] block">
-              Active Responder Unit
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--muted)]">
+                {isDriverRole ? "Active Responder Unit" : "Monitored Unit"}
+              </span>
+              {!isDriverRole && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold border border-blue-500/20">
+                  Read-only desk track
+                </span>
+              )}
+            </div>
             <div className="text-base font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 mt-0.5">
               <span>🚑</span>
               <span>{currentDriver?.display_name || "Ambulance Unit"}</span>
@@ -392,7 +491,6 @@ export function DriverConsole({
                 value={selectedDriverId}
                 onChange={(e) => handleSelectDriver(e.target.value)}
               >
-                <option value="">All Units (Testing)</option>
                 {drivers.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.display_name} {d.vehicle_label ? `· ${d.vehicle_label}` : ""}
@@ -403,35 +501,93 @@ export function DriverConsole({
           )}
         </div>
 
-        {/* Live GPS Telemetry Indicator */}
-        <div className="mt-3 pt-2.5 border-t border-[var(--border)] flex items-center justify-between text-[11px] text-[var(--muted)]">
-          <div className="flex items-center gap-1.5">
-            <span className="relative flex h-2 w-2">
-              <span
-                className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                  gpsCoords ? "bg-emerald-400" : "bg-amber-400"
-                }`}
-              />
-              <span
-                className={`relative inline-flex rounded-full h-2 w-2 ${
-                  gpsCoords ? "bg-emerald-500" : "bg-amber-500"
-                }`}
-              />
-            </span>
-            <span>
-              {gpsCoords
-                ? `GPS Telemetry Live (${gpsCoords.lat.toFixed(5)}, ${gpsCoords.lng.toFixed(5)})`
-                : gpsError
-                ? `GPS Notice: ${gpsError}`
-                : "Acquiring GPS Fix…"}
-            </span>
-          </div>
-          {gpsCoords?.speed != null && (
-            <span className="font-mono text-[var(--foreground)] font-semibold">
-              {(gpsCoords.speed * 3.6).toFixed(0)} km/h
-            </span>
+        {/* GPS Telemetry & Track Status Indicator */}
+        <div className="mt-3 pt-2.5 border-t border-[var(--border)] flex items-center justify-between text-[11px] text-[var(--muted)] flex-wrap gap-2">
+          {isDriverRole ? (
+            // Driver device live write status
+            <>
+              <div className="flex items-center gap-1.5">
+                <span className="relative flex h-2 w-2">
+                  <span
+                    className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                      gpsCoords ? "bg-emerald-400" : "bg-amber-400"
+                    }`}
+                  />
+                  <span
+                    className={`relative inline-flex rounded-full h-2 w-2 ${
+                      gpsCoords ? "bg-emerald-500" : "bg-amber-500"
+                    }`}
+                  />
+                </span>
+                <span>
+                  {gpsCoords
+                    ? `GPS Telemetry Live (${gpsCoords.lat.toFixed(5)}, ${gpsCoords.lng.toFixed(5)})`
+                    : gpsError
+                    ? `GPS Notice: ${gpsError}`
+                    : "Acquiring GPS Fix…"}
+                </span>
+              </div>
+              {gpsCoords?.speed != null && (
+                <span className="font-mono text-[var(--foreground)] font-semibold">
+                  {(gpsCoords.speed * 3.6).toFixed(0)} km/h
+                </span>
+              )}
+            </>
+          ) : (
+            // Desk read-only follow status
+            <>
+              <div className="flex items-center gap-1.5">
+                <span className="relative flex h-2 w-2">
+                  <span
+                    className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                      trackedUnit ? "bg-blue-400" : "bg-amber-400"
+                    }`}
+                  />
+                  <span
+                    className={`relative inline-flex rounded-full h-2 w-2 ${
+                      trackedUnit ? "bg-blue-500" : "bg-amber-500"
+                    }`}
+                  />
+                </span>
+                <span>
+                  {trackedUnit
+                    ? `Tracking Unit (${trackedUnit.lat.toFixed(5)}, ${trackedUnit.lng.toFixed(5)}) • ${
+                        trackedUnit.source === "broadcast" ? "Live Radio" : "DB Sync"
+                      }${trackedUnit.updatedAt ? ` • ${timeSince(trackedUnit.updatedAt)}` : ""}`
+                    : "Waiting for this unit to publish GPS from the driver device…"}
+                </span>
+              </div>
+              {trackedUnit && (
+                <a
+                  href={`https://www.google.com/maps?q=${trackedUnit.lat},${trackedUnit.lng}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 dark:text-blue-400 font-medium hover:underline inline-flex items-center gap-1"
+                >
+                  <span>Open in Google Maps ↗</span>
+                </a>
+              )}
+            </>
           )}
         </div>
+
+        {/* Desk embedded follow map */}
+        {!isDriverRole && trackedUnit && (
+          <div className="mt-3 pt-3 border-t border-[var(--border)]">
+            <div className="rounded-lg overflow-hidden border border-[var(--border)] h-44 bg-[var(--surface-raised,#1e293b)] relative">
+              <iframe
+                title="Monitored Ambulance Location"
+                width="100%"
+                height="100%"
+                frameBorder="0"
+                scrolling="no"
+                marginHeight={0}
+                marginWidth={0}
+                src={`https://www.openstreetmap.org/export/embed.html?bbox=${trackedUnit.lng - 0.008}%2C${trackedUnit.lat - 0.005}%2C${trackedUnit.lng + 0.008}%2C${trackedUnit.lat + 0.005}&layer=mapnik&marker=${trackedUnit.lat}%2C${trackedUnit.lng}`}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* No active dispatches */}
@@ -503,10 +659,13 @@ export function DriverConsole({
 
                 {(() => {
                   const age = resolvePatientAgeBand(r);
-                  if (!age) return null;
                   return (
                     <span className="px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">
-                      Age: {age === "unknown" ? "Unknown" : `${age} yrs`}
+                      {age && age.toLowerCase() !== "unknown"
+                        ? `Age: ${age}`
+                        : age === "unknown"
+                        ? "Age: Unknown"
+                        : "Age: —"}
                     </span>
                   );
                 })()}
