@@ -81,23 +81,6 @@ function LoginForm() {
           <span>📲</span>
           <span>Download Solace Driver APK (Android)</span>
         </a>
-
-        <div className="flex items-center justify-between w-full text-xs text-[var(--muted)] px-1">
-          <a
-            href="/branding"
-            className="text-[#00D4FF] hover:underline inline-flex items-center gap-1 font-medium"
-          >
-            🎨 App Logo & Branding Studio →
-          </a>
-          <a
-            href="/login"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:underline inline-flex items-center gap-1"
-          >
-            Standalone tab ↗
-          </a>
-        </div>
       </div>
     </form>
   );
