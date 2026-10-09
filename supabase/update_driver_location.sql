@@ -43,20 +43,18 @@ begin
   v_role := public.current_profile_role();
   v_uid := auth.uid();
 
-  if v_role not in ('driver', 'admin', 'dispatcher') then
-    raise exception 'not_allowed: only driver/desk can update location'
+  if v_role != 'driver' then
+    raise exception 'not_allowed: only assigned ambulance drivers can publish GPS telemetry'
       using errcode = '42501';
   end if;
 
-  if v_role = 'driver' then
-    select exists(
-      select 1 from public.drivers d
-      where d.id = p_driver_id and d.user_id = v_uid
-    ) into v_mine;
-    if not v_mine then
-      raise exception 'not_allowed: can only update your own unit'
-        using errcode = '42501';
-    end if;
+  select exists(
+    select 1 from public.drivers d
+    where d.id = p_driver_id and d.user_id = v_uid
+  ) into v_mine;
+  if not v_mine then
+    raise exception 'not_allowed: can only update your own unit'
+      using errcode = '42501';
   end if;
 
   v_battery := p_battery_level;
