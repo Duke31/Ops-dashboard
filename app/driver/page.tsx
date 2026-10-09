@@ -42,7 +42,7 @@ export default async function DriverPage() {
   }
 
   return (
-    <AppShell profile={profile}>
+    <AppShell profile={profile} driverUnitId={isDriverRole ? activeDriverRecord?.id ?? null : null}>
       <div className="mb-4 max-w-xl mx-auto">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
