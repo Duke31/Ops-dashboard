@@ -50,7 +50,10 @@ const NAV: Record<string, { href: string; label: string }[]> = {
     { href: "/dispatcher", label: "Active requests" },
     { href: "/dispatcher/reviews", label: "⭐ Patient Reviews" },
   ],
-  hospital: [{ href: "/hospital", label: "Incoming" }],
+  hospital: [
+    { href: "/hospital", label: "Incoming" },
+    { href: "/hospital/history", label: "History" },
+  ],
   admin: [
     { href: "/admin", label: "Network queue" },
     { href: "/admin/history", label: "📜 Emergency History" },
