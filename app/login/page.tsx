@@ -20,6 +20,42 @@ function LoginForm() {
     }
   }, [urlError]);
 
+  const [signingOut, setSigningOut] = useState(false);
+  const [reauthNotice, setReauthNotice] = useState<string | null>(null);
+
+  // If user requested fresh re-auth (?reauth=1) or was directed from staff sign in
+  useEffect(() => {
+    const shouldReauth = searchParams.get("reauth") === "1";
+    if (shouldReauth) {
+      const clearExisting = async () => {
+        try {
+          const { createClient } = await import("@/lib/supabase/client");
+          const supabase = createClient();
+          await supabase.auth.signOut();
+          setReauthNotice("Existing session cleared. Please enter your credentials to authenticate.");
+        } catch {
+          // Ignore
+        }
+      };
+      clearExisting();
+    }
+  }, [searchParams]);
+
+  const handleSignOutFirst = async () => {
+    setSigningOut(true);
+    try {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      setReauthNotice("Signed out of all active sessions. Ready for fresh login.");
+      setLocalError(null);
+    } catch (e: any) {
+      setLocalError(e?.message || "Failed to clear session.");
+    } finally {
+      setSigningOut(false);
+    }
+  };
+
   const activeError = state?.error || localError;
 
   return (
@@ -39,6 +75,12 @@ function LoginForm() {
           Dispatcher, hospital intake, and fleet supervisor sign in.
         </p>
       </div>
+
+      {reauthNotice && (
+        <div className="text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 rounded-md px-3 py-2 leading-relaxed">
+          {reauthNotice}
+        </div>
+      )}
 
       <label className="block text-sm">
         Email
@@ -63,24 +105,47 @@ function LoginForm() {
       </label>
 
       {activeError && (
-        <div className="text-xs text-red-700 dark:text-red-300 bg-red-500/10 border border-red-500/30 rounded-md px-3 py-2 leading-relaxed">
-          {activeError}
+        <div className="text-xs text-red-700 dark:text-red-300 bg-red-500/10 border border-red-500/30 rounded-md px-3 py-2 leading-relaxed space-y-1">
+          <div>{activeError}</div>
+          <button
+            type="button"
+            onClick={handleSignOutFirst}
+            className="text-[11px] underline text-red-600 dark:text-red-400 font-semibold cursor-pointer"
+          >
+            Clear current session &amp; sign out first
+          </button>
         </div>
       )}
 
-      <button className="btn btn-primary w-full py-2" disabled={isPending}>
+      <button className="btn btn-primary w-full py-2" disabled={isPending || signingOut}>
         {isPending ? "Signing in…" : "Sign in"}
       </button>
 
       <div className="pt-2 flex flex-col items-center gap-2.5">
-        <a
-          href="/solace-driver.apk"
-          download="solace-driver.apk"
-          className="w-full py-2 px-3 rounded-lg border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 text-sky-700 dark:text-sky-300 text-xs font-semibold flex items-center justify-center gap-2 transition"
+        <button
+          type="button"
+          onClick={handleSignOutFirst}
+          disabled={signingOut}
+          className="w-full py-1.5 px-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] hover:bg-[var(--border)] text-xs text-[var(--muted)] hover:text-[var(--foreground)] transition flex items-center justify-center gap-1.5"
         >
-          <span>📲</span>
-          <span>Download Solace Driver APK (Android)</span>
-        </a>
+          <span>🔒</span>
+          <span>{signingOut ? "Clearing session…" : "Shared device? Sign out first"}</span>
+        </button>
+
+        <div className="flex items-center justify-between w-full text-xs text-[var(--muted)] pt-2 border-t border-[var(--border)]">
+          <a
+            href="/request-access"
+            className="text-[#00D4FF] hover:underline font-semibold"
+          >
+            Request Staff Access →
+          </a>
+          <a
+            href="/"
+            className="hover:underline text-[var(--muted)]"
+          >
+            ← Public Site
+          </a>
+        </div>
       </div>
     </form>
   );
