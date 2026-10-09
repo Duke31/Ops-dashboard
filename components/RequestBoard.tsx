@@ -724,13 +724,10 @@ export function RequestBoard({
                       )}
                       {(() => {
                         const age = resolvePatientAgeBand(r);
+                        if (!age) return null;
                         return (
                           <span className="px-1.5 py-0.5 rounded bg-[var(--surface-raised,#f3f4f6)] text-[var(--muted)] border border-[var(--border,#e5e7eb)] font-medium">
-                            {age && age.toLowerCase() !== "unknown"
-                              ? `Age: ${age}`
-                              : age === "unknown"
-                              ? "Age: ?"
-                              : "Age: —"}
+                            {age === "unknown" ? "Age: ?" : `${age} yrs`}
                           </span>
                         );
                       })()}

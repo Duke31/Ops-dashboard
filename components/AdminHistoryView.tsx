@@ -307,13 +307,10 @@ export function AdminHistoryView({
                       </span>
                       {(() => {
                         const age = resolvePatientAgeBand(r);
+                        if (!age) return null;
                         return (
-                          <div className="text-[11px] text-[var(--muted)] mt-1 font-medium">
-                            {age && age.toLowerCase() !== "unknown"
-                              ? `Age: ${age}`
-                              : age === "unknown"
-                              ? "Age: Unknown"
-                              : "Age: —"}
+                          <div className="text-[11px] text-[var(--muted)] mt-1">
+                            {age === "unknown" ? "Age: Not specified" : `Age: ${age} yrs`}
                           </div>
                         );
                       })()}

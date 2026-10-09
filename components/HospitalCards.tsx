@@ -195,13 +195,10 @@ export function HospitalCards({
                         <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
                           {(() => {
                             const age = resolvePatientAgeBand(r);
+                            if (!age) return null;
                             return (
                               <span className="inline-flex items-center px-2 py-0.5 rounded font-medium bg-[var(--surface-raised,#f3f4f6)] text-[var(--foreground)] border border-[var(--border,#e5e7eb)]">
-                                {age && age.toLowerCase() !== "unknown"
-                                  ? `Age: ${age}`
-                                  : age === "unknown"
-                                  ? "Age: Unknown"
-                                  : "Age: —"}
+                                Age: {age === "unknown" ? "Unknown" : `${age} yrs`}
                               </span>
                             );
                           })()}

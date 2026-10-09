@@ -170,8 +170,8 @@ export function resolvePatientAgeBand(
   if (col && col.length > 0 && col.toLowerCase() !== "unknown") return col;
   if (col && col.toLowerCase() === "unknown") return "unknown";
   const notes = r.notes ?? "";
-  const m = notes.match(/Age\s*band:\s*([0-9+\-]+)/i);
-  if (m?.[1]) return m[1];
+  const m = notes.match(/(?:Patient Age|Age band|Age):\s*([0-9+\-]+)/i);
+  if (m?.[1]) return m[1].trim();
   return col || null;
 }
 

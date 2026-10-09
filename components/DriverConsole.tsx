@@ -503,13 +503,10 @@ export function DriverConsole({
 
                 {(() => {
                   const age = resolvePatientAgeBand(r);
+                  if (!age) return null;
                   return (
                     <span className="px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">
-                      {age && age.toLowerCase() !== "unknown"
-                        ? `Age: ${age}`
-                        : age === "unknown"
-                        ? "Age: Unknown"
-                        : "Age: —"}
+                      Age: {age === "unknown" ? "Unknown" : `${age} yrs`}
                     </span>
                   );
                 })()}
