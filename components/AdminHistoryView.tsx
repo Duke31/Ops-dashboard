@@ -403,7 +403,7 @@ export function AdminHistoryView({
                           </div>
                           {review.remark && (
                             <p className="italic text-[10px] text-[var(--foreground)] mt-0.5 line-clamp-2" title={review.remark}>
-                              "{review.remark}"
+                              &quot;{review.remark}&quot;
                             </p>
                           )}
                         </div>
