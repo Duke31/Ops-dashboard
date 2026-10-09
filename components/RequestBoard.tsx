@@ -9,7 +9,7 @@ import type {
   Hospital,
   TransitionRule,
 } from "@/lib/types";
-import { allowedTargets, formatLocation } from "@/lib/queries";
+import { allowedTargets, formatLocation, resolvePatientAgeBand } from "@/lib/queries";
 import { timeSince } from "@/lib/format";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Toast } from "@/components/Toast";
@@ -722,11 +722,18 @@ export function RequestBoard({
                           <span>{r.contact_phone}</span>
                         </a>
                       )}
-                      {r.patient_age_band && (
-                        <span className="px-1.5 py-0.5 rounded bg-[var(--surface-raised,#f3f4f6)] text-[var(--muted)] border border-[var(--border,#e5e7eb)] font-medium">
-                          {r.patient_age_band === "unknown" ? "Age: ?" : `${r.patient_age_band} yrs`}
-                        </span>
-                      )}
+                      {(() => {
+                        const age = resolvePatientAgeBand(r);
+                        return (
+                          <span className="px-1.5 py-0.5 rounded bg-[var(--surface-raised,#f3f4f6)] text-[var(--muted)] border border-[var(--border,#e5e7eb)] font-medium">
+                            {age && age.toLowerCase() !== "unknown"
+                              ? `Age: ${age}`
+                              : age === "unknown"
+                              ? "Age: ?"
+                              : "Age: —"}
+                          </span>
+                        );
+                      })()}
                     </div>
                   </td>
                   <td className="max-w-[240px]">
