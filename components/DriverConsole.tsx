@@ -206,15 +206,27 @@ export function DriverConsole({
 
   const lastDbUpdateRef = useRef<number>(0);
 
-  // Stream GPS Telemetry with immediate initial position fetch & continuous watching
+  // Stream GPS Telemetry — ONLY for authenticated driver role linked to a unit.
+  // Admin/dispatcher desk must NEVER write browser GPS as an ambulance location
+  // (that was feeding the patient map with the desk operator's coordinates).
   useEffect(() => {
-    const driverIdToStream = isDriverRole ? (initialDriverId || currentDriver?.id) : selectedDriverId;
+    if (!isDriverRole) {
+      setGpsCoords(null);
+      setGpsError(
+        "Desk monitor mode: location is not streamed from this browser. Open the driver account on the unit device to send live GPS.",
+      );
+      return;
+    }
+
+    const driverIdToStream = initialDriverId || currentDriver?.id || null;
     if (typeof window === "undefined" || !("geolocation" in navigator)) {
       setGpsError("Geolocation not supported by browser");
       return;
     }
     if (!driverIdToStream) {
-      setGpsError("Select a vehicle unit to start GPS");
+      setGpsError(
+        "No driver unit linked to this login. Ask admin to link your profile to a drivers row (user_id).",
+      );
       return;
     }
 
