@@ -17,23 +17,20 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Active Network
+              24/7 Operations
             </span>
             <span className="text-slate-500 hidden sm:inline">·</span>
             <span className="text-slate-300">
-              Emergency Dispatch &amp; Ambulance Telematics — Oyo &amp; Osun Corridors
+              Pre-Hospital Coordination &amp; Ambulance Dispatch Network
             </span>
           </div>
 
           <div className="flex items-center gap-4 text-[11px] text-slate-400">
-            <span className="hidden md:inline">24/7 Operations Desk:</span>
-            <a
-              href="tel:+2348000000000"
-              className="inline-flex items-center gap-1 text-slate-300 hover:text-emerald-400 transition-colors font-mono font-medium"
-            >
+            <span className="hidden md:inline">Central Dispatch Desk:</span>
+            <span className="inline-flex items-center gap-1 text-slate-300 font-medium">
               <Phone className="w-3 h-3 text-emerald-400" />
-              Emergency Response Line
-            </a>
+              Rapid Response Helpline
+            </span>
           </div>
         </div>
       </div>
@@ -84,7 +81,7 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-3">
             {/* Single Distinct Staff Sign In Entry */}
             <Link
-              href="/login"
+              href="/login?reauth=1"
               className="px-3.5 py-1.5 text-xs font-semibold text-slate-200 hover:text-white rounded-lg border border-white/15 hover:border-white/30 hover:bg-white/5 transition-all"
             >
               Staff Sign In
@@ -168,13 +165,18 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
               <p className="text-[11px] text-slate-400 leading-relaxed">
                 Registered dispatchers, ambulance personnel, and hospital intake staff can access operational consoles via the secure sign-in portal.
               </p>
-              <div className="pt-2">
+              <div className="pt-2 flex flex-col gap-1.5">
+                <Link
+                  href="/request-access"
+                  className="inline-flex items-center gap-1.5 text-xs text-emerald-400 hover:underline font-semibold"
+                >
+                  <span>Request Staff Access →</span>
+                </Link>
                 <Link
                   href="/login"
-                  className="inline-flex items-center gap-1.5 text-xs text-[#00D4FF] hover:underline font-semibold"
+                  className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors"
                 >
                   <span>Staff Portal Sign In</span>
-                  <ArrowRight className="w-3 h-3" />
                 </Link>
               </div>
             </div>
