@@ -134,10 +134,10 @@ function LoginForm() {
 
         <div className="flex items-center justify-between w-full text-xs text-[var(--muted)] pt-2 border-t border-[var(--border)]">
           <a
-            href="/request-access"
-            className="text-[#00D4FF] hover:underline font-semibold"
+            href="/register"
+            className="text-emerald-500 hover:underline font-semibold"
           >
-            Request Staff Access →
+            Client Sign Up →
           </a>
           <a
             href="/"
