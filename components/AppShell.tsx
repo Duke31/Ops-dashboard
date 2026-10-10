@@ -11,11 +11,11 @@ function DeskAlertControls() {
   const { muted, toggleMute, playTestAlert, requestPermission, permissionGranted } = useDeskAlerts();
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-1 sm:gap-1.5">
       <button
         type="button"
         onClick={toggleMute}
-        className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-semibold border transition-all ${
+        className={`inline-flex items-center gap-1 px-1.5 sm:px-2 py-1 rounded-md text-xs font-semibold border transition-all ${
           muted
             ? "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30"
             : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
@@ -23,7 +23,8 @@ function DeskAlertControls() {
         title={muted ? "Sound Alerts Muted (Click to Unmute)" : "Sound Alerts Active (Click to Mute)"}
         aria-label="Toggle alert sound"
       >
-        <span>{muted ? "🔇 Muted" : "🔊 Sound"}</span>
+        <span className="sm:hidden">{muted ? "🔇" : "🔊"}</span>
+        <span className="hidden sm:inline">{muted ? "🔇 Muted" : "🔊 Sound"}</span>
       </button>
 
       <button
@@ -35,7 +36,7 @@ function DeskAlertControls() {
             playTestAlert("urgent");
           }
         }}
-        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium border border-[var(--border)] bg-[var(--surface-raised)] text-[var(--foreground)] hover:bg-[var(--border)] transition-all"
+        className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium border border-[var(--border)] bg-[var(--surface-raised)] text-[var(--foreground)] hover:bg-[var(--border)] transition-all"
         title="Test emergency alert sound and notification"
       >
         <span>⚡ Test</span>
@@ -231,36 +232,36 @@ export function AppShell({
         )}
 
         <main className="min-w-0">
-          <header className="sticky top-0 z-30 h-13 border-b border-[var(--border)] bg-[var(--surface)] flex items-center justify-between gap-3 px-3 md:px-6 text-sm text-[var(--foreground)] transition-colors">
-            <div className="flex items-center gap-3 min-w-0">
+          <header className="sticky top-0 z-30 h-13 border-b border-[var(--border)] bg-[var(--surface)] flex items-center justify-between gap-2 px-3 md:px-6 text-sm text-[var(--foreground)] transition-colors">
+            <div className="flex items-center gap-2 min-w-0">
               <button
-                className="md:hidden btn btn-ghost px-2.5 py-1 text-xs"
+                className="md:hidden btn btn-ghost px-2 py-1 text-xs"
                 onClick={() => setOpen(true)}
                 aria-label="Open menu"
               >
-                ☰ Menu
+                ☰
               </button>
-              <div className="flex items-center gap-2 truncate">
-                <span className="font-semibold text-xs tracking-wider uppercase text-[var(--muted)]">
-                  Ops Live
+              <div className="flex items-center gap-1.5 truncate">
+                <span className="font-semibold text-xs tracking-wider uppercase text-[var(--muted)] hidden xs:inline">
+                  Ops
                 </span>
-                <span className="text-[var(--border)]">•</span>
-                <span className="capitalize text-xs font-semibold px-2 py-0.5 rounded-full bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--foreground)]">
+                <span className="capitalize text-[11px] sm:text-xs font-semibold px-2 py-0.5 rounded-full bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--foreground)] truncate">
                   {profile.role}
                 </span>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               <DeskAlertControls />
               {themeButton}
               <button
                 type="button"
                 onClick={signOut}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold border transition-all border-red-500/20 bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-semibold border transition-all border-red-500/20 bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20"
                 title="Sign out of operational desk"
               >
-                <span>Sign out</span>
+                <span className="hidden sm:inline">Sign out</span>
+                <span className="sm:hidden">Exit</span>
               </button>
             </div>
           </header>
