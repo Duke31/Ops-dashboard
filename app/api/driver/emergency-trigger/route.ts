@@ -1,8 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+/**
+ * POST /api/driver/emergency-trigger
+ *
+ * Driver one-tap distress signal: appends a tactical alert to an active
+ * emergency_requests row, or creates a new crew-SOS request if none is active.
+ *
+ * Security fix CRITICAL-2:
+ * - Requires authenticated session via getUser()
+ * - Caller must hold driver, dispatcher, or admin role
+ * - Drivers may only trigger alerts on requests assigned to their own driver record
+ * - Anonymous and client-role callers are rejected with 401/403
+ */
 export async function POST(req: NextRequest) {
   try {
+    const supabase = await createClient();
+
+    // ── SECURITY GUARD: require authenticated session ─────────────────────────
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // ── SECURITY GUARD: role check ────────────────────────────────────────────
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const allowed = ["driver", "dispatcher", "admin"];
+    if (!profile || !allowed.includes(profile.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // ── REQUEST PARSING ───────────────────────────────────────────────────────
     const body = await req.json();
     const {
       requestId,
@@ -15,9 +50,6 @@ export async function POST(req: NextRequest) {
       lng,
     } = body;
 
-    const supabase = await createClient();
-
-    let targetReqId = requestId;
     const nowIso = new Date().toISOString();
     const timeStr = new Date().toLocaleTimeString("en-GB", {
       hour: "2-digit",
@@ -27,17 +59,48 @@ export async function POST(req: NextRequest) {
     const formattedAlert = alertMessage || "EMERGENCY TRIGGERED BY DRIVER";
     const formattedCode = alertCode || "EMERGENCY";
 
-    if (targetReqId) {
-      // 1. Call trigger_driver_emergency_alert RPC
-      const { error: rpcErr } = await supabase.rpc("trigger_driver_emergency_alert", {
-        p_request_id: targetReqId,
-        p_alert_code: formattedCode,
-        p_alert_message: formattedAlert,
-      });
+    let targetReqId = requestId;
 
-      // If RPC fails (e.g. not migrated yet), fallback to direct note update
+    if (targetReqId) {
+      // ── SECURITY: drivers may only alert on their own assigned request ──────
+      if (profile.role === "driver") {
+        const { data: reqCheck } = await supabase
+          .from("emergency_requests")
+          .select("driver_id")
+          .eq("id", targetReqId)
+          .maybeSingle();
+
+        // Verify this request is actually assigned to the calling driver
+        const { data: ownDriver } = await supabase
+          .from("drivers")
+          .select("id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (!reqCheck || !ownDriver || reqCheck.driver_id !== ownDriver.id) {
+          return NextResponse.json(
+            { error: "Forbidden: you are not assigned to this request" },
+            { status: 403 }
+          );
+        }
+      }
+
+      // 1. Call trigger_driver_emergency_alert RPC (now auth-guarded)
+      const { error: rpcErr } = await supabase.rpc(
+        "trigger_driver_emergency_alert",
+        {
+          p_request_id: targetReqId,
+          p_alert_code: formattedCode,
+          p_alert_message: formattedAlert,
+        }
+      );
+
+      // If RPC fails (schema not yet migrated), fallback to direct note update
       if (rpcErr) {
-        console.warn("trigger_driver_emergency_alert RPC fallback:", rpcErr.message);
+        console.warn(
+          "trigger_driver_emergency_alert RPC fallback:",
+          rpcErr.message
+        );
         const { data: existing } = await supabase
           .from("emergency_requests")
           .select("notes")
@@ -55,7 +118,7 @@ export async function POST(req: NextRequest) {
           .eq("id", targetReqId);
       }
     } else {
-      // Create new distress request if driver triggered SOS without an active assigned mission
+      // Create new distress request — driver triggered SOS without active mission
       const { data: newReq, error: insertErr } = await supabase
         .from("emergency_requests")
         .insert({
@@ -72,13 +135,16 @@ export async function POST(req: NextRequest) {
         .maybeSingle();
 
       if (insertErr) {
-        console.error("Failed to insert distress emergency request:", insertErr);
+        console.error(
+          "Failed to insert distress emergency request:",
+          insertErr
+        );
       } else if (newReq?.id) {
         targetReqId = newReq.id;
       }
     }
 
-    // 2. Broadcast immediately over Supabase Realtime channel ops-request-board-sync
+    // 2. Broadcast over Realtime for instant Dispatcher Console update
     try {
       const channel = supabase.channel("ops-request-board-sync");
       await channel.subscribe();
@@ -107,7 +173,10 @@ export async function POST(req: NextRequest) {
   } catch (err: unknown) {
     console.error("emergency-trigger error:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Failed to trigger emergency" },
+      {
+        error:
+          err instanceof Error ? err.message : "Failed to trigger emergency",
+      },
       { status: 500 }
     );
   }
