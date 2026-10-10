@@ -10,7 +10,7 @@ export const revalidate = 0;
 export default async function AnalyticsPage() {
   const { supabase, profile } = await requireProfile("admin");
 
-  // Fetch full dataset for analytics
+  // Fetch full dataset for analytics safely
   const [requests, hospitalsRes, driversRes] = await Promise.all([
     fetchRequests(supabase, { activeOnly: false }),
     supabase
@@ -19,7 +19,7 @@ export default async function AnalyticsPage() {
       .order("name"),
     supabase
       .from("drivers")
-      .select("id, display_name, vehicle_label, hospital_id, active, current_lat, current_lng, duty_status")
+      .select("id, display_name, vehicle_label, hospital_id, active, current_lat, current_lng")
       .order("display_name"),
   ]);
 
