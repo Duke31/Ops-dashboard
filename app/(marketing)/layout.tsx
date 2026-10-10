@@ -100,7 +100,7 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
                 For administrative inquiries, health partner onboarding, or patient assistance, contact our central operations desk.
               </p>
               <div className="pt-1 space-y-1 text-slate-300 text-[11px]">
-                <div>Email: <span className="text-slate-200">contact@solace.health</span></div>
+                <div>Email: <a href="mailto:helpline.solace@gmail.com" className="text-slate-200 hover:text-emerald-400 transition-colors">helpline.solace@gmail.com</a></div>
                 <div>Status: <span className="text-emerald-400 font-medium">Network Operational</span></div>
               </div>
             </div>
