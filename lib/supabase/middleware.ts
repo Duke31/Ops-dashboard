@@ -46,7 +46,7 @@ export async function updateSession(request: NextRequest) {
   const isMarketing =
     pathname === "/" ||
     pathname === "/download" ||
-    pathname === "/request-access";
+    pathname === "/register";
   const isLogin = pathname === "/login";
   const isRest =
     pathname === "/no-access" ||
