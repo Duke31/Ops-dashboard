@@ -1,13 +1,9 @@
-"use client";
-
-import { useState } from "react";
 import Link from "next/link";
 import {
   Download,
   ShieldCheck,
   Smartphone,
   CheckCircle2,
-  Copy,
   ArrowLeft,
   Settings,
   FolderOpen,
@@ -16,23 +12,6 @@ import {
 } from "lucide-react";
 
 export default function DownloadPage() {
-  const [copied, setCopied] = useState(false);
-
-  // Dynamic remote Supabase bucket URL based on environment or production fallback
-  const supabaseBaseUrl =
-    process.env.NEXT_PUBLIC_SUPABASE_URL || "https://aogknxtyvzpzqkgmgtsv.supabase.co";
-  const apkDownloadUrl = `${supabaseBaseUrl.replace(/\/$/, "")}/storage/v1/object/public/app-releases/solace-v1.0.apk`;
-
-  const copyDownloadLink = async () => {
-    try {
-      await navigator.clipboard.writeText(apkDownloadUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 3000);
-    } catch {
-      // Fallback
-    }
-  };
-
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-16 space-y-12">
       {/* Back Link */}
@@ -100,31 +79,9 @@ export default function DownloadPage() {
             <span>DOWNLOAD SOLACE APK (DIRECT)</span>
           </a>
 
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-400 px-1">
-            <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Direct installation package (Android APK)</span>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <a
-                href={apkDownloadUrl}
-                download="solace-v1.0.apk"
-                className="hover:underline text-slate-400 hover:text-slate-200"
-                title="Download from cloud storage mirror"
-              >
-                Cloud Mirror
-              </a>
-              <span className="text-slate-600">·</span>
-              <button
-                onClick={copyDownloadLink}
-                type="button"
-                className="inline-flex items-center gap-1 text-slate-400 hover:text-white transition-colors cursor-pointer"
-              >
-                <Copy className="w-3 h-3" />
-                <span>{copied ? "Link Copied!" : "Copy Link"}</span>
-              </button>
-            </div>
+          <div className="flex items-center justify-center gap-1.5 text-xs text-slate-400 text-center pt-1">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Official release verified package · Direct installation for Android</span>
           </div>
         </div>
       </div>
