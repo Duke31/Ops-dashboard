@@ -78,22 +78,30 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
           </nav>
 
           {/* Header Action Controls */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             {/* Single Distinct Staff Sign In Entry */}
             <Link
               href="/login?reauth=1"
-              className="px-3.5 py-1.5 text-xs font-semibold text-slate-200 hover:text-white rounded-lg border border-white/15 hover:border-white/30 hover:bg-white/5 transition-all"
+              className="px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white rounded-lg border border-white/15 hover:border-white/30 hover:bg-white/5 transition-all"
             >
               Staff Sign In
             </Link>
 
-            {/* Public Action CTA */}
+            {/* Client Registration CTA */}
+            <Link
+              href="/register"
+              className="px-3 py-1.5 text-xs font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-lg shadow-sm shadow-emerald-500/20 transition-all flex items-center gap-1.5"
+            >
+              <span>Sign Up</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+
+            {/* App Download Link */}
             <Link
               href="/download"
-              className="px-3.5 py-1.5 text-xs font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-lg shadow-sm shadow-emerald-500/20 transition-all flex items-center gap-1.5"
+              className="hidden sm:inline-flex px-3 py-1.5 text-xs font-semibold text-slate-200 hover:text-white rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-all"
             >
-              <span>Get App</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              Get App
             </Link>
           </div>
         </div>
@@ -163,20 +171,14 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
                 Authorized Personnel
               </div>
               <p className="text-[11px] text-slate-400 leading-relaxed">
-                Registered dispatchers, ambulance personnel, and hospital intake staff can access operational consoles via the secure sign-in portal.
+                Registered dispatchers, ambulance personnel, and hospital intake staff can access operational consoles via the secure sign-in portal. Access is managed by system administrators.
               </p>
-              <div className="pt-2 flex flex-col gap-1.5">
+              <div className="pt-2">
                 <Link
-                  href="/request-access"
-                  className="inline-flex items-center gap-1.5 text-xs text-emerald-400 hover:underline font-semibold"
+                  href="/login?reauth=1"
+                  className="inline-flex items-center gap-1.5 text-xs text-[#00D4FF] hover:underline font-semibold"
                 >
-                  <span>Request Staff Access →</span>
-                </Link>
-                <Link
-                  href="/login"
-                  className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors"
-                >
-                  <span>Staff Portal Sign In</span>
+                  <span>Staff Portal Sign In →</span>
                 </Link>
               </div>
             </div>
