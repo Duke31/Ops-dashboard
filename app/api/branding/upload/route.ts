@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
+import { createClient } from "@/lib/supabase/server";
 
 interface FileEntry {
   path: string;
@@ -8,6 +9,29 @@ interface FileEntry {
 
 export async function POST(req: NextRequest) {
   try {
+    // 1. Enforce Admin Session Authentication
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (profile?.role !== "admin") {
+      return NextResponse.json(
+        { error: "Forbidden: Admin role required to update application branding" },
+        { status: 403 }
+      );
+    }
+
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const mode = (formData.get("mode") as string) || "contain";
@@ -23,9 +47,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "GitHub token not found. Please provide a GitHub Personal Access Token or add GITHUB_TOKEN to your Vercel Environment Variables.",
+            "GitHub token not found. Please provide a GitHub Personal Access Token or add GITHUB_TOKEN to your Environment Variables.",
         },
-        { status: 401 },
+        { status: 400 },
       );
     }
 
@@ -42,12 +66,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid image file format" }, { status: 400 });
     }
 
-    // 1. Process Master Icon - Support 'original' mode (Zero alterations, transparent background)
+    // 1. Process Master Icon
     let master512: Buffer;
     let masterForeground432: Buffer;
 
     if (mode === "original") {
-      // 100% UNALTERED: keep exact image, exact transparency, zero artificial background or margins
       master512 = await sharp(buffer)
         .resize(512, 512, {
           fit: "contain",
@@ -74,7 +97,6 @@ export async function POST(req: NextRequest) {
         .png()
         .toBuffer();
     } else {
-      // Contain mode with chosen background color
       const resized = await sharp(buffer)
         .resize(460, 460, { fit: "inside" })
         .png()
@@ -110,10 +132,9 @@ export async function POST(req: NextRequest) {
         .toBuffer();
     }
 
-    // 3. Prepare all Android Mipmap densities in-memory (No disk writes!)
+    // 3. Prepare Android densities in-memory
     const filesToUpload: FileEntry[] = [];
 
-    // Master logos for flutter assets
     filesToUpload.push({
       path: "assets/images/solace_logo.png",
       buffer: master512,
@@ -125,7 +146,6 @@ export async function POST(req: NextRequest) {
       buffer: icon192,
     });
 
-    // Android launcher icons
     const iconDensities = [
       { folder: "mipmap-mdpi", size: 48 },
       { folder: "mipmap-hdpi", size: 72 },
@@ -142,7 +162,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Android launcher adaptive foregrounds
     const fgDensities = [
       { folder: "mipmap-mdpi", size: 108 },
       { folder: "mipmap-hdpi", size: 162 },
@@ -159,7 +178,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 4. Push directly to GitHub using GitHub Git Data API (pure HTTP, zero CLI git, zero local disk writes)
+    // 4. Push directly to GitHub using Git Data API
     const owner = "Duke31";
     const repo = "Driver-mobile-app";
     const authHeaders = {
@@ -168,7 +187,6 @@ export async function POST(req: NextRequest) {
       "User-Agent": "Ops-Dashboard",
     };
 
-    // Step A: Get current commit SHA of main branch
     const refRes = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/git/refs/heads/main`,
       { headers: authHeaders, cache: "no-store" },
@@ -185,7 +203,6 @@ export async function POST(req: NextRequest) {
     const refData = await refRes.json();
     const latestCommitSha = refData.object.sha;
 
-    // Step B: Get current tree SHA from latest commit
     const commitRes = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/git/commits/${latestCommitSha}`,
       { headers: authHeaders, cache: "no-store" },
@@ -193,7 +210,6 @@ export async function POST(req: NextRequest) {
     const commitData = await commitRes.json();
     const baseTreeSha = commitData.tree.sha;
 
-    // Step C: Create blobs for each file
     const treeItems: Array<{ path: string; mode: string; type: string; sha: string }> = [];
 
     for (const f of filesToUpload) {
@@ -223,7 +239,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Step D: Create new tree with all updated assets
     const treeRes = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/git/trees`,
       {
@@ -243,7 +258,6 @@ export async function POST(req: NextRequest) {
 
     const treeData = await treeRes.json();
 
-    // Step E: Create commit
     const newCommitRes = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/git/commits`,
       {
@@ -264,7 +278,6 @@ export async function POST(req: NextRequest) {
 
     const newCommitData = await newCommitRes.json();
 
-    // Step F: Update main branch reference to trigger GitHub Actions APK build
     const updateRefRes = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/git/refs/heads/main`,
       {
