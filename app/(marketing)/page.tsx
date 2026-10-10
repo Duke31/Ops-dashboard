@@ -15,10 +15,10 @@ import {
   Lock,
   Baby,
   UserPlus,
-  Sparkles,
-  Siren,
-  Stethoscope,
-  AlertTriangle,
+  Radio,
+  Star,
+  MapPin,
+  ClipboardList,
 } from "lucide-react";
 
 export default function MarketingLandingPage() {
@@ -37,19 +37,19 @@ export default function MarketingLandingPage() {
             {/* Status Pill */}
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400 font-medium">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Coordinated Emergency Dispatch &amp; Ambulance Telematics</span>
+              <span>Emergency Dispatch &amp; Ambulance Telematics Network</span>
             </div>
 
-            {/* Clear, calm medical value proposition */}
+            {/* Clear, honest, grounded medical value proposition */}
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.12]">
-              Emergency Medical Response When{" "}
+              Emergency Dispatch &amp; Ambulance Tracking When{" "}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-[#00D4FF]">
-                Minutes Save Lives.
+                Every Minute Counts.
               </span>
             </h1>
 
             <p className="text-base sm:text-lg text-slate-300 leading-relaxed max-w-2xl mx-auto font-normal">
-              Solace connects patients, emergency vehicles, and receiving hospitals into one synchronized network. Real-time fleet tracking, specialized obstetric transit, priority intake pre-alerts, and seamless clinical handovers.
+              Solace connects patients, response vehicles, and receiving health facilities into one synchronized workflow. Live unit GPS tracking, direct responder phone and WhatsApp communication, verified destination hospital routing, and private role-based operations desks.
             </p>
 
             {/* Public Action CTAs */}
@@ -59,7 +59,7 @@ export default function MarketingLandingPage() {
                 className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-extrabold text-sm shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2.5 group"
               >
                 <UserPlus className="w-4 h-4 transition-transform group-hover:scale-110" />
-                <span>Sign Up as Patient / Client</span>
+                <span>Create Patient Account</span>
               </Link>
 
               <Link
@@ -67,81 +67,81 @@ export default function MarketingLandingPage() {
                 className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-[#11141E] hover:bg-[#161B28] text-slate-200 hover:text-white font-bold text-sm border border-white/10 hover:border-white/20 transition-all flex items-center justify-center gap-2"
               >
                 <Download className="w-4 h-4 text-emerald-400" />
-                <span>Download Mobile App</span>
+                <span>Download Android Mobile App</span>
               </Link>
             </div>
 
-            {/* Reassuring Clinical Standards */}
+            {/* Truthful Real Capabilities */}
             <div className="flex flex-wrap items-center justify-center gap-5 text-xs text-slate-400 pt-3">
               <span className="inline-flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                GPS-Guided Nearest Unit Routing
+                GPS-Anchored Emergency Requests
               </span>
               <span aria-hidden="true" className="text-slate-600 hidden sm:inline">·</span>
               <span className="inline-flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                Advance Emergency Department Alerts
+                Live Responder Call &amp; WhatsApp
               </span>
               <span aria-hidden="true" className="text-slate-600 hidden sm:inline">·</span>
               <span className="inline-flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                Audited Clinical Handovers
+                Hospital Destination Coordination
               </span>
             </div>
           </div>
 
-          {/* Clinical Highlights Grid */}
+          {/* Highlights Grid */}
           <div className="mt-14 sm:mt-18 pt-10 border-t border-white/5 grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
             <div className="p-5 rounded-2xl bg-[#0D111A] border border-white/5 space-y-1">
               <div className="text-2xl sm:text-3xl font-black font-mono text-emerald-400">
-                Rapid Routing
+                GPS Routing
               </div>
               <div className="text-xs uppercase tracking-wider font-bold text-slate-300">
-                Optimized Transit Corridors
+                Live Telematics
               </div>
               <p className="text-[11px] text-slate-400 pt-1 leading-relaxed">
-                Ambulance telematics bypass urban congestion to reduce pre-hospital delay.
+                Active ambulances publish real-time GPS coordinates directly to the patient app map.
               </p>
             </div>
 
             <div className="p-5 rounded-2xl bg-[#0D111A] border border-white/5 space-y-1">
               <div className="text-2xl sm:text-3xl font-black font-mono text-[#00D4FF]">
-                Hospital Pre-Alert
+                Dispatch Matching
               </div>
               <div className="text-xs uppercase tracking-wider font-bold text-slate-300">
-                Emergency Intake Preparation
+                Facility &amp; Vehicle Pairing
               </div>
               <p className="text-[11px] text-slate-400 pt-1 leading-relaxed">
-                Receiving trauma bays and maternity suites prepare equipment before patient dock.
+                Central dispatchers assign verified receiving hospitals and field responders to every incident.
               </p>
             </div>
 
             <div className="p-5 rounded-2xl bg-[#0D111A] border border-white/5 space-y-1">
               <div className="text-2xl sm:text-3xl font-black font-mono text-teal-400">
-                Zero Redirection
+                Transparent Audits
               </div>
               <div className="text-xs uppercase tracking-wider font-bold text-slate-300">
-                Capacity-Verified Admissions
+                Post-Care Patient Feedback
               </div>
               <p className="text-[11px] text-slate-400 pt-1 leading-relaxed">
-                Patients are routed only to facilities with verified staff and bed availability.
+                Patients submit star ratings and remarks upon completion, visible in the hospital and admin logs.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 2. HOW IT WORKS (Short, clear 4-step lifecycle) */}
+      {/* 2. HOW IT WORKS (Actual 4-step workflow built in the software) */}
       <section id="how-it-works" className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="space-y-3 mb-12 text-center max-w-2xl mx-auto">
           <div className="text-xs font-bold uppercase tracking-widest text-[#00D4FF] font-mono">
-            Emergency Lifecycle
+            Operational Workflow
           </div>
           <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
-            How Solace Coordinates Care
+            How Solace Coordinates Every Request
           </h2>
           <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-            From the moment an emergency call is initiated to bed admission, every phase is tracked and coordinated in real time.
+            From the moment a patient triggers an SOS to safe hospital arrival, each step is coordinated through dedicated roles.
           </p>
         </div>
 
@@ -151,9 +151,9 @@ export default function MarketingLandingPage() {
             <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center font-mono font-bold text-sm">
               01
             </div>
-            <h3 className="text-base font-bold text-white">Emergency Request</h3>
+            <h3 className="text-base font-bold text-white">One-Tap SOS Request</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Patient or bystander initiates a request via the mobile app or helpline. Location coordinates and medical category are captured instantly.
+              Patient selects emergency category and submits request with auto-captured device GPS coordinates and phone number.
             </p>
           </div>
 
@@ -162,9 +162,9 @@ export default function MarketingLandingPage() {
             <div className="w-10 h-10 rounded-xl bg-[#00D4FF]/10 border border-[#00D4FF]/20 text-[#00D4FF] flex items-center justify-center font-mono font-bold text-sm">
               02
             </div>
-            <h3 className="text-base font-bold text-white">Unit Dispatch</h3>
+            <h3 className="text-base font-bold text-white">Dispatcher Triage</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              The closest active ambulance is dispatched. Responders receive turn-by-turn navigation directly to the patient&apos;s exact coordinates.
+              Central dispatcher reviews priority, assigns the responding ambulance unit, and pairs an appropriate receiving hospital.
             </p>
           </div>
 
@@ -173,9 +173,9 @@ export default function MarketingLandingPage() {
             <div className="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-400 flex items-center justify-center font-mono font-bold text-sm">
               03
             </div>
-            <h3 className="text-base font-bold text-white">Hospital Pre-Alert</h3>
+            <h3 className="text-base font-bold text-white">Live Tracking &amp; Contact</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              The receiving emergency department receives incoming patient vitals, ETA countdown, and bed allocation requests while transit is underway.
+              Patient views driver name, vehicle call sign, and assigned hospital name, with direct Call and WhatsApp buttons while unit GPS streams.
             </p>
           </div>
 
@@ -184,38 +184,38 @@ export default function MarketingLandingPage() {
             <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center font-mono font-bold text-sm">
               04
             </div>
-            <h3 className="text-base font-bold text-white">Direct Clinical Intake</h3>
+            <h3 className="text-base font-bold text-white">Intake &amp; Quality Review</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Upon arrival, paramedics transfer the patient into the prepared trauma bay with a synchronized digital clinical handover sign-off.
+              Ambulance completes handover at the hospital. Patient submits service feedback and ratings logged directly into ops audit history.
             </p>
           </div>
         </div>
       </section>
 
-      {/* 3. WHO IT'S FOR (Public / Hospitals / Certified Responders) */}
+      {/* 3. WHO IT'S FOR (Patients / Hospital Desk / Response Fleet) */}
       <section id="who-its-for" className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="space-y-3 mb-12 text-center max-w-2xl mx-auto">
           <div className="text-xs font-bold uppercase tracking-widest text-emerald-400 font-mono">
-            Network Stakeholders
+            Platform Roles
           </div>
           <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
-            Built for Everyone in the Emergency Chain
+            Designed for Every Stakeholder in the Loop
           </h2>
           <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-            Eliminating communication silos between citizens in distress, field responders, and hospital clinical teams.
+            Eliminating blind spots between patients in need, field drivers, hospital intake staff, and dispatch operators.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Public & Patients */}
+          {/* Patients & Families */}
           <div className="p-6 sm:p-8 rounded-2xl bg-[#0D111A] border border-white/5 space-y-4 flex flex-col justify-between">
             <div className="space-y-3">
               <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
                 <HeartPulse className="w-5 h-5" />
               </div>
-              <h3 className="text-lg font-bold text-white">Patients &amp; Families</h3>
+              <h3 className="text-lg font-bold text-white">Patients &amp; Callers</h3>
               <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-                One-tap emergency trigger, live radar view of the incoming ambulance, direct responder phone contact, and verified destination guidance.
+                One-tap SOS dispatch, live ambulance tracking map, driver phone and WhatsApp shortcuts, assigned destination hospital visibility, and post-mission rating.
               </p>
             </div>
             <div className="pt-4 border-t border-white/5 flex items-center justify-between gap-2">
@@ -230,12 +230,12 @@ export default function MarketingLandingPage() {
                 href="/download"
                 className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-white"
               >
-                <span>Get App →</span>
+                <span>Download App →</span>
               </Link>
             </div>
           </div>
 
-          {/* Hospitals */}
+          {/* Receiving Hospitals */}
           <div className="p-6 sm:p-8 rounded-2xl bg-[#0D111A] border border-white/5 space-y-4 flex flex-col justify-between">
             <div className="space-y-3">
               <div className="w-10 h-10 rounded-xl bg-[#00D4FF]/10 border border-[#00D4FF]/20 text-[#00D4FF] flex items-center justify-center">
@@ -243,39 +243,33 @@ export default function MarketingLandingPage() {
               </div>
               <h3 className="text-lg font-bold text-white">Partner Hospitals</h3>
               <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-                Emergency departments maintain live bed capacity, receive audible pre-arrival chimes, review patient triage details, and confirm admissions.
+                Hospital intake operators view incoming patient cases paired with their facility, track en-route status, and access complete historical audit logs with CSV export.
               </p>
             </div>
-            <div className="pt-4 border-t border-white/5">
-              <Link
-                href="/login"
-                className="inline-flex items-center gap-1.5 text-xs text-[#00D4FF] font-bold hover:underline"
-              >
-                <span>Hospital Staff Sign In</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
+            <div className="pt-4 border-t border-white/5 text-xs text-slate-400 font-medium">
+              <span>Access restricted to verified hospital personnel</span>
             </div>
           </div>
 
-          {/* Responders */}
+          {/* Response Fleet */}
           <div className="p-6 sm:p-8 rounded-2xl bg-[#0D111A] border border-white/5 space-y-4 flex flex-col justify-between">
             <div className="space-y-3">
               <div className="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-400 flex items-center justify-center">
                 <Ambulance className="w-5 h-5" />
               </div>
-              <h3 className="text-lg font-bold text-white">Ambulance Fleet</h3>
+              <h3 className="text-lg font-bold text-white">Ambulance Responders</h3>
               <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-                Field drivers receive assigned mission calls, rapid turn-by-turn routing to the patient, and direct route navigation to the confirmed hospital bed.
+                Drivers receive assigned emergency runs, view incident location coordinates and notes, navigate to patient and hospital, and publish real-time GPS telemetry.
               </p>
             </div>
-            <div className="pt-4 border-t border-white/5 text-xs text-slate-500 font-medium">
-              Equipped with real-time telematics &amp; direct receiving routing
+            <div className="pt-4 border-t border-white/5 text-xs text-slate-400 font-medium">
+              <span>Driver console with turn-by-turn map links</span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 4. DEDICATED OBSTETRIC & MATERNAL EMERGENCY RESPONSE */}
+      {/* 4. GROUNDED OBSTETRIC & MATERNAL RESPONSE SECTION */}
       <section id="obstetric-care" className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="rounded-3xl bg-gradient-to-b from-[#151926] via-[#0E121E] to-[#0A0D15] border border-rose-500/25 p-6 sm:p-10 lg:p-12 relative overflow-hidden shadow-2xl">
           {/* Ambient luminous glow */}
@@ -283,46 +277,42 @@ export default function MarketingLandingPage() {
             aria-hidden="true"
             className="pointer-events-none absolute -right-24 -top-24 w-[450px] h-[450px] bg-rose-500/15 blur-3xl -z-10 rounded-full"
           />
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -left-20 -bottom-20 w-[350px] h-[350px] bg-teal-500/10 blur-3xl -z-10 rounded-full"
-          />
 
-          {/* Section Header with live badge */}
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-8 sm:mb-12 border-b border-white/5 pb-6">
+          {/* Section Header */}
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-8 sm:mb-10 border-b border-white/5 pb-6">
             <div className="space-y-1.5">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-semibold">
                 <Baby className="w-3.5 h-3.5 text-rose-400" />
-                <span>Maternal &amp; Newborn Emergency Network</span>
+                <span>Specialized Emergency Focus</span>
               </div>
               <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
-                Safe Delivery &amp; High-Risk Maternal Care
+                Maternal Emergency &amp; Labor Coordination
               </h2>
             </div>
             <div className="flex items-center gap-2 text-xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Dedicated Emergency Obstetric Protocol Active</span>
+              <span>Priority Obstetric Category Active</span>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
-            {/* Left Column: Human Story & Clear Clinical Capabilities */}
+            {/* Left Column */}
             <div className="lg:col-span-7 space-y-6">
               <p className="text-base sm:text-lg text-slate-200 leading-relaxed font-normal">
-                During labor or sudden pregnancy complications, navigating traffic and knocking on hospital gates with locked theaters costs precious minutes. Solace connects expectant mothers to equipped ambulances and pre-clears hospital delivery suites before arrival.
+                When sudden labor or pregnancy complications arise, delays in securing transport and identifying an open receiving facility can be critical. Solace prioritizes maternal calls, alerts central dispatch, and connects families directly with their assigned responder.
               </p>
 
-              {/* 3 Step Visual Path for Mothers */}
+              {/* 3 Step Visual Path */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-2">
                 <div className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-2 relative">
                   <div className="w-8 h-8 rounded-xl bg-rose-500/15 text-rose-400 flex items-center justify-center text-xs font-black font-mono">
                     01
                   </div>
                   <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                    One-Tap Call
+                    SOS Trigger
                   </h4>
                   <p className="text-[11px] text-slate-400 leading-relaxed">
-                    Trigger distress from home. Your gestation week and medical history sync to dispatch immediately.
+                    Select Obstetric Emergency category on the mobile app to flag urgent maternal priority.
                   </p>
                 </div>
 
@@ -331,10 +321,10 @@ export default function MarketingLandingPage() {
                     02
                   </div>
                   <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                    En-Route Care
+                    Assigned Unit
                   </h4>
                   <p className="text-[11px] text-slate-400 leading-relaxed">
-                    Paramedics equipped with maternal vitals kits and fetal monitoring stabilize you throughout transit.
+                    Dispatch assigns an ambulance and designated receiving hospital with driver phone contact.
                   </p>
                 </div>
 
@@ -343,48 +333,48 @@ export default function MarketingLandingPage() {
                     03
                   </div>
                   <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                    Door-to-Bed
+                    Direct Contact
                   </h4>
                   <p className="text-[11px] text-slate-400 leading-relaxed">
-                    Hospital delivery suite, standby blood units, and pediatric specialists are prepped before vehicle dock.
+                    Call or message the driver via WhatsApp to share landmarks while tracking arrival on map.
                   </p>
                 </div>
               </div>
 
-              {/* Clinical Assurance Bullet Badges */}
+              {/* Truthful Real Capabilities */}
               <div className="space-y-3 pt-2">
                 <div className="p-3.5 rounded-xl bg-[#121622] border border-white/5 flex items-start gap-3">
                   <div className="w-8 h-8 rounded-lg bg-emerald-500/15 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
-                    <ShieldCheck className="w-4 h-4" />
+                    <CheckCircle2 className="w-4 h-4" />
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-white">Live Theater &amp; Anesthesia Verification</h4>
+                    <h4 className="text-xs font-bold text-white">Designated Receiving Hospital Matching</h4>
                     <p className="text-xs text-slate-400 leading-relaxed mt-0.5">
-                      Never get turned away. Mothers in active labor are routed exclusively to verified centers with an open surgical theater and active surgical team.
+                      Dispatchers pair the call with a specific destination hospital so responders and families know where the patient is headed.
                     </p>
                   </div>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-[#121622] border border-white/5 flex items-start gap-3">
                   <div className="w-8 h-8 rounded-lg bg-rose-500/15 text-rose-400 flex items-center justify-center shrink-0 mt-0.5">
-                    <HeartPulse className="w-4 h-4" />
+                    <PhoneCall className="w-4 h-4" />
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-white">Antenatal Health Profile Pre-Loaded</h4>
+                    <h4 className="text-xs font-bold text-white">Direct Driver WhatsApp &amp; Phone Calling</h4>
                     <p className="text-xs text-slate-400 leading-relaxed mt-0.5">
-                      Blood group, gestational age, hypertensive / pre-eclampsia risks, and ultrasound summaries are accessible instantly to responders.
+                      Families can call or WhatsApp the assigned driver with one tap, avoiding delays through general hospital lines.
                     </p>
                   </div>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-[#121622] border border-white/5 flex items-start gap-3">
                   <div className="w-8 h-8 rounded-lg bg-[#00D4FF]/15 text-[#00D4FF] flex items-center justify-center shrink-0 mt-0.5">
-                    <Sparkles className="w-4 h-4" />
+                    <Radio className="w-4 h-4" />
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-white">Neonatal Intensive Care Standby</h4>
+                    <h4 className="text-xs font-bold text-white">Live Telemetry When Unit is Online</h4>
                     <p className="text-xs text-slate-400 leading-relaxed mt-0.5">
-                      For premature labor or fetal distress, the receiving maternity ward pre-warms incubators and resuscitation units before arrival.
+                      When the driver streams geolocation from their mobile device, the patient app radar updates in real time.
                     </p>
                   </div>
                 </div>
@@ -397,7 +387,7 @@ export default function MarketingLandingPage() {
                   className="px-6 py-3 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-extrabold text-xs transition-all flex items-center gap-2 shadow-lg shadow-rose-500/25 active:scale-[0.99]"
                 >
                   <UserPlus className="w-4 h-4" />
-                  <span>Register for Maternal Emergency Coverage</span>
+                  <span>Register Patient Account</span>
                 </Link>
 
                 <Link
@@ -405,92 +395,83 @@ export default function MarketingLandingPage() {
                   className="px-5 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 hover:text-white text-xs font-bold flex items-center gap-2 transition-colors"
                 >
                   <Download className="w-4 h-4 text-rose-400" />
-                  <span>Download Solace App</span>
+                  <span>Download Mobile APK</span>
                 </Link>
               </div>
             </div>
 
-            {/* Right Column: Visual Telematics Cockpit Mockup */}
+            {/* Right Column: Live Dispatch Handover Card (Truthful to schema) */}
             <div className="lg:col-span-5 space-y-4">
               <div className="rounded-2xl bg-[#07090E] border border-rose-500/30 p-5 sm:p-6 space-y-5 shadow-2xl relative">
                 {/* Visual Status Indicator */}
                 <div className="flex items-center justify-between border-b border-white/10 pb-4">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-3 h-3 rounded-full bg-rose-500 animate-ping" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
                     <div>
                       <div className="text-[10px] font-mono uppercase tracking-wider text-rose-400 font-bold">
-                        Live Medical Handover Radar
+                        Mission Status
                       </div>
                       <div className="text-sm font-bold text-white">
-                        Obstetric Priority 1 (Active Transit)
+                        Driver Assigned · En Route
                       </div>
                     </div>
                   </div>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold">
-                    CRITICAL
+                    PRIORITY 1
                   </span>
                 </div>
 
-                {/* Patient Profile Card */}
+                {/* Patient Case Snapshot */}
                 <div className="p-3.5 rounded-xl bg-[#111522] border border-white/5 space-y-2">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-400">Patient Status</span>
-                    <span className="font-semibold text-white">Mrs. B. Adeleke (Week 38)</span>
+                    <span className="text-slate-400">Emergency Type</span>
+                    <span className="font-semibold text-rose-400">Obstetric Emergency</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-400">Clinical Indication</span>
-                    <span className="font-bold text-amber-400">Sudden Labor · Eclampsia Risk</span>
+                    <span className="text-slate-400">Dispatch Status</span>
+                    <span className="font-semibold text-emerald-400">Driver En Route</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-400">Blood Cross-Match</span>
-                    <span className="font-mono font-bold text-emerald-400">O+ Positive Standby</span>
+                    <span className="text-slate-400">Assigned Hospital</span>
+                    <span className="font-semibold text-white">Confirmed Destination</span>
                   </div>
                 </div>
 
-                {/* Receiving Hospital Confirmation Card */}
+                {/* Direct Responder Controls Preview */}
                 <div className="space-y-2.5">
                   <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                    Receiving Hospital Pre-Alert
+                    Responder Direct Connect
                   </div>
 
                   <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between text-xs">
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                      <span className="font-medium text-emerald-200">Delivery Suite #02</span>
+                      <PhoneCall className="w-4 h-4 text-emerald-400" />
+                      <span className="font-medium text-emerald-200">Phone Call</span>
                     </div>
-                    <span className="font-mono font-bold text-emerald-400">RESERVED &amp; STAFFED</span>
+                    <span className="font-mono font-bold text-emerald-400">ONE-TAP CALL</span>
                   </div>
 
                   <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between text-xs">
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                      <span className="font-medium text-emerald-200">Consultant Obstetrician</span>
+                      <span className="text-sm">💬</span>
+                      <span className="font-medium text-emerald-200">WhatsApp Chat</span>
                     </div>
-                    <span className="font-mono font-bold text-emerald-400">ON STANDBY AT BAY</span>
+                    <span className="font-mono font-bold text-emerald-400">LIVE BRIDGE</span>
                   </div>
                 </div>
 
-                {/* ETA Countdown Badge */}
-                <div className="p-4 rounded-xl bg-gradient-to-r from-rose-950/40 via-[#181C2A] to-slate-900 border border-rose-500/30 flex items-center justify-between">
-                  <div>
-                    <div className="text-[10px] uppercase tracking-wider font-mono text-slate-400">
-                      Telemetry Ambulance ETA
-                    </div>
-                    <div className="text-2xl font-black text-rose-400 font-mono">
-                      06 MINS 42 SEC
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold">
-                      Direct Green Corridor
-                    </span>
-                  </div>
+                {/* Live Tracking Note */}
+                <div className="p-3.5 rounded-xl bg-[#181C2A] border border-white/5 text-xs text-slate-300 flex items-start gap-2.5">
+                  <Radio className="w-4 h-4 text-[#00D4FF] shrink-0 mt-0.5" />
+                  <p className="leading-relaxed">
+                    Map tracks ambulance in real time when driver device broadcasts GPS. Turn-by-turn guidance available for both driver and hospital.
+                  </p>
                 </div>
 
                 {/* Reassurance Footer */}
                 <div className="pt-1 text-[11px] text-slate-400 flex items-center justify-center gap-2 border-t border-white/5">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Guaranteed zero-redirect protocol for mothers in labor</span>
+                  <span>Audited run history with post-care patient rating</span>
                 </div>
               </div>
             </div>
@@ -498,39 +479,39 @@ export default function MarketingLandingPage() {
         </div>
       </section>
 
-      {/* 5. TRUST & SAFETY (High level governance) */}
+      {/* 5. SECURITY & ARCHITECTURE */}
       <section id="safety" className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="rounded-3xl bg-[#0D111A] border border-white/5 p-8 sm:p-12 relative overflow-hidden">
           <div className="max-w-2xl space-y-3 mb-8">
             <div className="text-xs font-bold uppercase tracking-widest text-emerald-400 font-mono">
-              Governance &amp; Privacy
+              System Architecture
             </div>
             <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-              Clinical Integrity and Data Protection
+              Security, Auditability &amp; Data Protection
             </h2>
             <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-              Built in compliance with healthcare data protection principles and standardized clinical pre-hospital protocols.
+              Designed with strict database access controls, role isolation, and comprehensive quality logs.
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             <div className="space-y-2">
               <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
-                <ShieldCheck className="w-4 h-4" />
+                <Lock className="w-4 h-4" />
               </div>
-              <h3 className="text-sm font-bold text-white">Certified Responders</h3>
+              <h3 className="text-sm font-bold text-white">Row-Level Security</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Only vetted ambulance operators and accredited hospital networks are connected to dispatch channels.
+                Hospital users access only their assigned facility records. Patients only view their own requests. No anonymous table access.
               </p>
             </div>
 
             <div className="space-y-2">
               <div className="w-8 h-8 rounded-lg bg-[#00D4FF]/10 text-[#00D4FF] flex items-center justify-center">
-                <Lock className="w-4 h-4" />
+                <ShieldCheck className="w-4 h-4" />
               </div>
-              <h3 className="text-sm font-bold text-white">Secure Data Handling</h3>
+              <h3 className="text-sm font-bold text-white">Role-Based Access</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Patient records and vital telemetry are strictly access-controlled. No medical information is exposed publicly.
+                Staff accounts are provisioned exclusively under administrator control. Public signups cannot self-assign staff roles.
               </p>
             </div>
 
@@ -538,24 +519,24 @@ export default function MarketingLandingPage() {
               <div className="w-8 h-8 rounded-lg bg-teal-500/10 text-teal-400 flex items-center justify-center">
                 <FileCheck2 className="w-4 h-4" />
               </div>
-              <h3 className="text-sm font-bold text-white">Complete Audit Logs</h3>
+              <h3 className="text-sm font-bold text-white">Complete History Logs</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Every call, dispatch decision, and clinical handover is logged for hospital quality auditing and accountability.
+                Every request status transition, hospital assignment, and patient rating is logged for quality auditing and reporting.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 6. SIGN UP & DOWNLOAD CALL TO ACTION */}
+      {/* 6. CALL TO ACTION */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="rounded-3xl bg-gradient-to-r from-emerald-950/40 via-[#0D111A] to-teal-950/40 border border-emerald-500/30 p-8 sm:p-12 text-center space-y-6">
           <div className="max-w-xl mx-auto space-y-3">
             <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-              Join the Solace Emergency Network
+              Get the Solace Emergency App
             </h2>
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              Create your patient account with basic contact details, then download the Android mobile app for instant SOS dispatch and live transit navigation.
+              Register a patient account with your phone number, then install the Android mobile app for fast GPS emergency requests.
             </p>
           </div>
 
@@ -565,7 +546,7 @@ export default function MarketingLandingPage() {
               className="w-full sm:w-auto px-7 py-3 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black text-sm shadow-md shadow-emerald-500/20 transition-all flex items-center justify-center gap-2"
             >
               <UserPlus className="w-4 h-4" />
-              <span>Sign Up as Patient / Client</span>
+              <span>Create Patient Account</span>
             </Link>
 
             <Link
@@ -573,8 +554,34 @@ export default function MarketingLandingPage() {
               className="w-full sm:w-auto px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-200 hover:text-white font-semibold text-sm border border-white/10 transition-colors flex items-center justify-center gap-2"
             >
               <Download className="w-4 h-4 text-emerald-400" />
-              <span>Download Android App</span>
+              <span>Download Android APK</span>
             </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* 7. CLEARLY LABELED ROADMAP (Optional forward vision for judges) */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 border-t border-white/5 pt-12">
+        <div className="max-w-3xl mx-auto space-y-6">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-white/5 text-slate-400 border border-white/10">
+              Future Product Roadmap
+            </span>
+            <span className="text-xs text-slate-500">Not live in today&apos;s demo build</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-slate-400">
+            <div className="p-4 rounded-xl bg-[#090B10] border border-white/5 space-y-1.5">
+              <strong className="text-slate-200 block">Structured Triage Intake:</strong>
+              <span>Standardized vitals intake forms and structured pre-arrival clinical alerts.</span>
+            </div>
+            <div className="p-4 rounded-xl bg-[#090B10] border border-white/5 space-y-1.5">
+              <strong className="text-slate-200 block">SMS Gateway Scale-Out:</strong>
+              <span>Fallback emergency dispatch notifications via automated SMS for low-connectivity corridors.</span>
+            </div>
+            <div className="p-4 rounded-xl bg-[#090B10] border border-white/5 space-y-1.5">
+              <strong className="text-slate-200 block">Formal Partner SLAs:</strong>
+              <span>Contracted hospital bed reservations and institutional pre-hospital response agreements.</span>
+            </div>
           </div>
         </div>
       </section>
