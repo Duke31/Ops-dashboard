@@ -59,11 +59,11 @@ export default function MarketingNav() {
         </nav>
 
         {/* Header Action Controls */}
-        <div className="flex items-center gap-2 sm:gap-2.5">
-          {/* Single Distinct Staff Sign In Entry */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5">
+          {/* Staff Sign In - Compact on mobile */}
           <Link
             href="/login?reauth=1"
-            className="px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white rounded-lg border border-white/15 hover:border-white/30 hover:bg-white/5 transition-all whitespace-nowrap"
+            className="hidden sm:inline-flex px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white rounded-lg border border-white/15 hover:border-white/30 hover:bg-white/5 transition-all whitespace-nowrap"
           >
             Staff Sign In
           </Link>
@@ -71,7 +71,7 @@ export default function MarketingNav() {
           {/* Client Registration CTA */}
           <Link
             href="/register"
-            className="px-3.5 py-1.5 text-xs font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-lg shadow-sm shadow-emerald-500/20 transition-all flex items-center gap-1.5 whitespace-nowrap"
+            className="px-2.5 sm:px-3.5 py-1.5 text-xs font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-lg shadow-sm shadow-emerald-500/20 transition-all flex items-center gap-1 whitespace-nowrap"
           >
             <span>Sign Up</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -89,7 +89,7 @@ export default function MarketingNav() {
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="lg:hidden p-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors focus:outline-none"
+            className="lg:hidden p-1.5 sm:p-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors focus:outline-none"
             aria-label="Toggle navigation menu"
             aria-expanded={mobileMenuOpen}
           >
@@ -116,9 +116,16 @@ export default function MarketingNav() {
 
           <div className="pt-3 border-t border-white/10 flex flex-col gap-2">
             <Link
+              href="/login?reauth=1"
+              onClick={() => setMobileMenuOpen(false)}
+              className="sm:hidden w-full py-2.5 px-3 rounded-lg border border-white/15 bg-white/5 text-slate-200 hover:text-white text-xs font-semibold text-center transition-colors"
+            >
+              Staff Sign In
+            </Link>
+            <Link
               href="/download"
               onClick={() => setMobileMenuOpen(false)}
-              className="w-full py-2.5 px-3 rounded-lg bg-white/5 text-slate-200 hover:text-white text-xs font-semibold text-center border border-white/10 transition-colors"
+              className="w-full py-2.5 px-3 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 text-xs font-semibold text-center transition-colors"
             >
               Download Mobile App (Android APK)
             </Link>
