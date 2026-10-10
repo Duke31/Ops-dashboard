@@ -302,32 +302,25 @@ export function DriverConsole({
         }
       });
 
-      // 3. Throttled DB write: persist coordinate directly to drivers table every 3s
+      // 3. Throttled DB write: persist coordinate via hardened RPC (every 3s)
+      // SECURITY FIX MEDIUM-3: Use update_driver_location RPC as the PRIMARY
+      // path (not as a fallback). The RPC enforces role='driver' + user_id
+      // ownership at the database level, independent of client-side checks.
       const now = Date.now();
       if (now - lastDbUpdateRef.current >= 3000) {
         lastDbUpdateRef.current = now;
 
         supabase
-          .from("drivers")
-          .update({
-            current_lat: pos.coords.latitude,
-            current_lng: pos.coords.longitude,
-            heading: pos.coords.heading,
-            speed: pos.coords.speed,
-            last_location_at: nowIso,
+          .rpc("update_driver_location", {
+            p_driver_id:    driverIdToStream,
+            p_lat:          pos.coords.latitude,
+            p_lng:          pos.coords.longitude,
+            p_heading:      pos.coords.heading  ?? null,
+            p_speed:        pos.coords.speed    ?? null,
           })
-          .eq("id", driverIdToStream)
-          .then(({ error: updateErr }) => {
-            if (updateErr) {
-              supabase
-                .rpc("update_driver_location", {
-                  p_driver_id: driverIdToStream,
-                  p_lat: pos.coords.latitude,
-                  p_lng: pos.coords.longitude,
-                  p_heading: pos.coords.heading,
-                  p_speed: pos.coords.speed,
-                })
-                .then(() => {});
+          .then(({ error: rpcErr }) => {
+            if (rpcErr) {
+              console.warn("GPS RPC persist failed:", rpcErr.message);
             }
           });
       }
