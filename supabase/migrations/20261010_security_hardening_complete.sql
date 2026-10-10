@@ -70,22 +70,30 @@ create policy "emergency_requests_role_read"
     )
   );
 
--- 3d. profiles — self-read; admin reads all
+-- 3d. profiles — self-read; admin reads all (uses is_admin() helper to prevent infinite recursion)
+create or replace function public.is_admin()
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.profiles
+    where user_id = auth.uid() and role = 'admin'
+  );
+$$;
+
+revoke all on function public.is_admin() from public, anon;
+grant execute on function public.is_admin() to authenticated, service_role;
+
 drop policy if exists "profiles_self_read"  on public.profiles;
 drop policy if exists "profiles_admin_read" on public.profiles;
+drop policy if exists "profiles_select_policy" on public.profiles;
 
-create policy "profiles_self_read" on public.profiles
+create policy "profiles_select_policy" on public.profiles
   for select to authenticated
-  using (user_id = auth.uid());
-
-create policy "profiles_admin_read" on public.profiles
-  for select to authenticated
-  using (
-    exists (
-      select 1 from public.profiles p2
-      where p2.user_id = auth.uid() and p2.role = 'admin'
-    )
-  );
+  using (user_id = auth.uid() or public.is_admin());
 
 -- ── 4. ROLE_REQUESTS HARDENING ────────────────────────────────────────────────
 alter table if exists public.role_requests enable row level security;
@@ -102,10 +110,7 @@ create policy "role_requests_self_select" on public.role_requests
   for select to authenticated
   using (
     auth.uid() = user_id
-    or exists (
-      select 1 from public.profiles
-      where profiles.user_id = auth.uid() and profiles.role = 'admin'
-    )
+    or public.is_admin()
   );
 
 grant select, insert on public.role_requests to authenticated;
