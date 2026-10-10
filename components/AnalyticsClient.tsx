@@ -56,7 +56,9 @@ export function AnalyticsClient({ requests, hospitals, drivers }: AnalyticsClien
 
     // Fleet Stats
     const totalDrivers = drivers.length;
-    const activeDrivers = drivers.filter((d) => d.active).length;
+    const activeDrivers = drivers.filter(
+      (d) => Boolean(d.active) || d.duty_status === "on_duty"
+    ).length;
 
     // Hospital Capacity
     const totalBeds = hospitals.reduce((sum, h) => sum + (h.available_capacity ?? 0), 0);
