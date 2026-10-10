@@ -1,24 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient as createJsClient } from "@supabase/supabase-js";
-import { getSupabaseUrl } from "@/lib/env";
-import { createClient as createServerClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 
-async function getDbClient() {
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (serviceKey) {
-    return createJsClient(getSupabaseUrl(), serviceKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-  }
-  return await createServerClient();
-}
-
+/**
+ * GET /api/hospitals
+ *
+ * Returns the hospitals directory.
+ * Requires authenticated session — hospital data is used by staff desks only.
+ *
+ * Security note: Removed the service_role fallback getDbClient() pattern.
+ * The session client is sufficient here — hospitals table now has
+ * "hospitals_authenticated_read" policy (authenticated only, no anon).
+ */
 export async function GET(req: NextRequest) {
   try {
+    const supabase = await createClient();
+
+    // Require authenticated session
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
-
-    const supabase = await getDbClient();
 
     if (id) {
       const { data: hospital, error } = await supabase
@@ -30,7 +36,6 @@ export async function GET(req: NextRequest) {
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
-
       if (!hospital) {
         return NextResponse.json({ error: "Hospital not found" }, { status: 404 });
       }
@@ -51,7 +56,7 @@ export async function GET(req: NextRequest) {
   } catch (err: unknown) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Internal server error" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
