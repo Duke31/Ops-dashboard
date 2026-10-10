@@ -15,6 +15,10 @@ import {
   Lock,
   Baby,
   UserPlus,
+  Sparkles,
+  Siren,
+  Stethoscope,
+  AlertTriangle,
 } from "lucide-react";
 
 export default function MarketingLandingPage() {
@@ -271,113 +275,223 @@ export default function MarketingLandingPage() {
         </div>
       </section>
 
-      {/* 4. SPECIALIZED OBSTETRIC CARE NETWORK */}
+      {/* 4. DEDICATED OBSTETRIC & MATERNAL EMERGENCY RESPONSE */}
       <section id="obstetric-care" className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="rounded-3xl bg-gradient-to-b from-[#161B26] to-[#0D111A] border border-rose-500/30 p-8 sm:p-12 relative overflow-hidden shadow-2xl">
-          {/* Subtle warm glow */}
+        <div className="rounded-3xl bg-gradient-to-b from-[#151926] via-[#0E121E] to-[#0A0D15] border border-rose-500/25 p-6 sm:p-10 lg:p-12 relative overflow-hidden shadow-2xl">
+          {/* Ambient luminous glow */}
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute -right-20 -bottom-20 w-96 h-96 bg-rose-500/10 blur-3xl -z-10 rounded-full"
+            className="pointer-events-none absolute -right-24 -top-24 w-[450px] h-[450px] bg-rose-500/15 blur-3xl -z-10 rounded-full"
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -left-20 -bottom-20 w-[350px] h-[350px] bg-teal-500/10 blur-3xl -z-10 rounded-full"
           />
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
-            <div className="lg:col-span-7 space-y-6">
+          {/* Section Header with live badge */}
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-8 sm:mb-12 border-b border-white/5 pb-6">
+            <div className="space-y-1.5">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-semibold">
                 <Baby className="w-3.5 h-3.5 text-rose-400" />
-                <span>Specialized Obstetric Care Network</span>
+                <span>Maternal &amp; Newborn Emergency Network</span>
               </div>
-
-              <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight leading-tight">
-                Eliminating Maternal Delays in Southwestern Nigeria
+              <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
+                Safe Delivery &amp; High-Risk Maternal Care
               </h2>
+            </div>
+            <div className="flex items-center gap-2 text-xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Dedicated Emergency Obstetric Protocol Active</span>
+            </div>
+          </div>
 
-              <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
-                The three delays in maternal health—delay in seeking care, delay in reaching a health facility, and delay in receiving adequate emergency obstetric care—remain the greatest threat to mother and newborn survival. Solace operates a dedicated pre-hospital corridor for expectant mothers.
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+            {/* Left Column: Human Story & Clear Clinical Capabilities */}
+            <div className="lg:col-span-7 space-y-6">
+              <p className="text-base sm:text-lg text-slate-200 leading-relaxed font-normal">
+                During labor or sudden pregnancy complications, navigating traffic and knocking on hospital gates with locked theaters costs precious minutes. Solace connects expectant mothers to equipped ambulances and pre-clears hospital delivery suites before arrival.
               </p>
 
+              {/* 3 Step Visual Path for Mothers */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-2">
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-2 relative">
+                  <div className="w-8 h-8 rounded-xl bg-rose-500/15 text-rose-400 flex items-center justify-center text-xs font-black font-mono">
+                    01
+                  </div>
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                    One-Tap Call
+                  </h4>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Trigger distress from home. Your gestation week and medical history sync to dispatch immediately.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-2 relative">
+                  <div className="w-8 h-8 rounded-xl bg-[#00D4FF]/15 text-[#00D4FF] flex items-center justify-center text-xs font-black font-mono">
+                    02
+                  </div>
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                    En-Route Care
+                  </h4>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Paramedics equipped with maternal vitals kits and fetal monitoring stabilize you throughout transit.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-2 relative">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center text-xs font-black font-mono">
+                    03
+                  </div>
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                    Door-to-Bed
+                  </h4>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Hospital delivery suite, standby blood units, and pediatric specialists are prepped before vehicle dock.
+                  </p>
+                </div>
+              </div>
+
+              {/* Clinical Assurance Bullet Badges */}
               <div className="space-y-3 pt-2">
-                <div className="flex items-start gap-3">
-                  <div className="w-5 h-5 rounded-full bg-rose-500/20 border border-rose-500/40 flex items-center justify-center shrink-0 mt-0.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-rose-400" />
+                <div className="p-3.5 rounded-xl bg-[#121622] border border-white/5 flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500/15 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <ShieldCheck className="w-4 h-4" />
                   </div>
-                  <div className="text-xs sm:text-sm text-slate-300">
-                    <strong className="text-white">Facility Capacity Verification:</strong> Mothers in labor are never routed to hospitals with locked surgical wards or unavailable anesthesia.
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="w-5 h-5 rounded-full bg-rose-500/20 border border-rose-500/40 flex items-center justify-center shrink-0 mt-0.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-rose-400" />
-                  </div>
-                  <div className="text-xs sm:text-sm text-slate-300">
-                    <strong className="text-white">Antenatal Medical ID Pre-load:</strong> Blood group, parity, known gestation age, and pre-existing eclampsia risks sync instantly to the ambulance tablet.
+                  <div>
+                    <h4 className="text-xs font-bold text-white">Live Theater &amp; Anesthesia Verification</h4>
+                    <p className="text-xs text-slate-400 leading-relaxed mt-0.5">
+                      Never get turned away. Mothers in active labor are routed exclusively to verified centers with an open surgical theater and active surgical team.
+                    </p>
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3">
-                  <div className="w-5 h-5 rounded-full bg-rose-500/20 border border-rose-500/40 flex items-center justify-center shrink-0 mt-0.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-rose-400" />
+                <div className="p-3.5 rounded-xl bg-[#121622] border border-white/5 flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-rose-500/15 text-rose-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <HeartPulse className="w-4 h-4" />
                   </div>
-                  <div className="text-xs sm:text-sm text-slate-300">
-                    <strong className="text-white">Neonatal Intensive Care Readiness:</strong> Advance ER alerts trigger newborn resuscitation equipment and warmer setup prior to ambulance dock.
+                  <div>
+                    <h4 className="text-xs font-bold text-white">Antenatal Health Profile Pre-Loaded</h4>
+                    <p className="text-xs text-slate-400 leading-relaxed mt-0.5">
+                      Blood group, gestational age, hypertensive / pre-eclampsia risks, and ultrasound summaries are accessible instantly to responders.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-[#121622] border border-white/5 flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#00D4FF]/15 text-[#00D4FF] flex items-center justify-center shrink-0 mt-0.5">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-white">Neonatal Intensive Care Standby</h4>
+                    <p className="text-xs text-slate-400 leading-relaxed mt-0.5">
+                      For premature labor or fetal distress, the receiving maternity ward pre-warms incubators and resuscitation units before arrival.
+                    </p>
                   </div>
                 </div>
               </div>
 
-              <div className="pt-4 flex flex-wrap items-center gap-4">
+              {/* Action Buttons */}
+              <div className="pt-2 flex flex-wrap items-center gap-3.5">
                 <Link
                   href="/register"
-                  className="px-5 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-bold text-xs transition-colors flex items-center gap-2 shadow-lg shadow-rose-500/20"
+                  className="px-6 py-3 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-extrabold text-xs transition-all flex items-center gap-2 shadow-lg shadow-rose-500/25 active:scale-[0.99]"
                 >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>Register for Maternal Coverage</span>
+                  <UserPlus className="w-4 h-4" />
+                  <span>Register for Maternal Emergency Coverage</span>
                 </Link>
+
                 <Link
                   href="/download"
-                  className="px-4 py-2.5 rounded-xl border border-white/10 hover:border-white/20 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-2 transition-colors"
+                  className="px-5 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 hover:text-white text-xs font-bold flex items-center gap-2 transition-colors"
                 >
-                  <Download className="w-3.5 h-3.5 text-rose-400" />
-                  <span>Download Safe Delivery App</span>
+                  <Download className="w-4 h-4 text-rose-400" />
+                  <span>Download Solace App</span>
                 </Link>
               </div>
             </div>
 
-            {/* Visual Card / Stats */}
-            <div className="lg:col-span-5 bg-[#090A0F] border border-white/10 rounded-2xl p-6 space-y-6">
-              <div className="border-b border-white/10 pb-4">
-                <div className="text-xs font-mono text-rose-400 font-bold uppercase tracking-wider">
-                  Transit Clinical Profile
-                </div>
-                <div className="text-lg font-bold text-white mt-1">
-                  Obstetric Emergency Priority 1
-                </div>
-              </div>
-
-              <div className="space-y-4 text-xs">
-                <div className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/5">
-                  <span className="text-slate-400">Target Facility Intake</span>
-                  <span className="font-semibold text-emerald-400">Tertiary Maternity Center</span>
-                </div>
-
-                <div className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/5">
-                  <span className="text-slate-400">Theater Availability</span>
-                  <span className="font-semibold text-emerald-400 font-mono">CONFIRMED (Suite 2)</span>
-                </div>
-
-                <div className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/5">
-                  <span className="text-slate-400">Blood Bank Crossmatch</span>
-                  <span className="font-semibold text-white font-mono">O+ Group Standby</span>
+            {/* Right Column: Visual Telematics Cockpit Mockup */}
+            <div className="lg:col-span-5 space-y-4">
+              <div className="rounded-2xl bg-[#07090E] border border-rose-500/30 p-5 sm:p-6 space-y-5 shadow-2xl relative">
+                {/* Visual Status Indicator */}
+                <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-3 h-3 rounded-full bg-rose-500 animate-ping" />
+                    <div>
+                      <div className="text-[10px] font-mono uppercase tracking-wider text-rose-400 font-bold">
+                        Live Medical Handover Radar
+                      </div>
+                      <div className="text-sm font-bold text-white">
+                        Obstetric Priority 1 (Active Transit)
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold">
+                    CRITICAL
+                  </span>
                 </div>
 
-                <div className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/5">
-                  <span className="text-slate-400">Telemetry ETA</span>
-                  <span className="font-bold text-amber-400 font-mono">08 MINS IN-TRANSIT</span>
+                {/* Patient Profile Card */}
+                <div className="p-3.5 rounded-xl bg-[#111522] border border-white/5 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-400">Patient Status</span>
+                    <span className="font-semibold text-white">Mrs. B. Adeleke (Week 38)</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-400">Clinical Indication</span>
+                    <span className="font-bold text-amber-400">Sudden Labor · Eclampsia Risk</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-400">Blood Cross-Match</span>
+                    <span className="font-mono font-bold text-emerald-400">O+ Positive Standby</span>
+                  </div>
                 </div>
-              </div>
 
-              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[11px] leading-relaxed flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-400" />
-                <span>Zero secondary facility transfers logged across monitored corridors.</span>
+                {/* Receiving Hospital Confirmation Card */}
+                <div className="space-y-2.5">
+                  <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                    Receiving Hospital Pre-Alert
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      <span className="font-medium text-emerald-200">Delivery Suite #02</span>
+                    </div>
+                    <span className="font-mono font-bold text-emerald-400">RESERVED &amp; STAFFED</span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      <span className="font-medium text-emerald-200">Consultant Obstetrician</span>
+                    </div>
+                    <span className="font-mono font-bold text-emerald-400">ON STANDBY AT BAY</span>
+                  </div>
+                </div>
+
+                {/* ETA Countdown Badge */}
+                <div className="p-4 rounded-xl bg-gradient-to-r from-rose-950/40 via-[#181C2A] to-slate-900 border border-rose-500/30 flex items-center justify-between">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider font-mono text-slate-400">
+                      Telemetry Ambulance ETA
+                    </div>
+                    <div className="text-2xl font-black text-rose-400 font-mono">
+                      06 MINS 42 SEC
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold">
+                      Direct Green Corridor
+                    </span>
+                  </div>
+                </div>
+
+                {/* Reassurance Footer */}
+                <div className="pt-1 text-[11px] text-slate-400 flex items-center justify-center gap-2 border-t border-white/5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Guaranteed zero-redirect protocol for mothers in labor</span>
+                </div>
               </div>
             </div>
           </div>
