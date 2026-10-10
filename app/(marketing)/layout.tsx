@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ShieldCheck, Phone, ArrowRight } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
+import MarketingNav from "@/components/MarketingNav";
 
 export const metadata = {
   title: "Solace EMS — Emergency Request & Ambulance Dispatch Network",
@@ -11,101 +12,8 @@ export const metadata = {
 export default function MarketingLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-[#07090E] text-slate-100 flex flex-col antialiased">
-      {/* Top Operations Notice */}
-      <div className="bg-[#0D111A] border-b border-white/5 px-4 py-2 text-xs text-slate-300">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              24/7 Operations
-            </span>
-            <span className="text-slate-500 hidden sm:inline">·</span>
-            <span className="text-slate-300">
-              Pre-Hospital Coordination &amp; Ambulance Dispatch Network
-            </span>
-          </div>
-
-          <div className="flex items-center gap-4 text-[11px] text-slate-400">
-            <span className="hidden md:inline">Central Dispatch Desk:</span>
-            <span className="inline-flex items-center gap-1 text-slate-300 font-medium">
-              <Phone className="w-3 h-3 text-emerald-400" />
-              Rapid Response Helpline
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Header / Navigation */}
-      <header className="sticky top-0 z-40 bg-[#07090E]/90 backdrop-blur-md border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          {/* Official Brand Logo */}
-          <Link href="/" className="flex items-center gap-3 group">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/solace_icon.png"
-              alt="Solace EMS Logo"
-              className="w-9 h-9 rounded-xl object-contain shadow-md border border-white/10 group-hover:border-[#00D4FF]/40 transition-colors"
-            />
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-black uppercase tracking-[0.14em] text-white group-hover:text-[#00D4FF] transition-colors">
-                  SOLACE
-                </span>
-                <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#00D4FF]/10 text-[#00D4FF] border border-[#00D4FF]/25">
-                  EMS
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-400 tracking-wide font-medium">
-                Emergency Fleet Network
-              </p>
-            </div>
-          </Link>
-
-          {/* Desktop Nav Links */}
-          <nav className="hidden md:flex items-center gap-7 text-xs font-semibold text-slate-300 uppercase tracking-wider">
-            <Link href="/#how-it-works" className="hover:text-[#00D4FF] transition-colors">
-              How It Works
-            </Link>
-            <Link href="/#who-its-for" className="hover:text-[#00D4FF] transition-colors">
-              Stakeholders
-            </Link>
-            <Link href="/#safety" className="hover:text-[#00D4FF] transition-colors">
-              Trust &amp; Safety
-            </Link>
-            <Link href="/download" className="hover:text-[#00D4FF] transition-colors">
-              Mobile App
-            </Link>
-          </nav>
-
-          {/* Header Action Controls */}
-          <div className="flex items-center gap-2.5">
-            {/* Single Distinct Staff Sign In Entry */}
-            <Link
-              href="/login?reauth=1"
-              className="px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white rounded-lg border border-white/15 hover:border-white/30 hover:bg-white/5 transition-all"
-            >
-              Staff Sign In
-            </Link>
-
-            {/* Client Registration CTA */}
-            <Link
-              href="/register"
-              className="px-3 py-1.5 text-xs font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-lg shadow-sm shadow-emerald-500/20 transition-all flex items-center gap-1.5"
-            >
-              <span>Sign Up</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-
-            {/* App Download Link */}
-            <Link
-              href="/download"
-              className="hidden sm:inline-flex px-3 py-1.5 text-xs font-semibold text-slate-200 hover:text-white rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-all"
-            >
-              Get App
-            </Link>
-          </div>
-        </div>
-      </header>
+      {/* Responsive Navigation Bar with Mobile Dropdown (Top banner completely removed) */}
+      <MarketingNav />
 
       {/* Main Content Area */}
       <main className="flex-1">{children}</main>
