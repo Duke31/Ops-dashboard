@@ -36,9 +36,11 @@ export async function loginAction(
     return { error: `Profile error: ${profileError.message}` };
   }
 
-  if (!profile || !profile.role) {
+  if (!profile || !profile.role || profile.role === "client") {
+    // Sign out unauthorized session so they don't persist
+    await supabase.auth.signOut();
     return {
-      error: `Signed in as ${data.user.email} (User ID: ${data.user.id}), but no staff role ('admin', 'dispatcher', 'hospital') was found in the 'profiles' table.`,
+      error: "Unauthorized: This portal is restricted to authorized operational staff. Access denied.",
     };
   }
 
