@@ -8,25 +8,32 @@ import type { EmergencyRequest, TransitionRule } from "@/lib/types";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export default async function HospitalPage() {
+export default async function HospitalPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ facilityId?: string }>;
+}) {
   const { supabase, profile } = await requireProfile(["hospital", "admin", "dispatcher"]);
 
-  let hospitalId = profile.hospital_id;
+  const resolvedParams = searchParams ? await searchParams : {};
+  // Allow admins and dispatchers to audit any facility via ?facilityId=<uuid>
+  let hospitalId = resolvedParams.facilityId || profile.hospital_id;
+  let facilityName = "Hospital Facility";
   let capacity: number | null = null;
   let requests: EmergencyRequest[] = [];
   let rules: TransitionRule[] = [];
 
-  // If user is admin/dispatcher without a hospital_id, grab the first available hospital
   if (!hospitalId) {
     try {
       const { data: firstHosp } = await supabase
         .from("hospitals")
-        .select("id, available_capacity")
+        .select("id, name, available_capacity")
         .limit(1)
         .maybeSingle();
 
       if (firstHosp) {
         hospitalId = firstHosp.id;
+        facilityName = firstHosp.name;
         capacity = firstHosp.available_capacity ?? null;
       }
     } catch (e) {
@@ -36,9 +43,10 @@ export default async function HospitalPage() {
     try {
       const { data } = await supabase
         .from("hospitals")
-        .select("available_capacity")
+        .select("name, available_capacity")
         .eq("id", hospitalId)
         .maybeSingle();
+      facilityName = data?.name || "Hospital Facility";
       capacity = data?.available_capacity ?? null;
     } catch (e) {
       console.error("Error fetching hospital capacity:", e);
@@ -62,11 +70,29 @@ export default async function HospitalPage() {
 
   return (
     <AppShell profile={profile}>
-      <div className="mb-4">
-        <h1 className="text-xl font-bold">ER Intake & Triage Desk</h1>
-        <p className="text-xs text-[var(--muted)]">
-          Incoming ambulance dispatches, clinical triage handovers, and live bed admissions.
-        </p>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold">{facilityName} — ER Intake Desk</h1>
+            {resolvedParams.facilityId && (
+              <span className="px-2 py-0.5 rounded text-[10px] font-black bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                ADMIN AUDIT VIEW
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Incoming ambulance dispatches, clinical SBAR triage handovers, and live bed admissions.
+          </p>
+        </div>
+
+        {resolvedParams.facilityId && (
+          <a
+            href="/admin/hospitals"
+            className="text-xs text-slate-400 hover:text-white underline"
+          >
+            ← Return to Hospital Directory
+          </a>
+        )}
       </div>
 
       {hospitalId ? (
