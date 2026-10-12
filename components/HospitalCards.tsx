@@ -10,14 +10,15 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { rpcMessage } from "@/lib/rpc-error";
 import { useDeskAlerts } from "@/components/alerts/DeskAlertProvider";
+import { parseSBARHandover, formatSBARSummary, SBARHandover } from "@/lib/clinicalProtocols";
 
 const PRESET_BAYS = [
-  "Trauma Bay 1",
+  "Obstetric / L&D Theater",
+  "Trauma Red Bay 1",
   "Trauma Bay 2",
   "Resuscitation Suite",
   "Critical Care / ICU-1",
   "Acute Observation 1",
-  "Acute Observation 2",
   "Pediatric Bay",
   "General Triage Bed",
 ];
@@ -41,7 +42,22 @@ export function HospitalCards({
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
-  // Real-time synchronization for hospital intake desk
+  // SBAR Clinical Inspection Modal State
+  const [inspectSbar, setInspectSbar] = useState<{
+    request: EmergencyRequest;
+    sbar: SBARHandover;
+  } | null>(null);
+
+  // Admission Modal State
+  const [admittingReq, setAdmittingReq] = useState<EmergencyRequest | null>(null);
+  const [selectedBay, setSelectedBay] = useState<string>("Obstetric / L&D Theater");
+  const [customBay, setCustomBay] = useState<string>("");
+  const [admitNotes, setAdmitNotes] = useState<string>("");
+
+  const effectiveBay = customBay.trim() || selectedBay;
+  const isFacilityFull = availableCapacity === 0;
+
+  // Real-time synchronization
   useEffect(() => {
     const channel = supabase
       .channel("hospital-intake-sync")
@@ -63,15 +79,6 @@ export function HospitalCards({
       clearInterval(interval);
     };
   }, [supabase, router]);
-
-  // Admission Modal State
-  const [admittingReq, setAdmittingReq] = useState<EmergencyRequest | null>(null);
-  const [selectedBay, setSelectedBay] = useState<string>("Trauma Bay 1");
-  const [customBay, setCustomBay] = useState<string>("");
-  const [admitNotes, setAdmitNotes] = useState<string>("");
-
-  const effectiveBay = customBay.trim() || selectedBay;
-  const isFacilityFull = availableCapacity === 0;
 
   async function go(id: string, to: string) {
     const isAccepting =
@@ -130,7 +137,7 @@ export function HospitalCards({
 
       if (rpcErr) throw rpcErr;
 
-      setOk(`Patient admitted to ${effectiveBay}. Capacity updated.`);
+      setOk(`Patient admitted to ${effectiveBay}. Capacity decremented.`);
       setAdmittingReq(null);
       setCustomBay("");
       setAdmitNotes("");
@@ -145,16 +152,20 @@ export function HospitalCards({
   return (
     <>
       <div className="space-y-6">
-        {/* Active Incoming Emergency Transfers Section */}
+        {/* Active Inbound Ambulance Transfer Cards */}
         <section className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--muted)]">
-              Incoming Ambulance Transfers ({requests.length})
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></span>
+              Pre-Arrival Inbound Board ({requests.length})
             </h2>
+            <span className="text-xs text-slate-500">
+              Live updates with SBAR Handover pre-alerts
+            </span>
           </div>
 
           {isFacilityFull && (
-            <div className="p-3.5 rounded-lg bg-red-500/10 border-2 border-red-500/40 text-xs text-red-900 dark:text-red-200 font-semibold flex items-center gap-2">
+            <div className="p-3.5 rounded-lg bg-red-500/10 border-2 border-red-500/40 text-xs text-red-300 font-semibold flex items-center gap-2">
               <span className="text-base">⛔</span>
               <span>
                 Facility is currently in Diversion Mode (0 Beds Available). Patient admissions and intake confirmations are locked until beds are updated above.
@@ -163,7 +174,7 @@ export function HospitalCards({
           )}
 
           {!requests.length ? (
-            <div className="card p-6 text-center text-sm text-[var(--muted)]">
+            <div className="card p-6 text-center text-sm text-slate-400">
               No active incoming patient transfers at this time.
             </div>
           ) : (
@@ -176,27 +187,33 @@ export function HospitalCards({
                   r.status === "Arrived / intake" || r.status === "En route to hospital";
 
                 const isHighlighted = highlightedRequestId === r.id;
+                const sbar = parseSBARHandover(r.notes);
 
                 return (
                   <article
                     key={r.id}
-                    className={`card p-4 space-y-3 border-l-4 border-l-blue-600 bg-[var(--surface)] shadow-sm transition-all duration-500 ${
+                    className={`card p-4 space-y-3 border-l-4 border-l-blue-600 bg-slate-900/60 shadow-md transition-all duration-500 ${
                       isHighlighted
-                        ? "ring-2 ring-blue-500 bg-blue-500/15 dark:bg-blue-950/60 animate-pulse"
+                        ? "ring-2 ring-blue-500 bg-blue-950/60 animate-pulse"
                         : ""
                     }`}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="space-y-1">
-                        <div className="font-bold text-base flex items-center gap-2">
+                        <div className="font-bold text-base text-white flex items-center gap-2">
                           <span>{r.emergency_type || "Emergency Patient"}</span>
                           {r.priority && (
-                            <span className="px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200">
+                            <span className="px-2 py-0.5 rounded text-xs font-bold bg-red-950/80 text-red-300 border border-red-800">
                               Priority {r.priority}
                             </span>
                           )}
+                          {sbar && (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-950/80 text-teal-300 border border-teal-800">
+                              SBAR ACTIVE
+                            </span>
+                          )}
                         </div>
-                        <div className="text-xs text-[var(--muted)]">
+                        <div className="text-xs text-slate-400">
                           {formatLocation(r)} · Reported {timeSince(r.created_at)}
                         </div>
 
@@ -204,7 +221,7 @@ export function HospitalCards({
                           {(() => {
                             const age = resolvePatientAgeBand(r);
                             return (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded font-medium bg-[var(--surface-raised,#f3f4f6)] text-[var(--foreground)] border border-[var(--border,#e5e7eb)]">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded font-medium bg-slate-800 text-slate-300 border border-slate-700">
                                 {age && age.toLowerCase() !== "unknown"
                                   ? `Age: ${age}`
                                   : age === "unknown"
@@ -216,7 +233,7 @@ export function HospitalCards({
                           {r.contact_phone && (
                             <a
                               href={`tel:${r.contact_phone}`}
-                              className="inline-flex items-center gap-1 font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                              className="inline-flex items-center gap-1 font-semibold text-blue-400 hover:underline"
                             >
                               <span>📞</span>
                               <span>Patient: {r.contact_phone}</span>
@@ -224,21 +241,58 @@ export function HospitalCards({
                           )}
                         </div>
 
-                        {r.notes && (
-                          <div className="mt-2 rounded-md p-2.5 text-xs bg-red-500/10 border border-red-500/30 text-red-900 dark:text-red-200">
-                            <span className="font-bold uppercase tracking-wider block text-[10px] text-red-700 dark:text-red-400 mb-0.5">
-                              Clinical Triage & Medical ID:
+                        {/* Standardized SBAR Pre-Arrival Review Banner */}
+                        {sbar ? (
+                          <div className="mt-2.5 p-3 rounded-lg bg-teal-950/30 border border-teal-700/60 text-xs">
+                            <div className="flex items-center justify-between pb-1 mb-1.5 border-b border-teal-800/40">
+                              <span className="font-bold uppercase tracking-wider text-[10px] text-teal-300 flex items-center gap-1">
+                                <span>📋</span> Inbound SBAR Pre-Alert Received
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setInspectSbar({ request: r, sbar })}
+                                className="px-2 py-0.5 bg-teal-700 hover:bg-teal-600 text-white rounded text-[10px] font-bold transition-all"
+                              >
+                                Review Full SBAR Handover →
+                              </button>
+                            </div>
+                            <div className="text-slate-200 font-medium">
+                              {sbar.situation.primaryComplaint}
+                            </div>
+                            <div className="text-slate-400 text-[11px] mt-0.5">
+                              {formatSBARSummary(sbar).background}
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-2 text-[10px]">
+                              <span className="px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                                Recommended Bay: <strong>{sbar.recommendation.requiredBay}</strong>
+                              </span>
+                              {sbar.recommendation.bloodBankPreAlert && (
+                                <span className="px-1.5 py-0.2 rounded bg-red-600 text-white font-bold animate-pulse">
+                                  🩸 Blood Bank Pre-Alert (O-Neg)
+                                </span>
+                              )}
+                              {sbar.recommendation.theaterPrepRequired && (
+                                <span className="px-1.5 py-0.2 rounded bg-amber-600 text-white font-bold">
+                                  🔬 Theater Preparation Active
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ) : r.notes ? (
+                          <div className="mt-2 rounded-md p-2.5 text-xs bg-red-950/20 border border-red-900/40 text-red-200">
+                            <span className="font-bold uppercase tracking-wider block text-[10px] text-red-400 mb-0.5">
+                              Clinical Triage & Medical Notes:
                             </span>
                             <p className="whitespace-pre-wrap leading-relaxed">{r.notes}</p>
                           </div>
-                        )}
+                        ) : null}
 
                         {r.driver?.display_name && (
-                          <div className="text-xs mt-2 text-[var(--muted)] flex items-center gap-1.5">
+                          <div className="text-xs mt-2 text-slate-400 flex items-center gap-1.5">
                             <span>🚑</span>
                             <span>
                               Transport Unit:{" "}
-                              <strong className="text-[var(--foreground)]">
+                              <strong className="text-slate-200">
                                 {r.driver.display_name}
                               </strong>{" "}
                               {r.driver.vehicle_label ? `(${r.driver.vehicle_label})` : ""}
@@ -250,18 +304,18 @@ export function HospitalCards({
                       <StatusBadge status={r.status} />
                     </div>
 
-                    {/* Action buttons */}
-                    <div className="pt-2 border-t border-[var(--border,#e5e7eb)] flex flex-wrap items-center gap-2">
+                    {/* Action buttons & Bed Assignment Workflow */}
+                    <div className="pt-2 border-t border-slate-800 flex flex-wrap items-center gap-2">
                       {targets.map((to) => {
                         const isDecline = to.toLowerCase().includes("declin");
                         const isDisabled = busy === r.id || (!isDecline && isFacilityFull);
                         return (
                           <button
                             key={to}
-                            className={`btn text-xs py-2 px-3 border border-[var(--border,#d1d5db)] ${
+                            className={`btn text-xs py-2 px-3 border border-slate-700 ${
                               isDecline
-                                ? "text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-                                : "hover:bg-[var(--surface-raised,#f3f4f6)]"
+                                ? "text-red-400 hover:bg-red-950/30"
+                                : "hover:bg-slate-800 text-slate-200"
                             }`}
                             disabled={isDisabled}
                             onClick={() => go(r.id, to)}
@@ -276,7 +330,7 @@ export function HospitalCards({
                         <button
                           className={`btn text-xs py-2 px-4 font-semibold flex items-center gap-1.5 shadow rounded-lg ${
                             isFacilityFull
-                              ? "bg-gray-400 text-white cursor-not-allowed opacity-60"
+                              ? "bg-gray-600 text-white cursor-not-allowed opacity-60"
                               : "btn-primary bg-emerald-600 hover:bg-emerald-700 text-white"
                           }`}
                           disabled={busy === r.id || isFacilityFull}
@@ -286,14 +340,16 @@ export function HospitalCards({
                               return;
                             }
                             setAdmittingReq(r);
-                            setSelectedBay("Trauma Bay 1");
+                            if (sbar?.recommendation.requiredBay) {
+                              setSelectedBay(sbar.recommendation.requiredBay);
+                            }
                             setCustomBay("");
                             setAdmitNotes("");
                           }}
                         >
                           <span>🛏️</span>
                           <span>
-                            {isFacilityFull ? "⛔ ER Full (0 Beds)" : "Admit Patient & Assign Bed"}
+                            {isFacilityFull ? "⛔ ER Full (0 Beds)" : "Acknowledge & Assign Bed"}
                           </span>
                         </button>
                       )}
@@ -306,16 +362,16 @@ export function HospitalCards({
         </section>
 
         {/* Admitted Records & Handover Log History */}
-        <section className="space-y-3 pt-4 border-t border-[var(--border,#e5e7eb)]">
+        <section className="space-y-3 pt-4 border-t border-slate-800">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--muted)] flex items-center gap-2">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
               <span>📋</span>
               <span>Admitted Records & Handover Log ({historyRequests.length})</span>
             </h2>
           </div>
 
           {!historyRequests.length ? (
-            <p className="text-xs text-[var(--muted)] italic">
+            <p className="text-xs text-slate-500 italic">
               No previous admission records logged yet for this facility.
             </p>
           ) : (
@@ -323,18 +379,18 @@ export function HospitalCards({
               {historyRequests.slice(0, 10).map((h) => (
                 <div
                   key={h.id}
-                  className="card p-3 text-xs bg-[var(--surface-raised,#f8fafc)] border border-[var(--border,#e2e8f0)] space-y-1.5"
+                  className="card p-3 text-xs bg-slate-900/40 border border-slate-800 space-y-1.5"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-sm text-[var(--foreground)]">
+                    <span className="font-bold text-sm text-slate-200">
                       {h.emergency_type || "Emergency"}
                     </span>
-                    <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
+                    <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-950/60 text-emerald-300 border border-emerald-800">
                       Admitted / Completed
                     </span>
                   </div>
 
-                  <div className="text-[var(--muted)] flex flex-wrap gap-x-3 gap-y-1">
+                  <div className="text-slate-400 flex flex-wrap gap-x-3 gap-y-1">
                     <span>📍 {formatLocation(h)}</span>
                     {h.contact_phone && <span>📞 {h.contact_phone}</span>}
                     {h.completed_at && (
@@ -343,7 +399,7 @@ export function HospitalCards({
                   </div>
 
                   {h.notes && (
-                    <div className="mt-1 pt-1 border-t border-[var(--border,#e2e8f0)] text-[11px] text-[var(--foreground)] whitespace-pre-wrap leading-relaxed">
+                    <div className="mt-1 pt-1 border-t border-slate-800 text-[11px] text-slate-300 whitespace-pre-wrap leading-relaxed">
                       {h.notes}
                     </div>
                   )}
@@ -354,55 +410,119 @@ export function HospitalCards({
         </section>
       </div>
 
+      {/* SBAR Full Handover Inspection Modal */}
+      {inspectSbar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="card max-w-lg w-full p-6 space-y-4 bg-slate-900 border border-teal-500/50 rounded-2xl text-slate-100">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <span className="text-[10px] font-bold text-teal-400 tracking-wider uppercase block">
+                  CLINICAL SBAR HANDOVER
+                </span>
+                <h3 className="text-lg font-bold text-white">
+                  {inspectSbar.request.emergency_type} Transfer Pre-Alert
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="text-slate-400 hover:text-white font-bold"
+                onClick={() => setInspectSbar(null)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-2.5 rounded bg-slate-950 border border-slate-800">
+                <span className="font-bold text-teal-400 text-[10px] uppercase block">Situation:</span>
+                <p className="mt-1 font-semibold">{inspectSbar.sbar.situation.primaryComplaint}</p>
+                <p className="text-slate-400 mt-0.5">Vitals: {inspectSbar.sbar.situation.vitalsSummary}</p>
+              </div>
+
+              <div className="p-2.5 rounded bg-slate-950 border border-slate-800">
+                <span className="font-bold text-teal-400 text-[10px] uppercase block">Background:</span>
+                <p className="mt-1 text-slate-300">{formatSBARSummary(inspectSbar.sbar).background}</p>
+              </div>
+
+              <div className="p-2.5 rounded bg-slate-950 border border-slate-800">
+                <span className="font-bold text-teal-400 text-[10px] uppercase block">Assessment:</span>
+                <p className="mt-1 text-slate-300">{inspectSbar.sbar.assessment.fieldImpression}</p>
+                <p className="text-amber-400 mt-0.5 font-medium">Stability: {inspectSbar.sbar.assessment.stability}</p>
+              </div>
+
+              <div className="p-2.5 rounded bg-slate-950 border border-teal-900/60">
+                <span className="font-bold text-teal-400 text-[10px] uppercase block">Recommendation:</span>
+                <p className="mt-1 font-semibold text-white">Target Bay: {inspectSbar.sbar.recommendation.requiredBay}</p>
+                <div className="mt-2 flex gap-2">
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${inspectSbar.sbar.recommendation.bloodBankPreAlert ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                    Blood Bank: {inspectSbar.sbar.recommendation.bloodBankPreAlert ? 'PRE-ALERTED' : 'Standby'}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${inspectSbar.sbar.recommendation.theaterPrepRequired ? 'bg-amber-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                    Theater Prep: {inspectSbar.sbar.recommendation.theaterPrepRequired ? 'ACTIVE' : 'Standby'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                className="btn btn-primary px-5 text-xs"
+                onClick={() => setInspectSbar(null)}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Bed Handover Modal */}
       {admittingReq && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="card max-w-lg w-full p-6 space-y-5 shadow-2xl bg-[var(--surface)] border border-[var(--border,#e5e7eb)] rounded-2xl">
-            {/* Header */}
-            <div className="flex items-start justify-between border-b border-[var(--border)] pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="card max-w-lg w-full p-6 space-y-5 bg-slate-900 border border-slate-700 rounded-2xl text-slate-100">
+            <div className="flex items-start justify-between border-b border-slate-800 pb-3">
               <div>
-                <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 tracking-wider uppercase block">
-                  ER BED HANDOVER & ADMISSION
+                <span className="text-[11px] font-bold text-emerald-400 tracking-wider uppercase block">
+                  FACILITY BED HANDOVER & ADMISSION
                 </span>
-                <h3 className="text-xl font-bold mt-1 text-[var(--foreground)]">
+                <h3 className="text-xl font-bold mt-1 text-white">
                   Admit {admittingReq.emergency_type || "Emergency Patient"}
                 </h3>
               </div>
               <button
-                className="text-xs font-semibold text-[var(--muted)] hover:text-[var(--foreground)] flex items-center gap-1 transition-colors"
+                className="text-xs font-semibold text-slate-400 hover:text-white"
                 onClick={() => setAdmittingReq(null)}
               >
                 ✕ Close
               </button>
             </div>
 
-            {/* Transport Unit & Capacity info card */}
-            <div className="p-3.5 rounded-xl bg-[var(--surface-raised,#f8fafc)] border border-[var(--border,#e2e8f0)] text-xs space-y-1.5">
+            <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-xs space-y-1.5">
               <div>
-                <strong className="text-[var(--foreground)]">Transport Unit:</strong>{" "}
-                <span className="text-[var(--muted)]">
+                <strong className="text-slate-200">Transport Unit:</strong>{" "}
+                <span className="text-slate-400">
                   {admittingReq.driver?.display_name || "Assigned Ambulance"}
                   {admittingReq.driver?.vehicle_label ? ` (${admittingReq.driver.vehicle_label})` : ""}
                 </span>
               </div>
               <div>
-                <strong className="text-[var(--foreground)]">Location:</strong>{" "}
-                <span className="text-[var(--muted)]">{formatLocation(admittingReq)}</span>
+                <strong className="text-slate-200">Scene Location:</strong>{" "}
+                <span className="text-slate-400">{formatLocation(admittingReq)}</span>
               </div>
               <div className="pt-1">
-                <strong className="text-[var(--foreground)]">Current ER Bed Capacity:</strong>{" "}
-                <span className={`font-bold ${isFacilityFull ? "text-red-600" : "text-emerald-600 dark:text-emerald-400"}`}>
+                <strong className="text-slate-200">Current ER Bed Capacity:</strong>{" "}
+                <span className={`font-bold ${isFacilityFull ? "text-red-400" : "text-emerald-400"}`}>
                   {availableCapacity ?? "—"} beds available
                 </span>{" "}
-                <span className="text-[var(--muted)] text-[11px]">
+                <span className="text-slate-500 text-[11px]">
                   (will be decremented by 1 upon confirmation)
                 </span>
               </div>
             </div>
 
-            {/* Select Receiving Bed / Trauma Bay (2-column grid) */}
             <div className="space-y-2">
-              <label className="block text-xs font-bold text-[var(--foreground)]">
+              <label className="block text-xs font-bold text-slate-200">
                 Select Receiving Bed / Trauma Bay:
               </label>
               <div className="grid grid-cols-2 gap-2">
@@ -420,7 +540,7 @@ export function HospitalCards({
                       className={`text-xs py-2.5 px-3 rounded-lg border font-medium text-left transition ${
                         isSelected
                           ? "bg-emerald-600 text-white border-emerald-600 font-bold shadow-sm"
-                          : "border-[var(--border,#e5e7eb)] hover:bg-[var(--surface-raised,#f3f4f6)] text-[var(--foreground)]"
+                          : "border-slate-800 hover:bg-slate-800 text-slate-300"
                       }`}
                     >
                       {bay}
@@ -430,41 +550,38 @@ export function HospitalCards({
               </div>
             </div>
 
-            {/* Custom bed/room input */}
             <div className="space-y-1">
-              <label className="block text-xs text-[var(--muted)]">
+              <label className="block text-xs text-slate-400">
                 Or specify custom bed/room:
               </label>
               <input
                 type="text"
                 disabled={isFacilityFull}
-                placeholder="e.g. Ward 4C - Bed 12"
+                placeholder="e.g. Obstetric High Dependency Bay 2"
                 value={customBay}
                 onChange={(e) => setCustomBay(e.target.value)}
-                className="input text-xs w-full py-2.5 px-3 rounded-lg"
+                className="input text-xs w-full py-2.5 px-3 rounded-lg bg-slate-950 border-slate-700"
               />
             </div>
 
-            {/* Admission Handover Notes */}
             <div className="space-y-1">
-              <label className="block text-xs text-[var(--muted)]">
+              <label className="block text-xs text-slate-400">
                 Admission Handover Notes (Optional):
               </label>
               <textarea
                 rows={3}
                 disabled={isFacilityFull}
-                placeholder="Assigned physician, initial vitals taken at triage bay, or special instructions..."
+                placeholder="Receiving team, initial field vitals confirmed, physician on-duty..."
                 value={admitNotes}
                 onChange={(e) => setAdmitNotes(e.target.value)}
-                className="input text-xs w-full py-2 px-3 rounded-lg"
+                className="input text-xs w-full py-2 px-3 rounded-lg bg-slate-950 border-slate-700"
               />
             </div>
 
-            {/* Modal Buttons */}
-            <div className="pt-3 border-t border-[var(--border,#e5e7eb)] flex items-center justify-between gap-3">
+            <div className="pt-3 border-t border-slate-800 flex items-center justify-between gap-3">
               <button
                 type="button"
-                className="btn py-2.5 px-4 text-xs font-semibold border rounded-lg"
+                className="btn py-2.5 px-4 text-xs font-semibold border border-slate-700 rounded-lg text-slate-300"
                 onClick={() => setAdmittingReq(null)}
                 disabled={busy === admittingReq.id}
               >
@@ -474,7 +591,7 @@ export function HospitalCards({
                 type="button"
                 className={`btn py-2.5 px-5 text-xs font-bold text-white rounded-lg shadow-md flex-1 text-center ${
                   isFacilityFull
-                    ? "bg-gray-400 cursor-not-allowed"
+                    ? "bg-gray-600 cursor-not-allowed"
                     : "bg-emerald-600 hover:bg-emerald-700"
                 }`}
                 onClick={handleConfirmAdmit}
