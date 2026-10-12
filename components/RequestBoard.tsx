@@ -16,7 +16,7 @@ import { Toast } from "@/components/Toast";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { rpcMessage } from "@/lib/rpc-error";
-import { parsePatientReview, getCleanMedicalNotes } from "@/lib/patientReview";
+import { parsePatientReview, parsePatientCancellation, getCleanMedicalNotes } from "@/lib/patientReview";
 import { useDeskAlerts } from "@/components/alerts/DeskAlertProvider";
 
 function needsDriver(toStatus: string) {
@@ -749,10 +749,24 @@ export function RequestBoard({
                   <td className="max-w-[240px]">
                     <div className="font-semibold text-sm">{r.emergency_type || "—"}</div>
                     {(() => {
+                      const cancellation = parsePatientCancellation(r.notes, (r as unknown as { cancelled_reason?: string }).cancelled_reason);
                       const review = parsePatientReview(r.notes);
                       const cleanNotes = getCleanMedicalNotes(r.notes);
                       return (
                         <>
+                          {cancellation && (
+                            <div className="mt-1 rounded-lg bg-red-500/15 border-2 border-red-500/40 p-2 text-xs shadow-sm text-red-950 dark:text-red-100 animate-pulse">
+                              <div className="flex items-center gap-1 font-black text-red-700 dark:text-red-400 text-[10px] uppercase tracking-wider">
+                                <span>🛑 CANCELLED BY PATIENT</span>
+                                {cancellation.cancelledAt && (
+                                  <span className="font-normal opacity-75 lowercase ml-auto">({timeSince(cancellation.cancelledAt)})</span>
+                                )}
+                              </div>
+                              <div className="mt-1 font-semibold text-xs leading-snug">
+                                Reason: &ldquo;{cancellation.reason}&rdquo;
+                              </div>
+                            </div>
+                          )}
                           {cleanNotes && (
                             <div className="mt-1 text-[11px] leading-tight text-red-700 dark:text-red-300 bg-red-500/10 border border-red-500/20 rounded p-1.5">
                               <span className="font-bold uppercase tracking-wider text-[9px] block opacity-75 mb-0.5">
