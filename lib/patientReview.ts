@@ -5,6 +5,43 @@ export interface PatientReview {
   submittedAt?: string;
 }
 
+export interface PatientCancellation {
+  reason: string;
+  cancelledAt?: string;
+}
+
+export function parsePatientCancellation(
+  notes: string | null | undefined,
+  cancelledReasonColumn?: string | null | undefined
+): PatientCancellation | null {
+  if (cancelledReasonColumn && cancelledReasonColumn.trim().length > 0) {
+    // If there's an AT timestamp in the notes, extract it too
+    let atTime: string | undefined;
+    if (notes) {
+      const atMatch = notes.match(/\[CANCELLED BY PATIENT:[^\]]*\|\s*AT:\s*([^\]]+)\]/i);
+      if (atMatch) {
+        atTime = atMatch[1].trim();
+      }
+    }
+    return {
+      reason: cancelledReasonColumn.trim(),
+      cancelledAt: atTime,
+    };
+  }
+
+  if (!notes) return null;
+
+  const match = notes.match(/\[CANCELLED BY PATIENT:\s*([^|\]]+)(?:\|\s*AT:\s*([^\]]+))?\]/i);
+  if (match) {
+    return {
+      reason: match[1].trim(),
+      cancelledAt: match[2]?.trim(),
+    };
+  }
+
+  return null;
+}
+
 export function parsePatientReview(notes: string | null | undefined): PatientReview | null {
   if (!notes) return null;
 
@@ -89,6 +126,7 @@ export function getCleanMedicalNotes(notes: string | null | undefined): string {
   if (!notes) return "";
   return notes
     .replace(/\[PATIENT\s+(?:REVIEW|FEEDBACK|RATING)[^\]]*\]/gi, "")
+    .replace(/\[CANCELLED\s+BY\s+PATIENT:[^\]]*\]/gi, "")
     .replace(/\[TACTICAL\s+(?:RADIO|ALERT)[^\]]*\]:[^\n\r]*/gi, "")
     .replace(/\[DISPATCH\s+(?:ACK|RADIO)[^\]]*\]:[^\n\r]*/gi, "")
     .trim();
