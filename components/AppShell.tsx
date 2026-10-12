@@ -49,6 +49,7 @@ const NAV: Record<string, { href: string; label: string }[]> = {
   driver: [{ href: "/driver", label: "Ambulance Console" }],
   dispatcher: [
     { href: "/dispatcher", label: "Active requests" },
+    { href: "/admin/pilot-metrics", label: "📊 Pilot Metrics" },
     { href: "/dispatcher/reviews", label: "⭐ Patient Reviews" },
   ],
   hospital: [
@@ -57,6 +58,7 @@ const NAV: Record<string, { href: string; label: string }[]> = {
   ],
   admin: [
     { href: "/admin", label: "Network queue" },
+    { href: "/admin/pilot-metrics", label: "📊 Pilot Metrics" },
     { href: "/admin/history", label: "📜 Emergency History" },
     { href: "/admin/reviews", label: "⭐ Patient Reviews" },
     { href: "/driver", label: "Ambulance View" },
