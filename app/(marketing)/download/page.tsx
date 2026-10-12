@@ -8,8 +8,12 @@ import {
   Settings,
   FolderOpen,
   HelpCircle,
-  FileDown,
 } from "lucide-react";
+
+const SUPABASE_STORAGE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL
+    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL.replace(/\/+$/, "")}/storage/v1/object/public/app-releases/solace-v1.0.apk`
+    : "https://aogknxtyvzpzqkgmgtsv.supabase.co/storage/v1/object/public/app-releases/solace-v1.0.apk";
 
 export default function DownloadPage() {
   return (
@@ -51,10 +55,10 @@ export default function DownloadPage() {
           {/* Version Specs */}
           <div className="flex flex-wrap items-center gap-3 text-xs text-slate-300 font-mono pt-1">
             <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-emerald-400 font-bold">
-              v1.0.2 Build
+              v1.0.2 Auto-Sync Release
             </span>
             <span aria-hidden="true" className="text-slate-600">·</span>
-            <span>Size: ~28 MB</span>
+            <span>Size: ~27 MB</span>
             <span aria-hidden="true" className="text-slate-600">·</span>
             <span>Requires: Android 8.0+</span>
           </div>
@@ -71,8 +75,8 @@ export default function DownloadPage() {
         {/* Big Action Download Button */}
         <div className="space-y-3 pt-2">
           <a
-            href="/solace-client.apk"
-            download="solace-client.apk"
+            href={SUPABASE_STORAGE_URL}
+            download="solace-v1.0.apk"
             className="w-full py-4 px-6 rounded-2xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black text-base shadow-lg shadow-emerald-500/25 transition-all flex items-center justify-center gap-3 active:scale-[0.99] group text-center cursor-pointer"
           >
             <Download className="w-5 h-5 transition-transform group-hover:scale-110" />
@@ -81,37 +85,29 @@ export default function DownloadPage() {
 
           <div className="flex items-center justify-center gap-1.5 text-xs text-slate-400 text-center pt-1">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Official release verified package · Direct installation for Android</span>
+            <span>Official release verified package · Direct installation from Solace Cloud Storage</span>
           </div>
         </div>
       </div>
 
       {/* 2. STEP-BY-STEP INSTALLATION VISUAL GUIDE */}
       <div className="space-y-6">
-        <div className="space-y-2">
-          <div className="text-xs font-bold uppercase tracking-widest text-emerald-400 font-mono">
-            Installation Walkthrough
-          </div>
-          <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-            How to Install on Android
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-            Follow these standard steps to complete APK installation:
-          </p>
-        </div>
+        <h2 className="text-base font-bold text-white uppercase tracking-wider font-mono">
+          Installation Guide
+        </h2>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Step 1 */}
           <div className="p-5 rounded-2xl bg-[#0D111A] border border-white/5 space-y-3">
             <div className="flex items-center justify-between">
               <span className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 font-mono font-bold text-xs flex items-center justify-center">
                 1
               </span>
-              <FileDown className="w-4 h-4 text-slate-500" />
+              <Download className="w-4 h-4 text-slate-500" />
             </div>
-            <h3 className="text-sm font-bold text-white">Tap &ldquo;Download Anyway&rdquo;</h3>
+            <h3 className="text-sm font-bold text-white">Download APK</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              When your browser prompts: <em className="text-slate-300">&ldquo;File might be harmful&rdquo;</em>, tap <strong>&ldquo;Download anyway&rdquo;</strong>. This standard prompt appears for all apps downloaded directly.
+              Click the download button above to download the latest Solace package directly to your Android device.
             </p>
           </div>
 
