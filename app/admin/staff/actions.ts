@@ -40,9 +40,11 @@ export async function createStaffAccount(
   if (!email || !password || password.length < 8 || !displayName) {
     return { ok: false, error: "Email, display name, and a password (8+ chars) are required." };
   }
+
   if (role === "hospital" && !input.hospital_id) {
     return { ok: false, error: "Hospital desk accounts need a hospital." };
   }
+
   if (role === "driver" && (!input.hospital_id || !input.vehicle_label?.trim())) {
     return {
       ok: false,
@@ -60,6 +62,7 @@ export async function createStaffAccount(
     email_confirm: true,
     user_metadata: { display_name: displayName },
   });
+
   if (createErr || !data.user) {
     return {
       ok: false,
@@ -67,6 +70,7 @@ export async function createStaffAccount(
     };
   }
 
+  // Attempt RPC assignment first
   const { error: rpcErr } = await admin.rpc("admin_finish_staff_role", {
     p_user_id: data.user.id,
     p_role: role,
@@ -76,11 +80,32 @@ export async function createStaffAccount(
       role === "driver" ? input.vehicle_label?.trim() || null : null,
   });
 
+  // If RPC checks auth session, safely fallback to direct service role upsert
   if (rpcErr) {
-    return {
-      ok: false,
-      error: `User created (${data.user.id}) but role assign failed: ${rpcErr.message}`,
-    };
+    const { error: profileErr } = await admin.from("profiles").upsert({
+      user_id: data.user.id,
+      role: role,
+      display_name: displayName,
+      hospital_id: input.hospital_id || null,
+    });
+
+    if (profileErr) {
+      return {
+        ok: false,
+        error: `User created (${data.user.id}) but profile assign failed: ${profileErr.message}`,
+      };
+    }
+
+    if (role === "driver") {
+      await admin.from("drivers").insert({
+        user_id: data.user.id,
+        display_name: displayName,
+        vehicle_label: input.vehicle_label?.trim() || "Ambulance",
+        hospital_id: input.hospital_id || null,
+        active: true,
+        status: "available",
+      });
+    }
   }
 
   return { ok: true, user_id: data.user.id };

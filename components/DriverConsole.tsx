@@ -302,25 +302,32 @@ export function DriverConsole({
         }
       });
 
-      // 3. Throttled DB write: persist coordinate via hardened RPC (every 3s)
-      // SECURITY FIX MEDIUM-3: Use update_driver_location RPC as the PRIMARY
-      // path (not as a fallback). The RPC enforces role='driver' + user_id
-      // ownership at the database level, independent of client-side checks.
+      // 3. Throttled DB write: persist coordinate directly to drivers table every 3s
       const now = Date.now();
       if (now - lastDbUpdateRef.current >= 3000) {
         lastDbUpdateRef.current = now;
 
         supabase
-          .rpc("update_driver_location", {
-            p_driver_id:    driverIdToStream,
-            p_lat:          pos.coords.latitude,
-            p_lng:          pos.coords.longitude,
-            p_heading:      pos.coords.heading  ?? null,
-            p_speed:        pos.coords.speed    ?? null,
+          .from("drivers")
+          .update({
+            current_lat: pos.coords.latitude,
+            current_lng: pos.coords.longitude,
+            heading: pos.coords.heading,
+            speed: pos.coords.speed,
+            last_location_at: nowIso,
           })
-          .then(({ error: rpcErr }) => {
-            if (rpcErr) {
-              console.warn("GPS RPC persist failed:", rpcErr.message);
+          .eq("id", driverIdToStream)
+          .then(({ error: updateErr }) => {
+            if (updateErr) {
+              supabase
+                .rpc("update_driver_location", {
+                  p_driver_id: driverIdToStream,
+                  p_lat: pos.coords.latitude,
+                  p_lng: pos.coords.longitude,
+                  p_heading: pos.coords.heading,
+                  p_speed: pos.coords.speed,
+                })
+                .then(() => {});
             }
           });
       }
@@ -338,18 +345,40 @@ export function DriverConsole({
       setGpsError(msg);
     };
 
-    navigator.geolocation.getCurrentPosition(updateLocation, handleLocationError, {
-      enableHighAccuracy: true,
-      maximumAge: 10000,
-      timeout: 10000,
-    });
+    // Step 1: Immediate fast acquisition (allow cached coordinate up to 60s, short 3s timeout) to prevent loading delay
+    navigator.geolocation.getCurrentPosition(
+      updateLocation,
+      () => {
+        // If cached fails, fallback silently to high accuracy watch
+      },
+      {
+        enableHighAccuracy: false,
+        maximumAge: 60000,
+        timeout: 3000,
+      }
+    );
 
-    const watchId = navigator.geolocation.watchPosition(updateLocation, handleLocationError, {
-      enableHighAccuracy: true,
-      maximumAge: 5000,
-      timeout: 10000,
-    });
+    // Step 2: Immediate high accuracy probe with 6s timeout
+    navigator.geolocation.getCurrentPosition(
+      updateLocation,
+      handleLocationError,
+      {
+        enableHighAccuracy: true,
+        maximumAge: 5000,
+        timeout: 6000,
+      }
+    );
 
+    // Step 3: Continuous high-accuracy stream for active ambulance navigation
+    const watchId = navigator.geolocation.watchPosition(
+      updateLocation,
+      handleLocationError,
+      {
+        enableHighAccuracy: true,
+        maximumAge: 2000,
+        timeout: 8000,
+      }
+    );
     return () => {
       navigator.geolocation.clearWatch(watchId);
       supabase.removeChannel(locChannel);

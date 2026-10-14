@@ -68,6 +68,8 @@ export function HospitalAuditHistoryView({
   hospitalName?: string | null;
 }) {
   const [searchTerm, setSearchTerm] = useState("");
+  const [nowTimestamp, setNowTimestamp] = useState<number>(0);
+  useEffect(() => { setNowTimestamp(Date.now()); }, []);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [triageFilter, setTriageFilter] = useState<string>("all");
   const [dateRangeFilter, setDateRangeFilter] = useState<string>("all");
@@ -122,7 +124,7 @@ export function HospitalAuditHistoryView({
 
   // Filtered requests for auditing table
   const filtered = useMemo(() => {
-    const now = Date.now();
+    const now = nowTimestamp || 0;
     return requests.filter((r) => {
       // 1. Status Filter
       if (statusFilter !== "all") {
@@ -181,7 +183,7 @@ export function HospitalAuditHistoryView({
 
       return true;
     });
-  }, [requests, statusFilter, triageFilter, dateRangeFilter, searchTerm]);
+  }, [requests, statusFilter, triageFilter, dateRangeFilter, searchTerm, nowTimestamp]);
 
   // Export to CSV Function for Auditing Reports
   function exportAuditCSV() {

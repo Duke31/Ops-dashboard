@@ -1,96 +1,175 @@
-export type ClinicalSpecialty = 'obstetric' | 'trauma' | 'cardiovascular' | 'pediatric' | 'general';
+/**
+ * Solace EMS Clinical & Medical Protocol Layer
+ * Implements Specialized Triage Protocols (Obstetric, Trauma, Cardiac, Pediatric)
+ * and Standardized SBAR Clinical Handover serialization/deserialization.
+ */
 
-export interface SBARHandover {
-  specialty: ClinicalSpecialty;
-  situation: {
-    primaryComplaint: string;
-    priorityTier: 'P1-CRITICAL' | 'P2-URGENT' | 'P3-STANDARD';
-    vitalsSummary: string; // e.g. "BP: 140/90, HR: 110, SpO2: 96%"
-  };
-  background: {
-    historyNotes: string;
-    allergies: string;
-    // Specialty specific fields
-    gestationalAgeWeeks?: number;
-    gravidityParity?: string; // e.g. "G3P2"
-    fetalHeartTones?: string;  // e.g. "140 bpm, regular"
-    membraneRupture?: boolean;
-    bleedingSeverity?: 'None' | 'Mild spotting' | 'Moderate' | 'Severe hemorrhage';
-    glasgowComaScale?: number; // 3 - 15
-    polytraumaTags?: string[]; // e.g. ["Pelvic fracture", "Blunt chest"]
-    onsetTime?: string;
-    stemiOrStrokeSigns?: boolean; // FAST / STEMI
-    pediatricDistress?: boolean;  // Grunting, nasal flaring, chest indrawing
-  };
-  assessment: {
-    fieldImpression: string;
-    stability: 'Stable' | 'Guarded' | 'Unstable' | 'Critical deterioration';
-  };
-  recommendation: {
-    requiredBay: 'Resuscitation Bay' | 'Obstetric / L&D Theater' | 'Trauma Red Bay' | 'ICU / CCU' | 'Standard Acute Bed';
-    bloodBankPreAlert: boolean;
-    theaterPrepRequired: boolean;
-    onCallSpecialist: string;
-  };
-  reportedBy?: string;
-  timestamp?: string;
+import {
+  CLINICAL_SPECIALTIES,
+  ClinicalSpecialtyConfig,
+  extractSbarData,
+  SbarHandoverData,
+} from "./regionClusters";
+import type { EmergencyRequest } from "./types";
+
+export { CLINICAL_SPECIALTIES, extractSbarData };
+export type { ClinicalSpecialtyConfig, SbarHandoverData };
+
+// Specialized Clinical Triage Types
+export interface ObstetricClinicalData {
+  gestationalAgeWeeks?: number;
+  gravidity?: number;
+  parity?: number;
+  fetalHeartTonesPresent?: boolean;
+  membraneRupture?: boolean;
+  liquorAppearance?: "clear" | "meconium_stained" | "blood_stained";
+  bleedingSeverity?: "none" | "mild_spotting" | "moderate" | "severe_hemorrhage";
+  contractionsFrequencyMinutes?: number;
+  preReferralMgS04Given?: boolean;
+}
+
+export interface TraumaClinicalData {
+  gcsScore?: number; // Glasgow Coma Scale (3 - 15)
+  mechanism?: "road_traffic_collision" | "fall" | "penetrating_injury" | "blunt_trauma" | "burn";
+  polytrauma?: boolean;
+  activeHemorrhage?: boolean;
+  tourniquetApplied?: boolean;
+  cervicalCollarApplied?: boolean;
+  suspectedFractures?: string[];
+}
+
+export interface CardiovascularClinicalData {
+  onsetTimeMinutes?: number;
+  fastFacialDroop?: boolean;
+  fastArmWeakness?: boolean;
+  fastSpeechDifficulty?: boolean;
+  stemiSuspected?: boolean;
+  systolicBp?: number;
+  diastolicBp?: number;
+  spo2Percent?: number;
+  pulseRate?: number;
+  aspirinChewed?: boolean;
+}
+
+export interface PediatricClinicalData {
+  ageYears?: number;
+  subcostalIndrawing?: boolean;
+  stridorPresent?: boolean;
+  grunting?: boolean;
+  cyanosis?: boolean;
+  temperatureCelsius?: number;
+  weightKg?: number;
+  convulsing?: boolean;
+}
+
+export interface ClinicalTriageAssessment {
+  specialty: "Obstetric" | "Trauma" | "Cardiac" | "Pediatric" | "Respiratory";
+  priorityTier: 1 | 2 | 3; // 1 = Critical, 2 = Urgent, 3 = Standard
+  stabilityTier: "Stable" | "Guarded" | "Unstable" | "Critical deterioration";
+  requiredBay:
+    | "Obstetric / L&D Theater"
+    | "Trauma Bay 1 (Red)"
+    | "Resuscitation Suite"
+    | "Pediatric Bay"
+    | "Acute Medical Ward";
+  theaterRequested: boolean;
+  bloodBankPreAlert: boolean;
+  bloodUnitsRequested?: number;
+  bloodTypeNeeded?: string;
+  obstetric?: ObstetricClinicalData;
+  trauma?: TraumaClinicalData;
+  cardiac?: CardiovascularClinicalData;
+  pediatric?: PediatricClinicalData;
 }
 
 /**
- * Serializes SBAR structure into clean machine-readable string embedded into emergency_requests notes.
+ * Serializes SBAR clinical handover note into standard database notes text format
  */
-export function encodeSBARHandover(sbar: SBARHandover): string {
-  try {
-    const compactJson = JSON.stringify(sbar);
-    return `[SBAR_CLINICAL:${compactJson}]`;
-  } catch {
-    return '';
+export function serializeSbarNote(
+  sbar: SbarHandoverData,
+  clinical?: Partial<ClinicalTriageAssessment>,
+): string {
+  let note = `[SBAR HANDOVER | S: ${sbar.situation} | B: ${sbar.background} | A: ${sbar.assessment} | R: ${sbar.recommendation}]`;
+
+  if (sbar.theaterRequested) {
+    note += ` [THEATER: REQUESTED]`;
   }
+  if (sbar.bloodRequested) {
+    note += ` [BLOOD_BANK: PRE_ALERT O-NEG]`;
+  }
+  if (sbar.escalationTier > 1) {
+    note += ` [ESCALATION TIER ${sbar.escalationTier}]: ${sbar.escalatedTo || "Referral Hub"}`;
+  }
+
+  if (clinical?.obstetric) {
+    const ob = clinical.obstetric;
+    note += ` [OBSTETRIC: G${ob.gravidity || "?"}P${ob.parity || "?"} | ${ob.gestationalAgeWeeks || "?"}wks | Bleeding: ${ob.bleedingSeverity || "none"}]`;
+  } else if (clinical?.trauma) {
+    const tr = clinical.trauma;
+    note += ` [TRAUMA: GCS ${tr.gcsScore || "?"}/15 | Active Bleed: ${tr.activeHemorrhage ? "YES" : "NO"} | Polytrauma: ${tr.polytrauma ? "YES" : "NO"}]`;
+  } else if (clinical?.cardiac) {
+    const cd = clinical.cardiac;
+    note += ` [CARDIAC: SpO2 ${cd.spo2Percent || "?"}% | BP ${cd.systolicBp || "?"}/${cd.diastolicBp || "?"} | FAST: ${cd.fastFacialDroop || cd.fastArmWeakness ? "POSITIVE" : "NEGATIVE"}]`;
+  } else if (clinical?.pediatric) {
+    const pd = clinical.pediatric;
+    note += ` [PEDIATRIC: Age ${pd.ageYears || "?"}y | Stridor: ${pd.stridorPresent ? "YES" : "NO"} | Retractions: ${pd.subcostalIndrawing ? "YES" : "NO"}]`;
+  }
+
+  return note;
 }
 
 /**
- * Extracts and parses SBAR handover from emergency_requests notes string.
+ * Parses full clinical assessment from an existing EmergencyRequest notes
  */
-export function parseSBARHandover(notes?: string | null): SBARHandover | null {
-  if (!notes) return null;
-  const match = notes.match(/\[SBAR_CLINICAL:(\{.*?\})\]/s);
-  if (!match) return null;
-  try {
-    return JSON.parse(match[1]) as SBARHandover;
-  } catch {
-    return null;
-  }
-}
+export function parseClinicalNotes(req: EmergencyRequest): ClinicalTriageAssessment {
+  const sbar = extractSbarData(req);
+  const notes = req.notes || "";
+  const type = (req.emergency_type || "Trauma") as ClinicalTriageAssessment["specialty"];
 
-/**
- * Human-readable markdown preview of SBAR Handover for clinical staff.
- */
-export function formatSBARSummary(sbar: SBARHandover): {
-  situation: string;
-  background: string;
-  assessment: string;
-  recommendation: string;
-} {
-  const bgDetails: string[] = [];
-  if (sbar.background.gestationalAgeWeeks) bgDetails.push(`Gest: ${sbar.background.gestationalAgeWeeks}w`);
-  if (sbar.background.gravidityParity) bgDetails.push(`Parity: ${sbar.background.gravidityParity}`);
-  if (sbar.background.fetalHeartTones) bgDetails.push(`FHT: ${sbar.background.fetalHeartTones}`);
-  if (sbar.background.bleedingSeverity && sbar.background.bleedingSeverity !== 'None') {
-    bgDetails.push(`Bleeding: ${sbar.background.bleedingSeverity}`);
-  }
-  if (sbar.background.glasgowComaScale) bgDetails.push(`GCS: ${sbar.background.glasgowComaScale}/15`);
-  if (sbar.background.polytraumaTags && sbar.background.polytraumaTags.length > 0) {
-    bgDetails.push(`Trauma: ${sbar.background.polytraumaTags.join(', ')}`);
-  }
-  if (sbar.background.stemiOrStrokeSigns) bgDetails.push(`ALERT: FAST Stroke / STEMI Positive`);
-  if (sbar.background.pediatricDistress) bgDetails.push(`ALERT: Pediatric Respiratory Distress`);
-  if (sbar.background.allergies) bgDetails.push(`Allergies: ${sbar.background.allergies}`);
-  if (sbar.background.historyNotes) bgDetails.push(sbar.background.historyNotes);
+  let stabilityTier: ClinicalTriageAssessment["stabilityTier"] = "Guarded";
+  if (req.priority === 1) stabilityTier = "Critical deterioration";
+  else if (req.priority === 2) stabilityTier = "Guarded";
+  else stabilityTier = "Stable";
 
-  return {
-    situation: `[${sbar.situation.priorityTier}] ${sbar.situation.primaryComplaint} | Vitals: ${sbar.situation.vitalsSummary || 'Pending'}`,
-    background: bgDetails.join(' | ') || 'No chronic background recorded',
-    assessment: `${sbar.assessment.fieldImpression} (Stability: ${sbar.assessment.stability})`,
-    recommendation: `Alloc: ${sbar.recommendation.requiredBay} | Blood Bank: ${sbar.recommendation.bloodBankPreAlert ? 'PRE-ALERTED' : 'Not required'} | Theater: ${sbar.recommendation.theaterPrepRequired ? 'PREP ACTIVE' : 'Standby'} | On-Call: ${sbar.recommendation.onCallSpecialist}`
+  let requiredBay: ClinicalTriageAssessment["requiredBay"] = "Acute Medical Ward";
+  if (type === "Obstetric") requiredBay = "Obstetric / L&D Theater";
+  else if (type === "Trauma") requiredBay = "Trauma Bay 1 (Red)";
+  else if (type === "Cardiac") requiredBay = "Resuscitation Suite";
+  else if (type === "Pediatric") requiredBay = "Pediatric Bay";
+
+  const assessment: ClinicalTriageAssessment = {
+    specialty: type,
+    priorityTier: (req.priority as 1 | 2 | 3) || 1,
+    stabilityTier,
+    requiredBay,
+    theaterRequested: sbar.theaterRequested,
+    bloodBankPreAlert: sbar.bloodRequested,
   };
+
+  // Extract Obstetric tags
+  if (notes.includes("[OBSTETRIC:")) {
+    const obMatch = notes.match(/\[OBSTETRIC:\s*G(\d+)P(\d+)\s*\|\s*(\d+)wks\s*\|\s*Bleeding:\s*([^\]]+)\]/i);
+    if (obMatch) {
+      assessment.obstetric = {
+        gravidity: parseInt(obMatch[1], 10),
+        parity: parseInt(obMatch[2], 10),
+        gestationalAgeWeeks: parseInt(obMatch[3], 10),
+        bleedingSeverity: obMatch[4].trim() as ObstetricClinicalData["bleedingSeverity"],
+      };
+    }
+  }
+
+  // Extract Trauma tags
+  if (notes.includes("[TRAUMA:")) {
+    const trMatch = notes.match(/\[TRAUMA:\s*GCS\s*(\d+)\/15\s*\|\s*Active Bleed:\s*(YES|NO)\s*\|\s*Polytrauma:\s*(YES|NO)\]/i);
+    if (trMatch) {
+      assessment.trauma = {
+        gcsScore: parseInt(trMatch[1], 10),
+        activeHemorrhage: trMatch[2].toUpperCase() === "YES",
+        polytrauma: trMatch[3].toUpperCase() === "YES",
+      };
+    }
+  }
+
+  return assessment;
 }

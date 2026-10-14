@@ -10,6 +10,9 @@ export function homeForRole(role: string | null | undefined): string {
   if (role === "dispatcher" || role === "hospital" || role === "admin" || role === "driver") {
     return `/${role}`;
   }
+  if (role === "client") {
+    return "/client";
+  }
   return "/no-access";
 }
 
@@ -25,6 +28,9 @@ export function roleFromPath(pathname: string): AppRole | null {
   }
   if (pathname === "/driver" || pathname.startsWith("/driver/")) {
     return "driver";
+  }
+  if (pathname === "/client" || pathname.startsWith("/client/")) {
+    return "client";
   }
   return null;
 }

@@ -1,6 +1,12 @@
-export type AppRole = "dispatcher" | "hospital" | "admin" | "driver";
+export type AppRole = "dispatcher" | "hospital" | "admin" | "driver" | "client";
 
-export const APP_ROLES: AppRole[] = ["dispatcher", "hospital", "admin", "driver"];
+export const APP_ROLES: AppRole[] = [
+  "dispatcher",
+  "hospital",
+  "admin",
+  "driver",
+  "client",
+];
 
 export type Profile = {
   user_id: string;
@@ -19,6 +25,14 @@ export type Hospital = {
   lng?: number | null;
   intake_phone?: string | null;
   created_at?: string;
+  // Extended multi-network and capability matrix fields
+  region_cluster?: string | null;
+  facility_tier?: string | null;
+  theater_status?: "ready" | "in_use" | "standby" | null;
+  blood_bank_status?: "active" | "limited" | "exhausted" | null;
+  specialties?: string[] | null;
+  verified_by?: string | null;
+  verified_at?: string | null;
 };
 
 export type Driver = {
@@ -66,6 +80,10 @@ export type EmergencyRequest = {
   tactical_alert_ack?: boolean | null;
   dispatcher_response?: string | null;
   dispatcher_response_at?: string | null;
+  // Multi-cluster and clinical handover metadata
+  region_cluster?: string | null;
+  escalation_tier?: number | null;
+  escalated_to?: string | null;
 };
 
 export type TransitionRule = {
@@ -73,4 +91,3 @@ export type TransitionRule = {
   to_status: string;
   actor_role: AppRole;
 };
-

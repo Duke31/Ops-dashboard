@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useActionState, Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { loginAction } from "./actions";
@@ -89,18 +91,18 @@ function LoginForm() {
 
       <div className="pt-2 flex flex-col items-center gap-2.5">
         <div className="flex items-center justify-between w-full text-xs text-[var(--muted)] pt-2 border-t border-[var(--border)]">
-          <a
+          <Link
             href="/register"
             className="text-emerald-500 hover:underline font-semibold"
           >
             Client Sign Up →
-          </a>
-          <a
+          </Link>
+          <Link
             href="/"
             className="hover:underline text-[var(--muted)]"
           >
             ← Public Site
-          </a>
+          </Link>
         </div>
       </div>
     </form>

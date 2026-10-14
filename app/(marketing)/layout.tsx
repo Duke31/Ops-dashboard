@@ -6,7 +6,7 @@ import MarketingNav from "@/components/MarketingNav";
 export const metadata = {
   title: "Solace EMS — Emergency Request & Ambulance Dispatch Network",
   description:
-    "Rapid emergency medical response, pre-hospital coordination, and direct receiving hospital integration across Southwestern Nigeria.",
+    "Rapid emergency medical response, pre-hospital coordination, and direct receiving hospital integration for acute emergency and trauma response.",
 };
 
 export default function MarketingLayout({ children }: { children: ReactNode }) {

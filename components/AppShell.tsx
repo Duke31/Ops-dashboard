@@ -46,10 +46,11 @@ function DeskAlertControls() {
 }
 
 const NAV: Record<string, { href: string; label: string }[]> = {
+  client: [{ href: "/client", label: "📱 Maternal & Client App" }],
   driver: [{ href: "/driver", label: "Ambulance Console" }],
   dispatcher: [
     { href: "/dispatcher", label: "Active requests" },
-    { href: "/admin/pilot-metrics", label: "📊 Pilot Metrics" },
+    { href: "/client", label: "📱 Client App Preview" },
     { href: "/dispatcher/reviews", label: "⭐ Patient Reviews" },
   ],
   hospital: [
@@ -58,9 +59,10 @@ const NAV: Record<string, { href: string; label: string }[]> = {
   ],
   admin: [
     { href: "/admin", label: "Network queue" },
-    { href: "/admin/pilot-metrics", label: "📊 Pilot Metrics" },
+    { href: "/client", label: "📱 Client Mobile App" },
     { href: "/admin/history", label: "📜 Emergency History" },
     { href: "/admin/reviews", label: "⭐ Patient Reviews" },
+    { href: "/admin/pilot-metrics", label: "📊 Pilot & Regional KPIs" },
     { href: "/driver", label: "Ambulance View" },
     { href: "/admin/hospitals", label: "Hospitals" },
     { href: "/admin/approvals", label: "Approvals" },

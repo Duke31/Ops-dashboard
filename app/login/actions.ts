@@ -36,11 +36,11 @@ export async function loginAction(
     return { error: `Profile error: ${profileError.message}` };
   }
 
-  if (!profile || !profile.role || profile.role === "client") {
+  if (!profile || !profile.role) {
     // Sign out unauthorized session so they don't persist
     await supabase.auth.signOut();
     return {
-      error: "Unauthorized: This portal is restricted to authorized operational staff. Access denied.",
+      error: "Unauthorized: Profile role not assigned. Please contact your dispatch administrator.",
     };
   }
 

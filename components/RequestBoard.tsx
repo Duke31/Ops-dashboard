@@ -1,6 +1,6 @@
 "use client";
-import Link from "next/link";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type {
   AppRole,
@@ -16,20 +16,28 @@ import { Toast } from "@/components/Toast";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { rpcMessage } from "@/lib/rpc-error";
-import { parsePatientReview, parsePatientCancellation, getCleanMedicalNotes } from "@/lib/patientReview";
+import { parsePatientReview, getCleanMedicalNotes } from "@/lib/patientReview";
 import { useDeskAlerts } from "@/components/alerts/DeskAlertProvider";
 import {
+  detectCluster,
+  extractSbarData,
+  checkRequestSla,
   REGION_CLUSTERS,
-  RegionClusterId,
-  resolveItemCluster,
-  computeRequestSLA
+  CLINICAL_SPECIALTIES,
+  type RegionClusterKey,
+  type SbarHandoverData,
 } from "@/lib/regionClusters";
 import {
-  parseSBARHandover,
-  formatSBARSummary,
-  ClinicalSpecialty,
-  SBARHandover
-} from "@/lib/clinicalProtocols";
+  Filter,
+  AlertTriangle,
+  Clock,
+  ShieldAlert,
+  FileText,
+  Phone,
+  Building2,
+  CheckCircle2,
+  ExternalLink,
+} from "lucide-react";
 
 function needsDriver(toStatus: string) {
   return toStatus.toLowerCase().includes("driver assigned");
@@ -89,30 +97,33 @@ export function RequestBoard({
   requests: EmergencyRequest[];
   rules: TransitionRule[];
   actorRole: AppRole;
-  hospitals?: Pick<Hospital, "id" | "name" | "available_capacity">[];
-  drivers?: Pick<Driver, "id" | "display_name" | "vehicle_label" | "hospital_id" | "active" | "duty_status">[];
+  hospitals?: Hospital[];
+  drivers?: Driver[];
   empty?: string;
 }) {
-  const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
+  const router = useRouter();
   const { highlightedRequestId } = useDeskAlerts();
+
+  // Regional Cluster & Specialty Filters
+  const [selectedCluster, setSelectedCluster] = useState<RegionClusterKey>("all");
+  const [selectedSpecialty, setSelectedSpecialty] = useState<string>("all");
+
+  // SBAR Clinical Modal
+  const [activeSbar, setActiveSbar] = useState<{
+    request: EmergencyRequest;
+    data: SbarHandoverData;
+  } | null>(null);
+
+  // Escalation Modal
+  const [escalatingReq, setEscalatingReq] = useState<EmergencyRequest | null>(null);
+
   const [busyId, setBusyId] = useState<string | null>(null);
   const [driverDraft, setDriverDraft] = useState<Record<string, string>>({});
   const [hospitalDraft, setHospitalDraft] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const [activeReplyId, setActiveReplyId] = useState<string | null>(null);
-
-  // Filter States
-  const [selectedClusterFilter, setSelectedClusterFilter] = useState<RegionClusterId>("all");
-  const [selectedSpecialtyFilter, setSelectedSpecialtyFilter] = useState<string>("all");
-
-  // SBAR Modal Inspection state
-  const [inspectSbarModal, setInspectSbarModal] = useState<{
-    request: EmergencyRequest;
-    sbar: SBARHandover;
-  } | null>(null);
-
   const [liveAlerts, setLiveAlerts] = useState<
     Record<
       string,
@@ -130,7 +141,8 @@ export function RequestBoard({
 
   function playAlertChime() {
     try {
-      const audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+      const audioCtx = new (window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.type = "sine";
@@ -145,7 +157,7 @@ export function RequestBoard({
     } catch {}
   }
 
-  // Real-time synchronization
+  // Real-time synchronization for zero-delay operations
   useEffect(() => {
     const channel = supabase
       .channel("ops-request-board-sync")
@@ -156,31 +168,35 @@ export function RequestBoard({
           router.refresh();
         },
       )
-      .on("broadcast", { event: "driver_tactical_alert" }, (payload: { payload?: Record<string, unknown> }) => {
-        const data = payload?.payload;
-        if (data?.request_id && typeof data.request_id === "string") {
-          playAlertChime();
-          const reqId = data.request_id;
-          setLiveAlerts((prev) => ({
-            ...prev,
-            [reqId]: {
-              requestId: reqId,
-              driverName: (data.driver_name as string) || "Ambulance Unit",
-              vehicleLabel: (data.vehicle_label as string) || undefined,
-              alertCode: (data.alert_code as string) || "EMERGENCY",
-              alertText: (data.alert_message as string) || "URGENT DRIVER ALERT",
-              alertAt: (data.created_at as string) || new Date().toISOString(),
-              isAck: false,
-            },
-          }));
-          router.refresh();
-        }
-      })
+      .on(
+        "broadcast",
+        { event: "driver_tactical_alert" },
+        (payload: { payload?: Record<string, unknown> }) => {
+          const data = payload?.payload;
+          if (data?.request_id && typeof data.request_id === "string") {
+            playAlertChime();
+            const reqId = data.request_id;
+            setLiveAlerts((prev) => ({
+              ...prev,
+              [reqId]: {
+                requestId: reqId,
+                driverName: (data.driver_name as string) || "Ambulance Unit",
+                vehicleLabel: (data.vehicle_label as string) || undefined,
+                alertCode: (data.alert_code as string) || "EMERGENCY",
+                alertText: (data.alert_message as string) || "URGENT DRIVER ALERT",
+                alertAt: (data.created_at as string) || new Date().toISOString(),
+                isAck: false,
+              },
+            }));
+            router.refresh();
+          }
+        },
+      )
       .subscribe();
 
     const interval = setInterval(() => {
       router.refresh();
-    }, 5000);
+    }, 4000);
 
     return () => {
       supabase.removeChannel(channel);
@@ -224,24 +240,15 @@ export function RequestBoard({
       }
 
       const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      const replyNote = replyMessage ? `[DISPATCH RADIO ${timeStr}]: ${replyMessage}` : `[DISPATCH ACK ${timeStr}]: Acknowledged by Dispatcher`;
+      const replyNote = replyMessage
+        ? `[DISPATCH RADIO ${timeStr}]: ${replyMessage}`
+        : `[DISPATCH ACK ${timeStr}]: Acknowledged by Dispatcher`;
       const updatedNotes = currentReq?.notes ? `${currentReq.notes}\n${replyNote}` : replyNote;
 
       if (!ackSucceeded) {
-        const { error: updateErr } = await supabase
-          .from("emergency_requests")
-          .update({
-            tactical_alert_ack: true,
-            dispatcher_response: replyMessage || "Acknowledged",
-            dispatcher_response_at: replyMessage ? new Date().toISOString() : undefined,
-            notes: updatedNotes,
-          })
-          .eq("id", requestId);
-        if (updateErr) {
-          try {
-            await supabase.from("emergency_requests").update({ notes: updatedNotes }).eq("id", requestId);
-          } catch {}
-        }
+        try {
+          await supabase.from("emergency_requests").update({ notes: updatedNotes }).eq("id", requestId);
+        } catch {}
       } else {
         try {
           await supabase.from("emergency_requests").update({ notes: updatedNotes }).eq("id", requestId);
@@ -262,165 +269,139 @@ export function RequestBoard({
       const hospitalName = hospitalObj?.name || "Alternate Facility";
 
       try {
-        await supabase.rpc("assign_emergency_hospital", {
+        const rpcRes = await supabase.rpc("assign_emergency_hospital", {
           p_request_id: requestId,
           p_hospital_id: newHospitalId,
         });
+        if (rpcRes.error) throw rpcRes.error;
       } catch {
-        await supabase
-          .from("emergency_requests")
-          .update({ hospital_id: newHospitalId })
-          .eq("id", requestId);
+        await supabase.from("emergency_requests").update({
+          hospital_id: newHospitalId,
+        }).eq("id", requestId);
       }
 
-      setHospitalDraft((prev) => ({ ...prev, [requestId]: newHospitalId }));
-
-      const ch = supabase.channel(`request-status:${requestId}`);
-      await ch.subscribe();
-      await ch.send({
-        type: "broadcast",
-        event: "hospital_assigned",
-        payload: {
-          hospital_id: newHospitalId,
-          hospital_name: hospitalName,
-          rerouted: true,
-        },
-      });
-
-      const currentReq = requests.find((x) => x.id === requestId);
-      if (currentReq?.driver_id) {
-        const chDrv = supabase.channel(`driver_dispatch_realtime_${currentReq.driver_id}`);
-        await chDrv.subscribe();
-        await chDrv.send({
+      try {
+        const ch = supabase.channel(`request-status:${requestId}`);
+        await ch.subscribe();
+        await ch.send({
           type: "broadcast",
-          event: "hospital_rerouted",
+          event: "hospital_assigned",
           payload: {
-            request_id: requestId,
             hospital_id: newHospitalId,
             hospital_name: hospitalName,
+            hospital_address: hospitalObj?.address || "",
           },
         });
-      }
+      } catch {}
 
-      await ackTacticalAlert(
-        requestId,
-        `Divert Approved: Rerouted to ${hospitalName} (${hospitalObj?.available_capacity ?? 0} beds available)`,
-      );
-
-      setOk(`Patient safely rerouted to ${hospitalName}.`);
+      const replyMsg = `Hospital Divert Approved: Rerouted to ${hospitalName}`;
+      await ackTacticalAlert(requestId, replyMsg);
+      setOk(`Rerouted ambulance unit to ${hospitalName}. Radio confirmation transmitted.`);
       router.refresh();
     } catch (e: unknown) {
       setError(rpcMessage(e) || "Failed to reroute hospital.");
     }
   }
 
-  const tacticalAlerts = useMemo(() => {
-    const list: {
-      request: EmergencyRequest;
-      alertText: string;
-      alertCode: string;
-      alertAt: string;
-      isAck: boolean;
-      driverName: string;
-    }[] = [];
+  async function triggerEscalation(req: EmergencyRequest, tier: number, authority: string) {
+    try {
+      setBusyId(req.id);
+      const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      const escNote = `[ESCALATION TIER ${tier} ${timeStr}]: Escalate to ${authority}`;
+      const newNotes = req.notes ? `${req.notes}\n${escNote}` : escNote;
 
-    for (const r of requests) {
-      const live = liveAlerts[r.id];
-      if (live) {
-        list.push({
-          request: r,
-          alertText: live.alertText,
-          alertCode: live.alertCode,
-          alertAt: live.alertAt,
-          isAck: live.isAck,
-          driverName: live.driverName,
+      const { error: updateErr } = await supabase
+        .from("emergency_requests")
+        .update({
+          notes: newNotes,
+        })
+        .eq("id", req.id);
+
+      if (updateErr) throw updateErr;
+
+      // Broadcast escalation alert
+      try {
+        const ch = supabase.channel("ops-request-board-sync");
+        await ch.send({
+          type: "broadcast",
+          event: "sla_escalation_triggered",
+          payload: {
+            request_id: req.id,
+            tier,
+            authority,
+          },
         });
-      } else if (r.tactical_alert) {
-        list.push({
-          request: r,
-          alertText: r.tactical_alert,
-          alertCode: "ALERT",
-          alertAt: r.tactical_alert_at || r.created_at,
-          isAck: !!r.tactical_alert_ack,
-          driverName: r.driver?.display_name || "Ambulance Unit",
-        });
-      }
+      } catch {}
+
+      setOk(`Emergency escalated to Tier ${tier}: ${authority}`);
+      setEscalatingReq(null);
+      router.refresh();
+    } catch (e: unknown) {
+      setError(rpcMessage(e) || "Escalation failed.");
+    } finally {
+      setBusyId(null);
     }
-
-    return list.sort((a, b) => (a.isAck === b.isAck ? 0 : a.isAck ? 1 : -1));
-  }, [requests, liveAlerts]);
-
-  // Regional & Specialty Filtering
-  const filteredRequests = useMemo(() => {
-    return requests.filter((r) => {
-      // Cluster filter
-      if (selectedClusterFilter !== "all") {
-        const itemCluster = resolveItemCluster(r);
-        if (itemCluster !== selectedClusterFilter) return false;
-      }
-      // Specialty filter
-      if (selectedSpecialtyFilter !== "all") {
-        const sbar = parseSBARHandover(r.notes);
-        const reqSpecialty = sbar?.specialty || (r.emergency_type ? r.emergency_type.toLowerCase() : "general");
-        if (!reqSpecialty.includes(selectedSpecialtyFilter.toLowerCase())) return false;
-      }
-      return true;
-    });
-  }, [requests, selectedClusterFilter, selectedSpecialtyFilter]);
+  }
 
   async function transition(request: EmergencyRequest, toStatus: string) {
-    setBusyId(request.id);
     setError(null);
     setOk(null);
 
-    const selectedDriver = driverDraft[request.id] ?? request.driver_id;
-    const selectedHospital = hospitalDraft[request.id] ?? request.hospital_id;
-
-    if (needsHospital(toStatus) && !selectedHospital) {
-      setError("Please select a hospital before moving to this state.");
-      setBusyId(null);
-      return;
-    }
-
+    const selectedDriver = driverDraft[request.id] || request.driver_id || "";
     if (needsDriver(toStatus) && !selectedDriver) {
-      setError("Please select a driver before moving to this state.");
-      setBusyId(null);
+      setError("Select an active driver before Driver assigned.");
       return;
     }
 
-    try {
-      if (needsHospital(toStatus) && selectedHospital !== request.hospital_id) {
-        const { error: hospErr } = await supabase.rpc(
-          "assign_emergency_hospital",
-          {
-            p_request_id: request.id,
-            p_hospital_id: selectedHospital,
-          },
+    const hospitalId = hospitalDraft[request.id] || request.hospital_id || "";
+    if (needsHospital(toStatus) && !hospitalId) {
+      setError("Select a hospital before confirming.");
+      return;
+    }
+
+    // STRICT CAPACITY GUARD
+    if (needsHospital(toStatus) && hospitalId) {
+      const cap = getHospitalCapacity(hospitalId, request, hospitals);
+      if (cap === 0) {
+        const name = getHospitalName(hospitalId, request, hospitals);
+        setError(
+          `⛔ Cannot route to "${name}": Facility is at 0 available beds (Full / Diversion). Please select another hospital.`,
         );
+        return;
+      }
+    }
+
+    setBusyId(request.id);
+    try {
+      if (needsHospital(toStatus) && hospitalId !== request.hospital_id) {
+        const { error: hospErr } = await supabase.rpc("assign_emergency_hospital", {
+          p_request_id: request.id,
+          p_hospital_id: hospitalId,
+        });
         if (hospErr) throw hospErr;
 
         try {
-          const hospObj = hospitals.find((h) => h.id === selectedHospital);
+          const hospObj = hospitals.find((h) => h.id === hospitalId);
           const chHosp = supabase.channel(`request-status:${request.id}`);
           await chHosp.subscribe();
           await chHosp.send({
             type: "broadcast",
             event: "hospital_assigned",
             payload: {
-              hospital_id: selectedHospital,
+              hospital_id: hospitalId,
               hospital_name: hospObj?.name || "Assigned Facility",
-              status: toStatus,
+              hospital_address: hospObj?.address || "",
             },
           });
         } catch {}
       }
 
       if (needsDriver(toStatus) && selectedDriver !== request.driver_id) {
-        const { error: drvErr } = await supabase.rpc("assign_emergency_driver", {
+        const { error: driverErr } = await supabase.rpc("assign_emergency_driver", {
           p_request_id: request.id,
           p_driver_id: selectedDriver,
         });
-        if (drvErr) throw drvErr;
+        if (driverErr) throw driverErr;
 
         try {
           const ch = supabase.channel(`driver_dispatch_realtime_${selectedDriver}`);
@@ -450,620 +431,692 @@ export function RequestBoard({
         }).catch(() => {});
       }
 
-      const { error: rpcErr } = await supabase.rpc(
-        "transition_emergency_state",
-        {
-          request_id: request.id,
-          new_state: toStatus,
-          actor_role: actorRole,
-        },
-      );
-      if (rpcErr) throw rpcErr;
-      setOk(`Moved to “${toStatus}”.`);
-      router.refresh();
-    } catch (e: unknown) {
-      const msg = rpcMessage(e) || "Transition failed.";
-      setError(msg);
+      const { error: rpcErr } = await supabase.rpc("transition_emergency_state", {
+        request_id: request.id,
+        new_state: toStatus,
+        actor_role: actorRole,
+      });
+
+      if (rpcErr) {
+        setError(rpcMessage(rpcErr));
+      } else {
+        setOk(`Status moved to “${toStatus}”.`);
+        router.refresh();
+      }
+    } catch (e) {
+      setError(rpcMessage(e));
     } finally {
       setBusyId(null);
     }
   }
 
+  // Filter requests by cluster and specialty
+  const filteredRequests = useMemo(() => {
+    return requests.filter((r) => {
+      if (selectedCluster !== "all") {
+        const cluster = detectCluster(r);
+        if (cluster !== selectedCluster) return false;
+      }
+      if (selectedSpecialty !== "all") {
+        const type = (r.emergency_type || "").toLowerCase();
+        if (selectedSpecialty === "Obstetric") {
+          if (!type.includes("obstetric") && !type.includes("matern")) return false;
+        } else if (selectedSpecialty === "Trauma") {
+          if (!type.includes("trauma")) return false;
+        } else if (selectedSpecialty === "Cardiac") {
+          if (!type.includes("cardiac") && !type.includes("stroke")) return false;
+        } else if (selectedSpecialty === "Pediatric") {
+          if (!type.includes("pediatric")) return false;
+        }
+      }
+      return true;
+    });
+  }, [requests, selectedCluster, selectedSpecialty]);
+
   return (
     <>
-      {/* MULTI-CLUSTER & CLINICAL SPECIALTY FILTER BAR */}
-      <div className="mb-4 rounded-xl border border-slate-700/80 bg-slate-900/60 p-3 shadow-md flex flex-wrap items-center justify-between gap-3">
-        {/* Cluster Tabs */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mr-1 flex items-center gap-1">
-            <span>🌐</span> Cluster:
-          </span>
-          <button
-            type="button"
-            onClick={() => setSelectedClusterFilter("all")}
-            className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
-              selectedClusterFilter === "all"
-                ? "bg-slate-700 text-white shadow-sm ring-1 ring-slate-500"
-                : "bg-slate-800/60 text-slate-300 hover:bg-slate-800"
-            }`}
-          >
-            All Clusters ({requests.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setSelectedClusterFilter("ibadan_private")}
-            className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              selectedClusterFilter === "ibadan_private"
-                ? "bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-400"
-                : "bg-slate-800/60 text-emerald-400 hover:bg-slate-800"
-            }`}
-          >
-            <span className="h-2 w-2 rounded-full bg-emerald-400"></span>
-            Ibadan Private
-          </button>
-          <button
-            type="button"
-            onClick={() => setSelectedClusterFilter("osun_pilot")}
-            className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              selectedClusterFilter === "osun_pilot"
-                ? "bg-amber-600 text-white shadow-sm ring-1 ring-amber-400"
-                : "bg-slate-800/60 text-amber-400 hover:bg-slate-800"
-            }`}
-          >
-            <span className="h-2 w-2 rounded-full bg-amber-400"></span>
-            Osun Pilot (OSEMSAS)
-          </button>
-          <button
-            type="button"
-            onClick={() => setSelectedClusterFilter("lagos_metro")}
-            className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              selectedClusterFilter === "lagos_metro"
-                ? "bg-blue-600 text-white shadow-sm ring-1 ring-blue-400"
-                : "bg-slate-800/60 text-blue-400 hover:bg-slate-800"
-            }`}
-          >
-            <span className="h-2 w-2 rounded-full bg-blue-400"></span>
-            Lagos Metro
-          </button>
-        </div>
-
-        {/* Clinical Specialty Filter */}
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-            <span>🩺</span> Specialty:
-          </span>
-          <select
-            className="select text-xs py-1 px-2.5 bg-slate-950 border border-slate-700 text-slate-200"
-            value={selectedSpecialtyFilter}
-            onChange={(e) => setSelectedSpecialtyFilter(e.target.value)}
-          >
-            <option value="all">All Specialties</option>
-            <option value="obstetric">Obstetric / Maternal ★</option>
-            <option value="trauma">Trauma / RTC</option>
-            <option value="cardiac">Cardiovascular / Stroke</option>
-            <option value="pediatric">Pediatric</option>
-          </select>
-        </div>
-      </div>
-
-      {/* PATIENT REVIEWS & QA BANNER */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] px-4 py-2.5 text-xs">
-        <div className="flex items-center gap-2">
-          <span className="text-base">⭐</span>
-          <span className="font-bold text-[var(--foreground)]">Patient Remarks & Quality of Service Audit</span>
-          <span className="text-[var(--muted)] hidden sm:inline">• Read feedback & remarks submitted directly by patients</span>
-        </div>
-        <Link
-          href={`/${actorRole}/reviews`}
-          className="inline-flex items-center gap-1.5 rounded-md bg-amber-500/15 border border-amber-500/40 px-3 py-1 font-bold text-amber-700 dark:text-amber-300 hover:bg-amber-500 hover:text-white dark:hover:text-slate-950 transition-all text-xs"
-        >
-          <span>Audit Patient Remarks</span>
-          <span>→</span>
-        </Link>
-      </div>
-
-      {/* DEDICATED TACTICAL RADIO & REROUTE ALERT CHANNEL */}
-      {tacticalAlerts.length > 0 && (
-        <div className="mb-6 rounded-xl border-2 border-amber-500/50 bg-amber-50/50 dark:bg-gradient-to-r dark:from-amber-950/40 dark:via-slate-900 dark:to-slate-900 p-4 shadow-sm dark:shadow-xl">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-500/20 pb-3">
-            <div className="flex items-center gap-2">
-              <span className="relative flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
-              </span>
-              <h3 className="font-extrabold text-sm tracking-wider text-amber-700 dark:text-amber-400 uppercase flex items-center gap-1.5">
-                <span>📻</span>
-                <span>Tactical Radio & Situational Alerts Channel</span>
-                <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-slate-950">
-                  {tacticalAlerts.filter((a) => !a.isAck).length} PENDING ACTION
-                </span>
-              </h3>
-            </div>
+      {/* 1. Regional Cluster & Specialty Multi-Desk Filters */}
+      <div className="mb-4 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-[var(--surface-raised,#f8fafc)] border border-[var(--border,#e2e8f0)]">
+          {/* Cluster Switcher */}
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            <span className="font-bold text-[var(--muted)] flex items-center gap-1 mr-1">
+              <Filter className="w-3.5 h-3.5" /> Regional Grid:
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelectedCluster("all")}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                selectedCluster === "all"
+                  ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs"
+                  : "bg-[var(--surface)] text-[var(--muted)] border border-[var(--border)] hover:bg-[var(--surface-raised)]"
+              }`}
+            >
+              All Clusters ({requests.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedCluster("ibadan_private")}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                selectedCluster === "ibadan_private"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "bg-[var(--surface)] text-[var(--muted)] border border-[var(--border)] hover:bg-blue-50 dark:hover:bg-blue-950/30"
+              }`}
+            >
+              🏥 Ibadan Private Network
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedCluster("osun_pilot")}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                selectedCluster === "osun_pilot"
+                  ? "bg-purple-600 text-white shadow-xs"
+                  : "bg-[var(--surface)] text-[var(--muted)] border border-[var(--border)] hover:bg-purple-50 dark:hover:bg-purple-950/30"
+              }`}
+            >
+              🏛️ Osun Pilot (OSEMSAS)
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedCluster("lagos_metropolitan")}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                selectedCluster === "lagos_metropolitan"
+                  ? "bg-teal-600 text-white shadow-xs"
+                  : "bg-[var(--surface)] text-[var(--muted)] border border-[var(--border)] hover:bg-teal-50 dark:hover:bg-teal-950/30"
+              }`}
+            >
+              🌊 Lagos Metro Grid
+            </button>
           </div>
 
-          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-            {tacticalAlerts.map((item) => {
-              const req = item.request;
-              const isDivert =
-                item.alertText.toLowerCase().includes("divert") || item.alertCode === "DIVERT";
+          {/* Specialty Filter */}
+          <div className="flex items-center gap-1.5 text-xs">
+            <span className="font-bold text-[var(--muted)]">Triage Protocol:</span>
+            <select
+              value={selectedSpecialty}
+              onChange={(e) => setSelectedSpecialty(e.target.value)}
+              className="select text-xs py-1 px-2.5 rounded-lg font-medium"
+            >
+              <option value="all">All Specialties</option>
+              <option value="Obstetric">🟣 Obstetric & Maternal (Priority)</option>
+              <option value="Trauma">🔴 Severe Trauma & RTA</option>
+              <option value="Cardiac">🟠 Cardiac & Stroke</option>
+              <option value="Pediatric">🔵 Pediatric & NICU</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Active Emergency Requests Table */}
+      <div className="table-wrap">
+        <table className="data">
+          <thead>
+            <tr>
+              <th>Patient Location & Contact</th>
+              <th>Triage & SBAR Clinical Note</th>
+              <th>Status & SLA</th>
+              <th>Time</th>
+              <th>Receiving Hospital</th>
+              <th>Assigned Unit</th>
+              <th>Dispatch Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredRequests.length === 0 && (
+              <tr>
+                <td colSpan={7} className="text-center py-8 text-sm text-[var(--muted)]">
+                  {empty}
+                </td>
+              </tr>
+            )}
+
+            {filteredRequests.map((r) => {
+              const targets = allowedTargets(rules, r.status, actorRole);
+              const showHospital = targets.some(needsHospital);
+              const showDriver = targets.some(needsDriver) && !r.driver_id;
+              const selectedDriver = driverDraft[r.id] ?? r.driver_id ?? "";
+              const selectedHospital = hospitalDraft[r.id] ?? r.hospital_id ?? "";
+              const effectiveCap = getHospitalCapacity(selectedHospital, r, hospitals);
+              const isSelectedHospitalFull = effectiveCap === 0;
+              const isHighlighted = highlightedRequestId === r.id;
+
+              const clusterKey = detectCluster(r);
+              const clusterInfo = REGION_CLUSTERS[clusterKey];
+              const sbarData = extractSbarData(r);
+              const sla = checkRequestSla(r, clusterKey);
+              const isObstetric =
+                (r.emergency_type || "").toLowerCase().includes("obstetric") ||
+                (r.emergency_type || "").toLowerCase().includes("matern");
+
               return (
-                <div
-                  key={req.id}
-                  className={`rounded-lg border p-3.5 transition-all ${
-                    item.isAck
-                      ? "bg-[var(--surface)] border-[var(--border)] text-[var(--foreground)]"
-                      : "bg-amber-500/10 dark:bg-amber-950/70 border-amber-500/60 text-[var(--foreground)] shadow-md ring-1 ring-amber-500/30"
+                <tr
+                  key={r.id}
+                  className={`transition-all duration-500 ${
+                    isHighlighted
+                      ? "bg-amber-500/20 dark:bg-amber-950/70 ring-2 ring-amber-500 animate-pulse"
+                      : ""
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl">🚑</span>
-                      <div>
-                        <div className="font-bold text-xs text-[var(--foreground)] flex items-center gap-1.5">
-                          <span>{req.driver?.display_name || "Ambulance Unit"}</span>
-                          {req.driver?.vehicle_label && (
-                            <span className="px-1.5 py-0.2 rounded bg-[var(--surface-raised)] border border-[var(--border)] text-[10px] text-[var(--muted)] font-mono">
-                              {req.driver.vehicle_label}
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[10px] text-[var(--muted)]">
-                          {timeSince(item.alertAt)}
-                        </div>
-                      </div>
+                  {/* Column 1: Patient Location & Phone */}
+                  <td className="max-w-[260px]">
+                    <div className="font-semibold text-sm leading-snug text-slate-900 dark:text-slate-100 flex items-start gap-1">
+                      <span className="text-red-600 mt-0.5">📍</span>
+                      <span>{formatLocation(r)}</span>
                     </div>
 
-                    <div className="flex items-center gap-1.5">
-                      {isDivert && (
-                        <span className="px-2 py-0.5 rounded font-black text-[10px] bg-red-600 text-white animate-pulse">
-                          DIVERSION REQUEST
-                        </span>
-                      )}
-                      {!item.isAck && (
-                        <button
-                          type="button"
-                          onClick={() => ackTacticalAlert(req.id)}
-                          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-xs shadow-sm transition-all"
-                        >
-                          ✓ Acknowledge
-                        </button>
-                      )}
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                        {clusterInfo.badge}
+                      </span>
                     </div>
-                  </div>
 
-                  <div className="mt-2 text-xs font-semibold leading-relaxed">
-                    &ldquo;{item.alertText}&rdquo;
-                  </div>
-
-                  {isDivert && (
-                    <div className="mt-2 pt-2 border-t border-[var(--border)] flex items-center gap-2">
-                      <span className="text-[10px] text-[var(--muted)]">Reroute:</span>
-                      <select
-                        className="text-[11px] py-1 px-2 bg-[var(--surface)] border border-amber-500/50 text-[var(--foreground)] rounded font-medium focus:ring-1 focus:ring-amber-400"
-                        defaultValue=""
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            quickRerouteHospital(req.id, e.target.value);
-                          }
-                        }}
-                      >
-                        <option value="" disabled>
-                          Select Alternate Hospital ({req.hospital?.name || "Current"} is diverted)
-                        </option>
-                        {hospitals
-                          .filter((h) => h.id !== req.hospital_id)
-                          .map((h) => (
-                            <option key={h.id} value={h.id}>
-                              {h.name} ({h.available_capacity ?? 0} beds)
-                            </option>
-                          ))}
-                      </select>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* MAIN REQUESTS TABLE */}
-      {filteredRequests.length === 0 ? (
-        <div className="card p-8 text-center text-slate-400">
-          <p className="text-sm font-semibold">{empty}</p>
-          {(selectedClusterFilter !== "all" || selectedSpecialtyFilter !== "all") && (
-            <button
-              onClick={() => {
-                setSelectedClusterFilter("all");
-                setSelectedSpecialtyFilter("all");
-              }}
-              className="mt-2 text-xs text-emerald-400 underline"
-            >
-              Reset active filters
-            </button>
-          )}
-        </div>
-      ) : (
-        <div className="table-wrap">
-          <table className="data">
-            <thead>
-              <tr>
-                <th>Patient / Region</th>
-                <th>Triage & SBAR</th>
-                <th>SLA Countdown</th>
-                <th>Status</th>
-                <th>Facility</th>
-                <th>Ambulance</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRequests.map((r) => {
-                const targets = allowedTargets(rules, r.status, actorRole);
-                const showHospital = targets.some(needsHospital);
-                const showDriver = targets.some(needsDriver) && !r.driver_id;
-                const selectedDriver = driverDraft[r.id] ?? r.driver_id ?? "";
-                const selectedHospital = hospitalDraft[r.id] ?? r.hospital_id ?? "";
-
-                const effectiveCap = getHospitalCapacity(selectedHospital, r, hospitals);
-                const isSelectedHospitalFull = effectiveCap === 0;
-                const isHighlighted = highlightedRequestId === r.id;
-
-                // SLA & Regional Calculations
-                const clusterId = resolveItemCluster(r);
-                const clusterInfo = REGION_CLUSTERS[clusterId];
-                const sla = computeRequestSLA(r.created_at, r.status, clusterId);
-                const sbar = parseSBARHandover(r.notes);
-
-                return (
-                  <tr
-                    key={r.id}
-                    className={`transition-all duration-500 ${
-                      isHighlighted
-                        ? "bg-amber-500/20 dark:bg-amber-950/70 ring-2 ring-amber-500 animate-pulse"
-                        : sla.tier === 3
-                        ? "bg-rose-950/20"
-                        : ""
-                    }`}
-                  >
-                    {/* Patient & Regional Cluster */}
-                    <td className="max-w-[240px]">
-                      <div className="font-semibold text-sm leading-snug text-slate-900 dark:text-slate-100 flex items-start gap-1">
-                        <span className="text-red-500 mt-0.5">📍</span>
-                        <span>{formatLocation(r)}</span>
-                      </div>
-
-                      {/* Cluster pill */}
-                      <div className="mt-1 flex items-center gap-1.5">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${clusterInfo?.tagColor || 'bg-slate-800 text-slate-300'}`}>
-                          {clusterInfo?.shortName || clusterId}
-                        </span>
-                        {(() => {
-                          const age = resolvePatientAgeBand(r);
-                          return age && age !== "unknown" ? (
-                            <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 text-[10px] border border-slate-700">
-                              Age: {age}
-                            </span>
-                          ) : null;
-                        })()}
-                      </div>
-
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
                       {r.contact_phone && (
-                        <div className="mt-1.5">
-                          <a
-                            href={`tel:${r.contact_phone}`}
-                            className="font-bold text-xs text-white bg-emerald-600 hover:bg-emerald-700 px-2 py-0.5 rounded shadow-sm inline-flex items-center gap-1 transition-all"
-                          >
-                            <span>📞</span>
-                            <span>{r.contact_phone}</span>
-                          </a>
-                        </div>
+                        <a
+                          href={`tel:${r.contact_phone}`}
+                          className="font-bold text-xs text-white bg-emerald-600 hover:bg-emerald-700 px-2 py-0.5 rounded shadow-sm flex items-center gap-1 transition-all"
+                          title="Call patient"
+                        >
+                          <Phone className="w-3 h-3" />
+                          <span>{r.contact_phone}</span>
+                        </a>
                       )}
-                    </td>
-
-                    {/* Triage & SBAR Clinical Handover */}
-                    <td className="max-w-[250px]">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-xs uppercase tracking-wide">
-                          {r.emergency_type || "General"}
-                        </span>
-                        {r.priority === 1 && (
-                          <span className="px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-400 text-[9px] font-black border border-rose-500/30">
-                            P1 CRITICAL
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Patient cancellation alert */}
                       {(() => {
-                        const cancellation = parsePatientCancellation(
-                          r.notes,
-                          (r as unknown as { cancelled_reason?: string }).cancelled_reason
-                        );
-                        if (!cancellation) return null;
+                        const age = resolvePatientAgeBand(r);
                         return (
-                          <div className="mt-1.5 rounded bg-rose-500/20 border border-rose-500/50 p-1.5 text-xs text-rose-300 animate-pulse">
-                            <span className="font-black text-[10px] block uppercase">🛑 Cancelled by Client</span>
-                            <span className="font-medium text-[11px]">&ldquo;{cancellation.reason}&rdquo;</span>
-                          </div>
+                          <span className="px-1.5 py-0.5 rounded bg-[var(--surface-raised,#f3f4f6)] text-[var(--muted)] border border-[var(--border,#e5e7eb)] font-medium">
+                            {age && age.toLowerCase() !== "unknown"
+                              ? `Age: ${age}`
+                              : age === "unknown"
+                              ? "Age: ?"
+                              : "Age: —"}
+                          </span>
                         );
                       })()}
+                    </div>
+                  </td>
 
-                      {/* SBAR Pre-alert Badge / Inspection button */}
-                      {sbar ? (
-                        <div className="mt-1.5 p-1.5 rounded bg-teal-950/40 border border-teal-800/60">
-                          <div className="flex items-center justify-between gap-1">
-                            <span className="text-[10px] font-bold text-teal-300 flex items-center gap-1">
-                              <span>📋</span> SBAR Pre-Alert Ready
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => setInspectSbarModal({ request: r, sbar })}
-                              className="text-[10px] font-bold text-teal-200 underline hover:text-white"
-                            >
-                              Inspect SBAR
-                            </button>
-                          </div>
-                          <div className="text-[10px] text-slate-300 mt-1 line-clamp-2">
-                            {formatSBARSummary(sbar).situation}
-                          </div>
-                          {sbar.recommendation.bloodBankPreAlert && (
-                            <span className="inline-block mt-1 px-1.5 py-0.2 bg-red-600 text-white rounded text-[9px] font-bold">
-                              🩸 O-Neg Blood Alert
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="mt-1 text-[11px] text-slate-400">
-                          {getCleanMedicalNotes(r.notes) || "Standard triage protocol"}
-                        </div>
+                  {/* Column 2: Triage & SBAR Clinical Note */}
+                  <td className="max-w-[280px]">
+                    <div className="font-semibold text-sm flex items-center gap-1.5">
+                      <span>{r.emergency_type || "Emergency"}</span>
+                      {r.priority && (
+                        <span
+                          className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                            Number(r.priority) === 1
+                              ? "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200"
+                              : "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+                          }`}
+                        >
+                          P{r.priority}
+                        </span>
                       )}
-                    </td>
-
-                    {/* Real-time SLA Countdown */}
-                    <td className="min-w-[150px]">
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span className={`font-bold ${sla.isBreached ? 'text-rose-400' : sla.isApproachingBreach ? 'text-amber-400' : 'text-slate-300'}`}>
-                            {sla.tierLabel}
-                          </span>
-                          {!sla.isBreached && sla.minutesRemaining > 0 && (
-                            <span className="font-mono text-xs text-emerald-400 font-semibold">
-                              {sla.minutesRemaining}m
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Visual Progress Bar */}
-                        <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full transition-all duration-500 ${
-                              sla.tier === 3
-                                ? "bg-rose-600"
-                                : sla.isBreached
-                                ? "bg-amber-500"
-                                : "bg-emerald-500"
-                            }`}
-                            style={{ width: `${sla.progressPercent}%` }}
-                          />
-                        </div>
-
-                        {/* Tier 3 Hotline Fallback Trigger */}
-                        {sla.tier === 3 && sla.fallbackHotline && (
-                          <div className="mt-1 pt-1 border-t border-slate-800">
-                            <a
-                              href={`tel:${sla.fallbackHotline}`}
-                              className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded text-[10px] flex items-center justify-center gap-1 shadow-sm"
-                            >
-                              <span>🚨 State Fallback Hotline</span>
-                            </a>
-                            <span className="text-[9px] text-slate-400 block text-center mt-0.5">
-                              {sla.fallbackAgency}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Status */}
-                    <td>
-                      <StatusBadge status={r.status} />
-                      <div className="text-[10px] text-slate-400 mt-1 font-mono">
-                        {timeSince(r.created_at)}
-                      </div>
-                    </td>
-
-                    {/* Facility Intake */}
-                    <td className="max-w-[180px]">
-                      <div className="font-medium text-xs text-slate-200">
-                        {r.hospital?.name || "Unassigned"}
-                      </div>
-                      {r.hospital && r.hospital.available_capacity != null && (
-                        <div className={`text-[10px] font-semibold mt-0.5 ${
-                          r.hospital.available_capacity === 0 ? "text-rose-400" : "text-emerald-400"
-                        }`}>
-                          {r.hospital.available_capacity === 0 ? "0 beds (Full)" : `${r.hospital.available_capacity} beds ready`}
-                        </div>
+                      {isObstetric && (
+                        <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300">
+                          Maternal
+                        </span>
                       )}
-                    </td>
+                    </div>
 
-                    {/* Driver Unit */}
-                    <td className="max-w-[160px]">
-                      {r.driver ? (
+                    {/* SBAR Button & Summary */}
+                    <div className="mt-1.5 p-2 rounded-lg bg-[var(--surface-raised,#f8fafc)] border border-[var(--border,#e2e8f0)] space-y-1 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
+                          SBAR Clinical Handover
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setActiveSbar({ request: r, data: sbarData })}
+                          className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline font-semibold flex items-center gap-0.5"
+                        >
+                          <FileText className="w-3 h-3" /> View Note
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-[var(--foreground)] line-clamp-2 font-mono">
+                        {sbarData.situation}
+                      </p>
+                    </div>
+
+                    {/* Escalation Tag (if escalated) */}
+                    {sbarData.escalatedTo && (
+                      <div className="mt-1 px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 text-[10px] font-bold flex items-center gap-1">
+                        <span>⚡ Tier {sbarData.escalationTier} Escalated:</span>
+                        <span className="truncate">{sbarData.escalatedTo}</span>
+                      </div>
+                    )}
+                  </td>
+
+                  {/* Column 3: Status & SLA Monitoring */}
+                  <td className="whitespace-nowrap">
+                    <StatusBadge status={r.status} />
+
+                    {/* SLA Monitor */}
+                    <div className="mt-1.5 space-y-1">
+                      {sla.dispatchSlaBreached && (r.status === "Requested" || r.status === "Requested / triage") ? (
+                        <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 text-[10px] font-bold animate-pulse">
+                          <AlertTriangle className="w-3 h-3" />
+                          <span>Dispatch SLA &gt; {clusterInfo.slaDispatchMinutes}m</span>
+                        </div>
+                      ) : sla.hospitalSlaBreached && !r.hospital_id ? (
+                        <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 text-[10px] font-bold">
+                          <Clock className="w-3 h-3" />
+                          <span>Hospital SLA &gt; {clusterInfo.slaHospitalMinutes}m</span>
+                        </div>
+                      ) : null}
+
+                      {/* Escalation Trigger Button */}
+                      {(sla.dispatchSlaBreached || sla.hospitalSlaBreached) && (
                         <div>
-                          <div className="font-semibold text-xs text-slate-200">
-                            {r.driver.display_name}
-                          </div>
-                          {r.driver.vehicle_label && (
-                            <div className="text-[10px] text-slate-400 font-mono">
-                              {r.driver.vehicle_label}
-                            </div>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => setEscalatingReq(r)}
+                            className="inline-flex items-center gap-1 text-[10px] font-bold text-red-600 dark:text-red-400 hover:underline"
+                          >
+                            <span>⚡ Trigger Fallback Escalation</span>
+                          </button>
                         </div>
-                      ) : (
-                        <span className="text-slate-500 text-xs">—</span>
                       )}
-                    </td>
+                    </div>
+                  </td>
 
-                    {/* Dispatcher Actions */}
-                    <td>
-                      <div className="flex flex-col gap-2 min-w-[180px]">
-                        {showHospital && (
-                          <select
-                            className={`select text-xs py-1 ${
-                              isSelectedHospitalFull ? "border-red-500 text-red-400" : ""
+                  {/* Column 4: Elapsed Time */}
+                  <td className="whitespace-nowrap text-[var(--muted)] text-xs">
+                    {timeSince(r.created_at)}
+                  </td>
+
+                  {/* Column 5: Receiving Hospital */}
+                  <td>
+                    {r.hospital?.name ? (
+                      <div>
+                        <div className="font-semibold text-xs text-slate-900 dark:text-slate-100">
+                          {r.hospital.name}
+                        </div>
+                        <div className="mt-0.5">
+                          {r.hospital.available_capacity != null ? (
+                            r.hospital.available_capacity === 0 ? (
+                              <span className="inline-flex items-center text-[10px] font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 px-1.5 py-0.5 rounded border border-red-200 dark:border-red-900">
+                                ⛔ 0 Beds (Full/Diversion)
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
+                                {r.hospital.available_capacity} Beds Available
+                              </span>
+                            )
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-[var(--muted)] text-xs">Unassigned</span>
+                    )}
+                  </td>
+
+                  {/* Column 6: Assigned Unit */}
+                  <td className="text-[12px]">
+                    {r.driver?.display_name ? (
+                      <>
+                        <div className="font-medium flex items-center gap-1.5">
+                          <span
+                            className={`w-2 h-2 rounded-full ${
+                              r.driver.duty_status === "off_duty" || r.driver.active === false
+                                ? "bg-slate-400"
+                                : "bg-emerald-500 shadow-sm"
                             }`}
-                            value={selectedHospital}
-                            onChange={async (e) => {
-                              const value = e.target.value;
-                              if (!value) return;
-                              setHospitalDraft((h) => ({ ...h, [r.id]: value }));
-                              await supabase.rpc("assign_emergency_hospital", {
-                                p_request_id: r.id,
-                                p_hospital_id: value,
-                              });
-                              router.refresh();
-                            }}
-                          >
-                            <option value="">Select hospital</option>
-                            {hospitals.map((h) => {
-                              const cap = getHospitalCapacity(h.id, r, hospitals);
-                              const isFull = cap === 0;
-                              return (
-                                <option key={h.id} value={h.id} disabled={isFull}>
-                                  {h.name} {cap != null ? (isFull ? "⛔ (0 beds - FULL)" : `(${cap} beds)`) : ""}
-                                </option>
+                            title={r.driver.duty_status === "off_duty" ? "Off Duty" : "On Duty"}
+                          />
+                          <span>{r.driver.display_name}</span>
+                        </div>
+                        <div className="text-[var(--muted)] text-[11px]">
+                          {r.driver.vehicle_label}
+                        </div>
+                      </>
+                    ) : (
+                      <span className="text-[var(--muted)] text-xs">Unassigned</span>
+                    )}
+                  </td>
+
+                  {/* Column 7: Actions */}
+                  <td>
+                    <div className="flex flex-col gap-2 min-w-[200px]">
+                      {showHospital && (
+                        <select
+                          className={`select text-xs ${
+                            isSelectedHospitalFull
+                              ? "border-red-500 bg-red-50/50 dark:bg-red-950/30 text-red-700 dark:text-red-300 font-semibold"
+                              : ""
+                          }`}
+                          value={selectedHospital}
+                          onChange={async (e) => {
+                            const value = e.target.value;
+                            if (!value) return;
+
+                            const cap = getHospitalCapacity(value, r, hospitals);
+                            if (cap === 0) {
+                              const name = getHospitalName(value, r, hospitals);
+                              setError(
+                                `⛔ Cannot route to "${name}": Facility is at 0 available beds (Full / Diversion). Please select another hospital.`,
                               );
-                            })}
-                          </select>
-                        )}
+                              return;
+                            }
 
-                        {showDriver && (
-                          <select
-                            className="select text-xs py-1"
-                            value={selectedDriver}
-                            onChange={async (e) => {
-                              const value = e.target.value;
-                              setDriverDraft((d) => ({ ...d, [r.id]: value }));
-                              if (!value) return;
-                              await supabase.rpc("assign_emergency_driver", {
-                                p_request_id: r.id,
-                                p_driver_id: value,
-                              });
-                              setOk("Ambulance driver allocated.");
+                            setHospitalDraft((h) => ({ ...h, [r.id]: value }));
+                            setError(null);
+                            const { error: err } = await supabase.rpc("assign_emergency_hospital", {
+                              p_request_id: r.id,
+                              p_hospital_id: value,
+                            });
+                            if (err) {
+                              setError(rpcMessage(err));
+                            } else {
+                              try {
+                                const hospObj = hospitals.find((h) => h.id === value);
+                                const chHosp = supabase.channel(`request-status:${r.id}`);
+                                await chHosp.subscribe();
+                                await chHosp.send({
+                                  type: "broadcast",
+                                  event: "hospital_assigned",
+                                  payload: {
+                                    hospital_id: value,
+                                    hospital_name: hospObj?.name || "Assigned Facility",
+                                    hospital_address: hospObj?.address || "",
+                                  },
+                                });
+                              } catch {}
                               router.refresh();
-                            }}
-                          >
-                            <option value="">Select ambulance</option>
-                            {drivers.map((d) => {
-                              const isOffDuty = d.duty_status === "off_duty" || d.active === false;
-                              return (
-                                <option key={d.id} value={d.id}>
-                                  {isOffDuty ? "⚪ [OFF DUTY] " : "🟢 [READY] "}
-                                  {d.display_name || "Driver"}
-                                  {d.vehicle_label ? ` · ${d.vehicle_label}` : ""}
-                                </option>
-                              );
-                            })}
-                          </select>
-                        )}
-
-                        <div className="flex flex-wrap gap-1">
-                          {targets.length === 0 && (
-                            <span className="text-[11px] text-slate-500">No transitions</span>
-                          )}
-                          {targets.map((to) => {
-                            const isHospAction = needsHospital(to);
-                            const isBlocked = isHospAction && isSelectedHospitalFull;
-
+                            }
+                          }}
+                        >
+                          <option value="">Select Hospital Destination</option>
+                          {hospitals.map((h) => {
+                            const cap = getHospitalCapacity(h.id, r, hospitals);
+                            const isFull = cap === 0;
+                            const hCluster = detectCluster(h);
                             return (
-                              <button
-                                key={to}
-                                className={`btn text-xs py-1 px-2.5 ${
-                                  isBlocked
-                                    ? "bg-red-950/60 text-red-400 border border-red-800 cursor-not-allowed opacity-60 font-bold"
-                                    : "btn-primary"
-                                }`}
-                                disabled={busyId === r.id || isBlocked}
-                                onClick={() => transition(r, to)}
-                              >
-                                {isBlocked ? "⛔ Full (0 Beds)" : to}
-                              </button>
+                              <option key={h.id} value={h.id} disabled={isFull}>
+                                [{REGION_CLUSTERS[hCluster]?.shortName || "Grid"}] {h.name}{" "}
+                                {cap != null
+                                  ? isFull
+                                    ? "⛔ (0 beds - FULL)"
+                                    : `(${cap} beds)`
+                                  : ""}
+                              </option>
                             );
                           })}
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+                        </select>
+                      )}
 
-      {/* SBAR CLINICAL INSPECTION MODAL */}
-      {inspectSbarModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-          <div className="bg-slate-900 border border-teal-500/50 rounded-xl max-w-lg w-full p-5 shadow-2xl relative text-slate-100">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">📋</span>
-                <div>
-                  <h3 className="font-bold text-base text-teal-300">Standardized SBAR Clinical Handover</h3>
-                  <span className="text-xs text-slate-400">
-                    Specialty: {inspectSbarModal.sbar.specialty.toUpperCase()} | {inspectSbarModal.sbar.situation.priorityTier}
-                  </span>
-                </div>
+                      {showDriver && (
+                        <select
+                          className="select text-xs"
+                          value={selectedDriver}
+                          onChange={async (e) => {
+                            const value = e.target.value;
+                            setDriverDraft((d) => ({ ...d, [r.id]: value }));
+                            if (!value) return;
+                            setError(null);
+                            const { error: err } = await supabase.rpc("assign_emergency_driver", {
+                              p_request_id: r.id,
+                              p_driver_id: value,
+                            });
+                            if (err) {
+                              setError(rpcMessage(err));
+                            } else {
+                              try {
+                                const ch = supabase.channel(`driver_dispatch_realtime_${value}`);
+                                await ch.subscribe();
+                                await ch.send({
+                                  type: "broadcast",
+                                  event: "emergency_assigned",
+                                  payload: {
+                                    request_id: r.id,
+                                    patient_address: r.patient_address,
+                                    emergency_type: r.emergency_type,
+                                    priority: r.priority,
+                                  },
+                                });
+                              } catch {}
+                              fetch("/api/driver/dispatch-notify", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  driverId: value,
+                                  requestId: r.id,
+                                  patientAddress: r.patient_address,
+                                  emergencyType: r.emergency_type,
+                                  priority: r.priority,
+                                }),
+                              }).catch(() => {});
+                              setOk("Driver assigned & dispatch alert sent to ambulance unit.");
+                              router.refresh();
+                            }
+                          }}
+                        >
+                          <option value="">Select Ambulance Unit</option>
+                          {drivers.map((d) => {
+                            const isOffDuty = d.duty_status === "off_duty" || d.active === false;
+                            return (
+                              <option key={d.id} value={d.id}>
+                                {isOffDuty ? "⚪ [OFF DUTY] " : "🟢 [ON DUTY] "}
+                                {d.display_name || "Driver"}
+                                {d.vehicle_label ? ` · ${d.vehicle_label}` : ""}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      )}
+
+                      <div className="flex flex-wrap gap-1">
+                        {targets.length === 0 && (
+                          <span className="text-[12px] text-[var(--muted)]">No legal transitions</span>
+                        )}
+                        {targets.map((to) => {
+                          const isHospAction = needsHospital(to);
+                          const isBlocked = isHospAction && isSelectedHospitalFull;
+                          return (
+                            <button
+                              key={to}
+                              className={`btn text-xs font-semibold ${
+                                isBlocked
+                                  ? "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-400 border border-red-300 dark:border-red-800 cursor-not-allowed opacity-60 font-bold"
+                                  : "btn-primary"
+                              }`}
+                              disabled={busyId === r.id || isBlocked}
+                              onClick={() => transition(r, to)}
+                            >
+                              {isBlocked ? "⛔ Full (0 Beds)" : to}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* SBAR Handover Modal for Dispatchers */}
+      {activeSbar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="card max-w-2xl w-full p-6 space-y-4 bg-[var(--surface,#ffffff)] border border-[var(--border,#e2e8f0)] rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between gap-3 border-b border-[var(--border)] pb-3">
+              <div>
+                <h3 className="text-base font-bold text-[var(--foreground)] flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-blue-600" />
+                  <span>Pre-Arrival Clinical SBAR Note</span>
+                </h3>
+                <p className="text-xs text-[var(--muted)] mt-0.5">
+                  Pre-hospital triage parameters for clinical destination match
+                </p>
               </div>
               <button
                 type="button"
-                onClick={() => setInspectSbarModal(null)}
-                className="text-slate-400 hover:text-white font-bold text-lg"
+                onClick={() => setActiveSbar(null)}
+                className="btn btn-ghost px-2.5 py-1 text-xs"
               >
-                ✕
+                ✕ Close
               </button>
             </div>
 
-            <div className="space-y-3 mt-4 text-xs">
-              <div className="p-2.5 rounded bg-slate-950 border border-slate-800">
-                <div className="font-bold text-teal-400 uppercase text-[10px]">Situation:</div>
-                <div className="mt-1 font-semibold">{inspectSbarModal.sbar.situation.primaryComplaint}</div>
-                <div className="mt-0.5 text-slate-400">Vitals: {inspectSbarModal.sbar.situation.vitalsSummary}</div>
-              </div>
-
-              <div className="p-2.5 rounded bg-slate-950 border border-slate-800">
-                <div className="font-bold text-teal-400 uppercase text-[10px]">Background:</div>
-                <div className="mt-1 text-slate-300">{formatSBARSummary(inspectSbarModal.sbar).background}</div>
-              </div>
-
-              <div className="p-2.5 rounded bg-slate-950 border border-slate-800">
-                <div className="font-bold text-teal-400 uppercase text-[10px]">Assessment:</div>
-                <div className="mt-1 text-slate-300">{inspectSbarModal.sbar.assessment.fieldImpression}</div>
-                <div className="mt-0.5 text-amber-400 font-medium">Stability: {inspectSbarModal.sbar.assessment.stability}</div>
-              </div>
-
-              <div className="p-2.5 rounded bg-slate-950 border border-teal-900/60">
-                <div className="font-bold text-teal-400 uppercase text-[10px]">Recommendation & Prep:</div>
-                <div className="mt-1 font-semibold text-white">Target Bay: {inspectSbarModal.sbar.recommendation.requiredBay}</div>
-                <div className="mt-1 flex items-center gap-2">
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${inspectSbarModal.sbar.recommendation.bloodBankPreAlert ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
-                    Blood Bank: {inspectSbarModal.sbar.recommendation.bloodBankPreAlert ? 'PRE-ALERTED' : 'Standby'}
-                  </span>
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${inspectSbarModal.sbar.recommendation.theaterPrepRequired ? 'bg-amber-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
-                    Theater Prep: {inspectSbarModal.sbar.recommendation.theaterPrepRequired ? 'ACTIVE' : 'Standby'}
-                  </span>
+            <div className="space-y-3 text-xs">
+              <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60">
+                <div className="font-bold text-blue-900 dark:text-blue-200 uppercase tracking-wider text-[11px] mb-1">
+                  S — Situation
                 </div>
+                <p className="text-[var(--foreground)] leading-relaxed">
+                  {activeSbar.data.situation}
+                </p>
+              </div>
+
+              <div className="p-3 rounded-lg bg-[var(--surface-raised,#f8fafc)] border border-[var(--border,#e2e8f0)]">
+                <div className="font-bold text-[var(--muted)] uppercase tracking-wider text-[11px] mb-1">
+                  B — Background
+                </div>
+                <p className="text-[var(--foreground)] leading-relaxed">
+                  {activeSbar.data.background}
+                </p>
+              </div>
+
+              <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60">
+                <div className="font-bold text-emerald-900 dark:text-emerald-200 uppercase tracking-wider text-[11px] mb-1">
+                  A — Assessment & En Route Interventions
+                </div>
+                <p className="text-[var(--foreground)] leading-relaxed">
+                  {activeSbar.data.assessment}
+                </p>
+                {activeSbar.data.preReferralMedications.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-emerald-200 dark:border-emerald-900/60">
+                    <span className="font-semibold text-emerald-800 dark:text-emerald-300">
+                      Medications Given:
+                    </span>
+                    <ul className="list-disc list-inside mt-1 space-y-0.5 text-[11px] text-emerald-900 dark:text-emerald-200">
+                      {activeSbar.data.preReferralMedications.map((m, idx) => (
+                        <li key={idx}>{m}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60">
+                <div className="font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wider text-[11px] mb-1">
+                  R — Recommendation & Hospital Capacity Needs
+                </div>
+                <p className="text-[var(--foreground)] leading-relaxed">
+                  {activeSbar.data.recommendation}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Configurable Multi-Tier Escalation Modal */}
+      {escalatingReq && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="card max-w-lg w-full p-6 space-y-4 bg-[var(--surface,#ffffff)] border border-[var(--border,#e2e8f0)] rounded-xl shadow-2xl">
+            <div className="flex items-start justify-between gap-3 border-b border-[var(--border)] pb-3">
+              <div>
+                <h3 className="text-base font-bold text-red-600 dark:text-red-400 flex items-center gap-1.5">
+                  <ShieldAlert className="w-5 h-5" />
+                  <span>SLA Escalation & Fallback Routing</span>
+                </h3>
+                <p className="text-xs text-[var(--muted)] mt-0.5">
+                  Trigger multi-tier mutual aid or regional authority escalation
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEscalatingReq(null)}
+                className="btn btn-ghost px-2.5 py-1 text-xs"
+              >
+                ✕ Close
+              </button>
+            </div>
+
+            <div className="p-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] text-xs space-y-1">
+              <div>
+                <strong>Incident:</strong> {escalatingReq.emergency_type} ({formatLocation(escalatingReq)})
+              </div>
+              <div>
+                <strong>Current Cluster:</strong> {REGION_CLUSTERS[detectCluster(escalatingReq)]?.name}
               </div>
             </div>
 
-            <div className="mt-5 flex justify-end">
+            <div className="space-y-2 text-xs">
+              <label className="font-bold text-[var(--foreground)]">Select Escalation Tier:</label>
+
+              {/* Tier 2: Secondary Partner Facility */}
               <button
                 type="button"
-                onClick={() => setInspectSbarModal(null)}
-                className="btn btn-primary px-5 text-xs"
+                onClick={() =>
+                  triggerEscalation(
+                    escalatingReq,
+                    2,
+                    "Secondary Partner Private Facility (Mutual Aid Broadcast)",
+                  )
+                }
+                className="w-full text-left p-3 rounded-lg border border-[var(--border)] hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-all flex items-start gap-2.5"
               >
-                Close Handover
+                <span className="text-base">🏥</span>
+                <div>
+                  <div className="font-bold text-blue-700 dark:text-blue-300">
+                    Tier 2: Regional Mutual Aid Broadcast
+                  </div>
+                  <div className="text-[11px] text-[var(--muted)]">
+                    Notify all secondary accredited private partner facilities in the regional corridor.
+                  </div>
+                </div>
+              </button>
+
+              {/* Tier 3: State Emergency Service Fallback */}
+              <button
+                type="button"
+                onClick={() =>
+                  triggerEscalation(
+                    escalatingReq,
+                    3,
+                    REGION_CLUSTERS[detectCluster(escalatingReq)]?.fallbackAuthority || "State EMS Desk",
+                  )
+                }
+                className="w-full text-left p-3 rounded-lg border border-red-300 dark:border-red-900 bg-red-50/50 dark:bg-red-950/30 hover:bg-red-100 dark:hover:bg-red-950/60 transition-all flex items-start gap-2.5"
+              >
+                <span className="text-base">🏛️</span>
+                <div>
+                  <div className="font-bold text-red-700 dark:text-red-300">
+                    Tier 3: Public Emergency Authority Fallback (
+                    {REGION_CLUSTERS[detectCluster(escalatingReq)]?.state})
+                  </div>
+                  <div className="text-[11px] text-[var(--muted)]">
+                    Escalate incident to{" "}
+                    <strong>{REGION_CLUSTERS[detectCluster(escalatingReq)]?.fallbackAuthority}</strong>{" "}
+                    (Hotline: {REGION_CLUSTERS[detectCluster(escalatingReq)]?.fallbackPhone}).
+                  </div>
+                </div>
+              </button>
+
+              {/* Tier 4: Direct Tele-Triage Command */}
+              <button
+                type="button"
+                onClick={() =>
+                  triggerEscalation(
+                    escalatingReq,
+                    4,
+                    "Solace Central Medical Director Tele-Triage Hotline",
+                  )
+                }
+                className="w-full text-left p-3 rounded-lg border border-[var(--border)] hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-all flex items-start gap-2.5"
+              >
+                <span className="text-base">👨‍⚕️</span>
+                <div>
+                  <div className="font-bold text-emerald-700 dark:text-emerald-300">
+                    Tier 4: Clinical Command Tele-Triage
+                  </div>
+                  <div className="text-[11px] text-[var(--muted)]">
+                    Connect bystander/caller directly to emergency physician tele-consultant.
+                  </div>
+                </div>
               </button>
             </div>
           </div>

@@ -52,6 +52,8 @@ export async function updateSession(request: NextRequest) {
     pathname === "/no-access" ||
     pathname === "/reset" ||
     pathname === "/driver" ||
+    pathname === "/client" ||
+    pathname.startsWith("/client") ||
     pathname === "/branding" ||
     pathname.startsWith("/api/branding");
   const isPublic = isMarketing || isLogin || isRest || pathname.startsWith("/auth");

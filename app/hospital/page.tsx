@@ -3,7 +3,8 @@ import { HospitalCapacity } from "@/components/HospitalCapacity";
 import { HospitalCards } from "@/components/HospitalCards";
 import { requireProfile } from "@/lib/auth";
 import { fetchRequests, fetchTransitionRules } from "@/lib/queries";
-import type { EmergencyRequest, TransitionRule } from "@/lib/types";
+import type { EmergencyRequest, TransitionRule, Hospital } from "@/lib/types";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -14,44 +15,28 @@ export default async function HospitalPage({
   searchParams?: Promise<{ facilityId?: string }>;
 }) {
   const { supabase, profile } = await requireProfile(["hospital", "admin", "dispatcher"]);
+  const params = searchParams ? await searchParams : {};
 
-  const resolvedParams = searchParams ? await searchParams : {};
-  // Allow admins and dispatchers to audit any facility via ?facilityId=<uuid>
-  let hospitalId = resolvedParams.facilityId || profile.hospital_id;
-  let facilityName = "Hospital Facility";
-  let capacity: number | null = null;
+  // Fetch all hospitals for facility switcher
+  const { data: allHospitals } = await supabase
+    .from("hospitals")
+    .select("id, name, address, available_capacity")
+    .order("name");
+
+  let hospitalId = profile.hospital_id;
+
+  // If admin/dispatcher or override requested via query param
+  if (params.facilityId && (profile.role === "admin" || profile.role === "dispatcher")) {
+    hospitalId = params.facilityId;
+  } else if (!hospitalId && allHospitals && allHospitals.length > 0) {
+    hospitalId = allHospitals[0].id;
+  }
+
+  const currentHospital = (allHospitals || []).find((h) => h.id === hospitalId);
+  const capacity = currentHospital?.available_capacity ?? null;
+
   let requests: EmergencyRequest[] = [];
   let rules: TransitionRule[] = [];
-
-  if (!hospitalId) {
-    try {
-      const { data: firstHosp } = await supabase
-        .from("hospitals")
-        .select("id, name, available_capacity")
-        .limit(1)
-        .maybeSingle();
-
-      if (firstHosp) {
-        hospitalId = firstHosp.id;
-        facilityName = firstHosp.name;
-        capacity = firstHosp.available_capacity ?? null;
-      }
-    } catch (e) {
-      console.error("Error fetching fallback hospital:", e);
-    }
-  } else {
-    try {
-      const { data } = await supabase
-        .from("hospitals")
-        .select("name, available_capacity")
-        .eq("id", hospitalId)
-        .maybeSingle();
-      facilityName = data?.name || "Hospital Facility";
-      capacity = data?.available_capacity ?? null;
-    } catch (e) {
-      console.error("Error fetching hospital capacity:", e);
-    }
-  }
 
   if (hospitalId) {
     try {
@@ -60,7 +45,6 @@ export default async function HospitalPage({
       console.error("Error fetching requests:", e);
       requests = [];
     }
-
     try {
       rules = await fetchTransitionRules(supabase, "hospital");
     } catch {
@@ -72,33 +56,47 @@ export default async function HospitalPage({
     <AppShell profile={profile}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold">{facilityName} — ER Intake Desk</h1>
-            {resolvedParams.facilityId && (
-              <span className="px-2 py-0.5 rounded text-[10px] font-black bg-purple-500/20 text-purple-300 border border-purple-500/40">
-                ADMIN AUDIT VIEW
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Incoming ambulance dispatches, clinical SBAR triage handovers, and live bed admissions.
+          <h1 className="text-xl font-bold">ER Intake & Triage Desk</h1>
+          <p className="text-xs text-[var(--muted)]">
+            Incoming ambulance dispatches, pre-arrival SBAR clinical handovers, and live bed admissions.
           </p>
         </div>
 
-        {resolvedParams.facilityId && (
-          <a
-            href="/admin/hospitals"
-            className="text-xs text-slate-400 hover:text-white underline"
-          >
-            ← Return to Hospital Directory
-          </a>
+        {/* Facility Switcher for Admins/Dispatchers */}
+        {(profile.role === "admin" || profile.role === "dispatcher") && allHospitals && allHospitals.length > 1 && (
+          <div className="flex items-center gap-2 text-xs">
+            <span className="font-bold text-[var(--muted)]">Switch Facility:</span>
+            <div className="flex flex-wrap gap-1">
+              {allHospitals.slice(0, 4).map((h) => (
+                <Link
+                  key={h.id}
+                  href={`/hospital?facilityId=${h.id}`}
+                  className={`px-2.5 py-1 rounded text-xs font-semibold border transition-all ${
+                    h.id === hospitalId
+                      ? "bg-emerald-600 text-white border-emerald-700 shadow-xs"
+                      : "bg-[var(--surface-raised)] text-[var(--foreground)] border-[var(--border)] hover:bg-[var(--surface)]"
+                  }`}
+                >
+                  {h.name.split(" ")[0]} ({h.available_capacity ?? 0}b)
+                </Link>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 
       {hospitalId ? (
         <div className="space-y-4 max-w-4xl mx-auto">
-          <HospitalCapacity hospitalId={hospitalId} value={capacity} />
-          <HospitalCards requests={requests} rules={rules} availableCapacity={capacity} />
+          <HospitalCapacity
+            hospitalId={hospitalId}
+            value={capacity}
+            hospitalName={currentHospital?.name}
+          />
+          <HospitalCards
+            requests={requests}
+            rules={rules}
+            availableCapacity={capacity}
+          />
         </div>
       ) : (
         <div className="card p-6 text-sm text-[#b42318] text-center">

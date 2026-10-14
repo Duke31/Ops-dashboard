@@ -1,0 +1,123 @@
+name: Build Android Driver APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Compile & Package Ambulance Driver APK
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Ensure Android Platform Scaffold
+        run: |
+          flutter create --platforms=android --project-name ambulance_driver_app --org com.ems.dispatch .
+
+      - name: Configure Android Permissions & Desugaring Support
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          
+          # 1. Update AndroidManifest.xml permissions
+          p = Path("android/app/src/main/AndroidManifest.xml")
+          if p.exists():
+              text = p.read_text()
+              permissions = [
+                  '<uses-permission android:name="android.permission.INTERNET"/>',
+                  '<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>',
+                  '<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>',
+                  '<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>',
+                  '<uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>',
+                  '<uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>',
+                  '<uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>',
+                  '<uses-permission android:name="android.permission.WAKE_LOCK"/>',
+                  '<uses-permission android:name="android.permission.BATTERY_STATS"/>',
+                  '<uses-permission android:name="android.permission.CALL_PHONE"/>',
+                  '<uses-permission android:name="android.permission.VIBRATE"/>',
+                  '<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>',
+              ]
+              to_add = [perm for perm in permissions if perm not in text]
+              if to_add:
+                  idx = text.find(">")
+                  new_text = text[:idx+1] + "\n    " + "\n    ".join(to_add) + text[idx+1:]
+                  p.write_text(new_text)
+
+          # 2. Configure coreLibraryDesugaring in android/app/build.gradle.kts and/or build.gradle
+          kts_path = Path("android/app/build.gradle.kts")
+          groovy_path = Path("android/app/build.gradle")
+
+          if kts_path.exists():
+              ktext = kts_path.read_text()
+              if "isCoreLibraryDesugaringEnabled" not in ktext and "coreLibraryDesugaring" not in ktext:
+                  if "compileOptions {" in ktext:
+                      ktext = ktext.replace("compileOptions {", "compileOptions {\n        isCoreLibraryDesugaringEnabled = true")
+                  if "dependencies {" in ktext:
+                      ktext = ktext.replace("dependencies {", "dependencies {\n    coreLibraryDesugaring(\"com.android.tools:desugar_jdk_libs:2.1.4\")")
+                  else:
+                      ktext += "\ndependencies {\n    coreLibraryDesugaring(\"com.android.tools:desugar_jdk_libs:2.1.4\")\n}\n"
+                  kts_path.write_text(ktext)
+                  print("SUCCESS: Enabled desugaring in build.gradle.kts")
+
+          if groovy_path.exists():
+              gtext = groovy_path.read_text()
+              if "coreLibraryDesugaringEnabled" not in gtext:
+                  if "compileOptions {" in gtext:
+                      gtext = gtext.replace("compileOptions {", "compileOptions {\n        coreLibraryDesugaringEnabled true")
+                  if "dependencies {" in gtext:
+                      gtext = gtext.replace("dependencies {", "dependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'")
+                  else:
+                      gtext += "\ndependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'\n}\n"
+                  groovy_path.write_text(gtext)
+                  print("SUCCESS: Enabled desugaring in build.gradle")
+
+          # 3. Ensure a valid placeholder google-services.json exists for CI build if not present
+          gs_example = Path("android/app/google-services.json.example")
+          gs_target = Path("android/app/google-services.json")
+          if gs_example.exists() and not gs_target.exists():
+              import shutil
+              shutil.copy(gs_example, gs_target)
+              print("Copied google-services.json placeholder for build")
+          PY
+
+      - name: Install Flutter Dependencies
+        run: flutter pub get
+
+      - name: Build Release APK
+        run: flutter build apk --release --no-tree-shake-icons
+
+      - name: Upload Driver APK to GitHub Actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: ambulance-driver-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 14
+
+      - name: Deploy Driver APK to Supabase Storage Bucket
+        env:
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL || 'https://aogknxtyvzpzqkgmgtsv.supabase.co' }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          if [ -z "$SUPABASE_SERVICE_KEY" ]; then
+            echo "Notice: SUPABASE_SERVICE_ROLE_KEY secret not found in GitHub Actions repository secrets."
+            echo "Skipping direct Supabase Storage push. Artifact remains available in GitHub Actions download tab."
+          else
+            echo "Pushing compiled driver APK to Supabase Storage (app-releases/solace-driver.apk)..."
+            curl -f -s -S -X POST "${SUPABASE_URL}/storage/v1/object/app-releases/solace-driver.apk"               -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}"               -H "apikey: ${SUPABASE_SERVICE_KEY}"               -H "x-upsert: true"               -H "Content-Type: application/vnd.android.package-archive"               --data-binary "@build/app/outputs/flutter-apk/app-release.apk"
+            echo "Push complete. Public URL: ${SUPABASE_URL}/storage/v1/object/public/app-releases/solace-driver.apk"
+          fi
