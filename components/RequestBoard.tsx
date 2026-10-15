@@ -570,8 +570,8 @@ export function RequestBoard({
               onClick={() => setSelectedCluster("all")}
               className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
                 selectedCluster === "all"
-                  ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs"
-                  : "bg-[var(--surface)] text-[var(--muted)] border border-[var(--border)] hover:bg-[var(--surface-raised)]"
+                  ? "bg-[var(--foreground)] text-[var(--background)] shadow-xs"
+                  : "bg-[var(--surface)] text-[var(--muted)] border border-[var(--border)] hover:text-[var(--foreground)] hover:bg-[var(--surface-raised)]"
               }`}
             >
               All Clusters ({liveRequests.length})
@@ -579,35 +579,38 @@ export function RequestBoard({
             <button
               type="button"
               onClick={() => setSelectedCluster("ibadan_private")}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all inline-flex items-center gap-1.5 ${
                 selectedCluster === "ibadan_private"
-                  ? "bg-blue-600 text-white shadow-xs"
-                  : "bg-[var(--surface)] text-[var(--muted)] border border-[var(--border)] hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                  ? "bg-[var(--foreground)] text-[var(--background)] shadow-xs"
+                  : "bg-[var(--surface)] text-[var(--muted)] border border-[var(--border)] hover:text-[var(--foreground)] hover:bg-[var(--surface-raised)]"
               }`}
             >
-              🏥 Ibadan Private Network
+              <span className="w-2 h-2 rounded-full bg-blue-500 inline-block shrink-0" />
+              <span>Ibadan Private Network</span>
             </button>
             <button
               type="button"
               onClick={() => setSelectedCluster("osun_pilot")}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all inline-flex items-center gap-1.5 ${
                 selectedCluster === "osun_pilot"
-                  ? "bg-purple-600 text-white shadow-xs"
-                  : "bg-[var(--surface)] text-[var(--muted)] border border-[var(--border)] hover:bg-purple-50 dark:hover:bg-purple-950/30"
+                  ? "bg-[var(--foreground)] text-[var(--background)] shadow-xs"
+                  : "bg-[var(--surface)] text-[var(--muted)] border border-[var(--border)] hover:text-[var(--foreground)] hover:bg-[var(--surface-raised)]"
               }`}
             >
-              🏛️ Osun Pilot (OSEMSAS)
+              <span className="w-2 h-2 rounded-full bg-purple-500 inline-block shrink-0" />
+              <span>Osun Pilot (OSEMSAS)</span>
             </button>
             <button
               type="button"
               onClick={() => setSelectedCluster("lagos_metropolitan")}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all inline-flex items-center gap-1.5 ${
                 selectedCluster === "lagos_metropolitan"
-                  ? "bg-teal-600 text-white shadow-xs"
-                  : "bg-[var(--surface)] text-[var(--muted)] border border-[var(--border)] hover:bg-teal-50 dark:hover:bg-teal-950/30"
+                  ? "bg-[var(--foreground)] text-[var(--background)] shadow-xs"
+                  : "bg-[var(--surface)] text-[var(--muted)] border border-[var(--border)] hover:text-[var(--foreground)] hover:bg-[var(--surface-raised)]"
               }`}
             >
-              🌊 Lagos Metro Grid
+              <span className="w-2 h-2 rounded-full bg-teal-500 inline-block shrink-0" />
+              <span>Lagos Metro Grid</span>
             </button>
           </div>
 
@@ -620,10 +623,10 @@ export function RequestBoard({
               className="select text-xs py-1 px-2.5 rounded-lg font-medium"
             >
               <option value="all">All Specialties</option>
-              <option value="Obstetric">🟣 Obstetric & Maternal (Priority)</option>
-              <option value="Trauma">🔴 Severe Trauma & RTA</option>
-              <option value="Cardiac">🟠 Cardiac & Stroke</option>
-              <option value="Pediatric">🔵 Pediatric & NICU</option>
+              <option value="Obstetric">Obstetric & Maternal (Priority)</option>
+              <option value="Trauma">Severe Trauma & RTA</option>
+              <option value="Cardiac">Cardiac & Stroke</option>
+              <option value="Pediatric">Pediatric & NICU</option>
             </select>
           </div>
 
@@ -636,7 +639,7 @@ export function RequestBoard({
                 onClick={() => setSelectedStage("all")}
                 className={`px-3 py-1 rounded-lg font-bold text-xs transition-all ${
                   selectedStage === "all"
-                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs"
+                    ? "bg-[var(--foreground)] text-[var(--background)] shadow-xs"
                     : "text-[var(--muted)] hover:text-[var(--foreground)]"
                 }`}
               >
@@ -647,22 +650,22 @@ export function RequestBoard({
                 onClick={() => setSelectedStage("stage_a")}
                 className={`px-3 py-1 rounded-lg font-bold text-xs transition-all flex items-center gap-1.5 ${
                   selectedStage === "stage_a"
-                    ? "bg-purple-600 text-white shadow-xs"
-                    : "text-purple-700 dark:text-purple-300 hover:bg-purple-500/10"
+                    ? "bg-[var(--foreground)] text-[var(--background)] shadow-xs"
+                    : "text-[var(--muted)] hover:text-[var(--foreground)]"
                 }`}
               >
-                <span>🏥 Stage A: PHC Transfers</span>
+                <span>Stage A: PHC Transfers</span>
               </button>
               <button
                 type="button"
                 onClick={() => setSelectedStage("stage_b")}
                 className={`px-3 py-1 rounded-lg font-bold text-xs transition-all flex items-center gap-1.5 ${
                   selectedStage === "stage_b"
-                    ? "bg-pink-600 text-white shadow-xs"
-                    : "text-pink-700 dark:text-pink-300 hover:bg-pink-500/10"
+                    ? "bg-[var(--foreground)] text-[var(--background)] shadow-xs"
+                    : "text-[var(--muted)] hover:text-[var(--foreground)]"
                 }`}
               >
-                <span>🏡 Stage B: Home SOS</span>
+                <span>Stage B: Home SOS</span>
               </button>
             </div>
           </div>
@@ -1115,8 +1118,8 @@ export function RequestBoard({
             </div>
 
             <div className="space-y-3 text-xs">
-              <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60">
-                <div className="font-bold text-blue-900 dark:text-blue-200 uppercase tracking-wider text-[11px] mb-1">
+              <div className="p-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] border-l-4 border-l-blue-500">
+                <div className="font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider text-[11px] mb-1">
                   S — Situation
                 </div>
                 <p className="text-[var(--foreground)] leading-relaxed">
@@ -1124,7 +1127,7 @@ export function RequestBoard({
                 </p>
               </div>
 
-              <div className="p-3 rounded-lg bg-[var(--surface-raised,#f8fafc)] border border-[var(--border,#e2e8f0)]">
+              <div className="p-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] border-l-4 border-l-slate-400 dark:border-l-slate-600">
                 <div className="font-bold text-[var(--muted)] uppercase tracking-wider text-[11px] mb-1">
                   B — Background
                 </div>
@@ -1133,19 +1136,19 @@ export function RequestBoard({
                 </p>
               </div>
 
-              <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60">
-                <div className="font-bold text-emerald-900 dark:text-emerald-200 uppercase tracking-wider text-[11px] mb-1">
+              <div className="p-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] border-l-4 border-l-emerald-500">
+                <div className="font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider text-[11px] mb-1">
                   A — Assessment & En Route Interventions
                 </div>
                 <p className="text-[var(--foreground)] leading-relaxed">
                   {activeSbar.data.assessment}
                 </p>
                 {activeSbar.data.preReferralMedications.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-emerald-200 dark:border-emerald-900/60">
-                    <span className="font-semibold text-emerald-800 dark:text-emerald-300">
+                  <div className="mt-2 pt-2 border-t border-[var(--border)]">
+                    <span className="font-semibold text-emerald-700 dark:text-emerald-400">
                       Medications Given:
                     </span>
-                    <ul className="list-disc list-inside mt-1 space-y-0.5 text-[11px] text-emerald-900 dark:text-emerald-200">
+                    <ul className="list-disc list-inside mt-1 space-y-0.5 text-[11px] text-[var(--foreground)]">
                       {activeSbar.data.preReferralMedications.map((m, idx) => (
                         <li key={idx}>{m}</li>
                       ))}
@@ -1154,8 +1157,8 @@ export function RequestBoard({
                 )}
               </div>
 
-              <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60">
-                <div className="font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wider text-[11px] mb-1">
+              <div className="p-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] border-l-4 border-l-amber-500">
+                <div className="font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider text-[11px] mb-1">
                   R — Recommendation & Hospital Capacity Needs
                 </div>
                 <p className="text-[var(--foreground)] leading-relaxed">
@@ -1212,7 +1215,7 @@ export function RequestBoard({
                     "Secondary Partner Private Facility (Mutual Aid Broadcast)",
                   )
                 }
-                className="w-full text-left p-3 rounded-lg border border-[var(--border)] hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-all flex items-start gap-2.5"
+                className="w-full text-left p-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-raised)] hover:border-blue-500/40 transition-all flex items-start gap-2.5"
               >
                 <span className="text-base">🏥</span>
                 <div>
@@ -1235,11 +1238,11 @@ export function RequestBoard({
                     REGION_CLUSTERS[detectCluster(escalatingReq)]?.fallbackAuthority || "State EMS Desk",
                   )
                 }
-                className="w-full text-left p-3 rounded-lg border border-red-300 dark:border-red-900 bg-red-50/50 dark:bg-red-950/30 hover:bg-red-100 dark:hover:bg-red-950/60 transition-all flex items-start gap-2.5"
+                className="w-full text-left p-3 rounded-lg border border-rose-500/30 bg-rose-500/5 hover:bg-rose-500/10 transition-all flex items-start gap-2.5"
               >
                 <span className="text-base">🏛️</span>
                 <div>
-                  <div className="font-bold text-red-700 dark:text-red-300">
+                  <div className="font-bold text-rose-700 dark:text-rose-300">
                     Tier 3: Public Emergency Authority Fallback (
                     {REGION_CLUSTERS[detectCluster(escalatingReq)]?.state})
                   </div>
@@ -1261,7 +1264,7 @@ export function RequestBoard({
                     "Solace Central Medical Director Tele-Triage Hotline",
                   )
                 }
-                className="w-full text-left p-3 rounded-lg border border-[var(--border)] hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-all flex items-start gap-2.5"
+                className="w-full text-left p-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-raised)] hover:border-emerald-500/40 transition-all flex items-start gap-2.5"
               >
                 <span className="text-base">👨‍⚕️</span>
                 <div>
