@@ -2,8 +2,9 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { AppRole, Profile } from "@/lib/types";
 import { homeForRole } from "@/lib/roles";
+import { cache } from "react";
 
-export async function requireProfile(expected?: AppRole | AppRole[]) {
+export const requireProfile = cache(async (expected?: AppRole | AppRole[]) => {
   const supabase = await createClient();
   const {
     data: { user },
@@ -28,4 +29,4 @@ export async function requireProfile(expected?: AppRole | AppRole[]) {
   }
 
   return { supabase, user, profile };
-}
+});
