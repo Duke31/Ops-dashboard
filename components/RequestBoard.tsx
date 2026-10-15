@@ -105,6 +105,13 @@ export function RequestBoard({
   const router = useRouter();
   const { highlightedRequestId } = useDeskAlerts();
 
+  // Local liveRequests state for instant optimistic updates and real-time merges
+  const [liveRequests, setLiveRequests] = useState<EmergencyRequest[]>(requests);
+
+  useEffect(() => {
+    setLiveRequests(requests);
+  }, [requests]);
+
   // Regional Cluster & Specialty Filters
   const [selectedCluster, setSelectedCluster] = useState<RegionClusterKey>("all");
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>("all");
@@ -165,8 +172,42 @@ export function RequestBoard({
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "emergency_requests" },
-        () => {
-          router.refresh();
+        (payload: any) => {
+          if (payload.eventType === "UPDATE" && payload.new) {
+            setLiveRequests((prev) =>
+              prev.map((item) => {
+                if (item.id === payload.new.id) {
+                  const updatedDriver =
+                    payload.new.driver_id !== item.driver_id
+                      ? (drivers.find((d) => d.id === payload.new.driver_id) ?? item.driver)
+                      : item.driver;
+                  const updatedHospital =
+                    payload.new.hospital_id !== item.hospital_id
+                      ? (hospitals.find((h) => h.id === payload.new.hospital_id) ?? item.hospital)
+                      : item.hospital;
+                  return {
+                    ...item,
+                    ...payload.new,
+                    driver: updatedDriver,
+                    hospital: updatedHospital,
+                  };
+                }
+                return item;
+              })
+            );
+          } else if (payload.eventType === "INSERT" && payload.new) {
+            setLiveRequests((prev) => {
+              if (prev.some((item) => item.id === payload.new.id)) return prev;
+              const newReq = {
+                ...payload.new,
+                driver: drivers.find((d) => d.id === payload.new.driver_id) ?? null,
+                hospital: hospitals.find((h) => h.id === payload.new.hospital_id) ?? null,
+              };
+              return [newReq as EmergencyRequest, ...prev];
+            });
+          } else if (payload.eventType === "DELETE" && payload.old) {
+            setLiveRequests((prev) => prev.filter((item) => item.id !== payload.old.id));
+          }
         },
       )
       .on(
@@ -189,21 +230,23 @@ export function RequestBoard({
                 isAck: false,
               },
             }));
-            router.refresh();
           }
         },
       )
       .subscribe();
 
+    // Gentle fallback background sync (20s instead of 4s aggressive refresh)
     const interval = setInterval(() => {
-      router.refresh();
-    }, 4000);
+      if (!document.hidden) {
+        router.refresh();
+      }
+    }, 20000);
 
     return () => {
       supabase.removeChannel(channel);
       clearInterval(interval);
     };
-  }, [supabase, router]);
+  }, [supabase, router, drivers, hospitals]);
 
   async function ackTacticalAlert(requestId: string, replyMessage?: string) {
     try {
@@ -373,6 +416,29 @@ export function RequestBoard({
     }
 
     setBusyId(request.id);
+
+    // 1. INSTANT OPTIMISTIC UI CONFIRMATION (0ms)
+    const previousRequests = [...liveRequests];
+    const assignedDriverObj = drivers.find((d) => d.id === selectedDriver);
+    const assignedHospitalObj = hospitals.find((h) => h.id === hospitalId);
+
+    setLiveRequests((prev) =>
+      prev.map((r) => {
+        if (r.id === request.id) {
+          return {
+            ...r,
+            status: toStatus,
+            driver_id: selectedDriver || r.driver_id,
+            hospital_id: hospitalId || r.hospital_id,
+            driver: assignedDriverObj ? { ...r.driver, ...assignedDriverObj } : r.driver,
+            hospital: assignedHospitalObj ? { ...r.hospital, ...assignedHospitalObj } : r.hospital,
+          };
+        }
+        return r;
+      })
+    );
+    setOk(`Phase moved to “${toStatus}”.`);
+
     try {
       if (needsHospital(toStatus) && hospitalId !== request.hospital_id) {
         const { error: hospErr } = await supabase.rpc("assign_emergency_hospital", {
@@ -381,20 +447,22 @@ export function RequestBoard({
         });
         if (hospErr) throw hospErr;
 
-        try {
-          const hospObj = hospitals.find((h) => h.id === hospitalId);
-          const chHosp = supabase.channel(`request-status:${request.id}`);
-          await chHosp.subscribe();
-          await chHosp.send({
-            type: "broadcast",
-            event: "hospital_assigned",
-            payload: {
-              hospital_id: hospitalId,
-              hospital_name: hospObj?.name || "Assigned Facility",
-              hospital_address: hospObj?.address || "",
-            },
-          });
-        } catch {}
+        // Non-blocking socket broadcast
+        (async () => {
+          try {
+            const hospObj = hospitals.find((h) => h.id === hospitalId);
+            const chHosp = supabase.channel(`request-status:${request.id}`);
+            await chHosp.send({
+              type: "broadcast",
+              event: "hospital_assigned",
+              payload: {
+                hospital_id: hospitalId,
+                hospital_name: hospObj?.name || "Assigned Facility",
+                hospital_address: hospObj?.address || "",
+              },
+            });
+          } catch {}
+        })();
       }
 
       if (needsDriver(toStatus) && selectedDriver !== request.driver_id) {
@@ -404,32 +472,33 @@ export function RequestBoard({
         });
         if (driverErr) throw driverErr;
 
-        try {
-          const ch = supabase.channel(`driver_dispatch_realtime_${selectedDriver}`);
-          await ch.subscribe();
-          await ch.send({
-            type: "broadcast",
-            event: "emergency_assigned",
-            payload: {
-              request_id: request.id,
-              patient_address: request.patient_address,
-              emergency_type: request.emergency_type,
-              priority: request.priority,
-            },
-          });
-        } catch {}
-
-        fetch("/api/driver/dispatch-notify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            driverId: selectedDriver,
-            requestId: request.id,
-            patientAddress: request.patient_address,
-            emergencyType: request.emergency_type,
-            priority: request.priority,
-          }),
-        }).catch(() => {});
+        // Non-blocking driver socket alert and push notification
+        (async () => {
+          try {
+            const ch = supabase.channel(`driver_dispatch_realtime_${selectedDriver}`);
+            await ch.send({
+              type: "broadcast",
+              event: "emergency_assigned",
+              payload: {
+                request_id: request.id,
+                patient_address: request.patient_address,
+                emergency_type: request.emergency_type,
+                priority: request.priority,
+              },
+            });
+            fetch("/api/driver/dispatch-notify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                driverId: selectedDriver,
+                requestId: request.id,
+                patientAddress: request.patient_address,
+                emergencyType: request.emergency_type,
+                priority: request.priority,
+              }),
+            }).catch(() => {});
+          } catch {}
+        })();
       }
 
       const { error: rpcErr } = await supabase.rpc("transition_emergency_state", {
@@ -439,21 +508,24 @@ export function RequestBoard({
       });
 
       if (rpcErr) {
+        // Roll back optimistic state on error
+        setLiveRequests(previousRequests);
         setError(rpcMessage(rpcErr));
       } else {
-        setOk(`Status moved to “${toStatus}”.`);
+        // Background sync to update server cache without freezing UI
         router.refresh();
       }
     } catch (e) {
+      setLiveRequests(previousRequests);
       setError(rpcMessage(e));
     } finally {
       setBusyId(null);
     }
   }
 
-  // Filter requests by cluster, specialty, and stage
+  // Filter liveRequests by cluster, specialty, and stage
   const filteredRequests = useMemo(() => {
-    return requests.filter((r) => {
+    return liveRequests.filter((r) => {
       if (selectedCluster !== "all") {
         const cluster = detectCluster(r);
         if (cluster !== selectedCluster) return false;
@@ -481,7 +553,7 @@ export function RequestBoard({
       }
       return true;
     });
-  }, [requests, selectedCluster, selectedSpecialty, selectedStage]);
+  }, [liveRequests, selectedCluster, selectedSpecialty, selectedStage]);
 
   return (
     <>
@@ -502,7 +574,7 @@ export function RequestBoard({
                   : "bg-[var(--surface)] text-[var(--muted)] border border-[var(--border)] hover:bg-[var(--surface-raised)]"
               }`}
             >
-              All Clusters ({requests.length})
+              All Clusters ({liveRequests.length})
             </button>
             <button
               type="button"
