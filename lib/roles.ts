@@ -11,7 +11,7 @@ export function homeForRole(role: string | null | undefined): string {
     return `/${role}`;
   }
   if (role === "client") {
-    return "/client";
+    return "/download";
   }
   return "/no-access";
 }
@@ -28,9 +28,6 @@ export function roleFromPath(pathname: string): AppRole | null {
   }
   if (pathname === "/driver" || pathname.startsWith("/driver/")) {
     return "driver";
-  }
-  if (pathname === "/client" || pathname.startsWith("/client/")) {
-    return "client";
   }
   return null;
 }
