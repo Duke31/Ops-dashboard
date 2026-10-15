@@ -10,8 +10,6 @@ import {
   LayoutDashboard,
   Radio,
   Stethoscope,
-  BarChart3,
-  Smartphone,
   Building2,
   History,
   Star,
@@ -72,13 +70,11 @@ function DeskAlertControls() {
 
 function getNavIcon(href: string) {
   if (href.startsWith("/referral")) return <Stethoscope className="w-4 h-4 shrink-0 text-purple-400" />;
-  if (href.startsWith("/admin/pilot-metrics")) return <BarChart3 className="w-4 h-4 shrink-0 text-emerald-400" />;
   if (href.startsWith("/dispatcher/reviews") || href.startsWith("/admin/reviews")) return <Star className="w-4 h-4 shrink-0 text-amber-400" />;
   if (href.startsWith("/dispatcher")) return <Radio className="w-4 h-4 shrink-0 text-blue-400" />;
   if (href.startsWith("/hospital/history") || href.startsWith("/admin/history")) return <History className="w-4 h-4 shrink-0 text-cyan-400" />;
   if (href.startsWith("/hospital")) return <Building2 className="w-4 h-4 shrink-0 text-teal-400" />;
   if (href.startsWith("/driver")) return <Ambulance className="w-4 h-4 shrink-0 text-emerald-400" />;
-  if (href.startsWith("/client")) return <Smartphone className="w-4 h-4 shrink-0 text-pink-400" />;
   if (href.startsWith("/admin/hospitals")) return <ShieldCheck className="w-4 h-4 shrink-0 text-teal-400" />;
   if (href.startsWith("/admin/approvals")) return <UserCheck className="w-4 h-4 shrink-0 text-blue-400" />;
   if (href.startsWith("/admin/drivers")) return <Users className="w-4 h-4 shrink-0 text-indigo-400" />;
@@ -89,13 +85,10 @@ function getNavIcon(href: string) {
 }
 
 const NAV: Record<string, { href: string; label: string }[]> = {
-  client: [{ href: "/client", label: "Maternal & Client App" }],
   driver: [{ href: "/driver", label: "Ambulance Console" }],
   dispatcher: [
     { href: "/dispatcher", label: "Active Requests Board" },
     { href: "/referral", label: "PHC Transfer Intake (Stage A)" },
-    { href: "/admin/pilot-metrics", label: "Pilot & Regional KPIs" },
-    { href: "/client", label: "Client App Preview" },
     { href: "/dispatcher/reviews", label: "Patient Reviews" },
   ],
   hospital: [
@@ -106,8 +99,6 @@ const NAV: Record<string, { href: string; label: string }[]> = {
   admin: [
     { href: "/admin", label: "Network Dispatch Queue" },
     { href: "/referral", label: "PHC Transfer Intake (Stage A)" },
-    { href: "/admin/pilot-metrics", label: "Pilot & Regional KPIs" },
-    { href: "/client", label: "Client Mobile App" },
     { href: "/admin/history", label: "Emergency History" },
     { href: "/admin/reviews", label: "Patient Reviews" },
     { href: "/driver", label: "Ambulance View" },
