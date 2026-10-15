@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { Toast } from "@/components/Toast";
+import { updateHospitalCapacityAction } from "@/app/hospital/actions";
 import {
   Bed,
   CheckCircle2,
@@ -99,18 +100,14 @@ export function HospitalCapacity({
     setBusy(true);
     setErr(null);
     setMsg(null);
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("hospitals")
-      .update({ available_capacity: targetCapacity })
-      .eq("id", hospitalId);
+    const result = await updateHospitalCapacityAction(hospitalId, targetCapacity);
 
     setBusy(false);
-    if (error) {
-      setErr(error.message);
+    if (!result.ok) {
+      setErr(result.error || "Failed to update bed capacity.");
       return;
     }
-    // Also touch the verification timestamp
+    // Touch the verification timestamp
     persistMatrix({
       ...matrix,
       verifiedAt: new Date().toISOString(),
@@ -121,6 +118,8 @@ export function HospitalCapacity({
 
   async function handleVerifyShift() {
     setBusy(true);
+    setErr(null);
+    setMsg(null);
     const now = new Date().toISOString();
     const updated = {
       ...matrix,
@@ -128,11 +127,10 @@ export function HospitalCapacity({
       verifiedCadre: officerCadre,
       verifiedAt: now,
     };
-    persistMatrix(updated);
 
     const supabase = createClient();
     try {
-      await supabase.rpc("hospital_verify_shift", {
+      const { error: rpcErr } = await supabase.rpc("hospital_verify_shift", {
         p_hospital_id: hospitalId,
         p_officer_name: officerName.trim() || "Duty Charge Lead",
         p_officer_cadre: officerCadre,
@@ -144,25 +142,21 @@ export function HospitalCapacity({
         p_neonatal_resus_ready: matrix.neonatalResusReady,
         p_hdu_bed_ready: matrix.hduBedReady,
       });
-    } catch {
-      try {
-        await supabase
-          .from("hospitals")
-          .update({
-            available_capacity: cap,
-            last_shift_verified_at: now,
-            shift_officer_name: officerName.trim() || "Duty Charge Lead",
-            shift_officer_cadre: officerCadre,
-            theater_ready: matrix.theaterStatus === "ready",
-            blood_bank_ready: matrix.bloodBankStatus === "active",
-          })
-          .eq("id", hospitalId);
-      } catch {}
-    }
 
-    setBusy(false);
-    setMsg(`8-Hour Shift Verified by ${officerName} (${officerCadre}). Anti-phantom capacity clock refreshed.`);
-    router.refresh();
+      if (rpcErr) {
+        setBusy(false);
+        setErr(rpcErr.message || "Failed to verify shift. Ensure your account is assigned to this facility.");
+        return;
+      }
+
+      persistMatrix(updated);
+      setBusy(false);
+      setMsg(`8-Hour Shift Verified by ${officerName} (${officerCadre}). Anti-phantom capacity clock refreshed.`);
+      router.refresh();
+    } catch (err: unknown) {
+      setBusy(false);
+      setErr(err instanceof Error ? err.message : "Shift verification failed.");
+    }
   }
 
   function toggleSpecialist(spec: string) {
