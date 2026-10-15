@@ -165,26 +165,19 @@ export default function ClientRegisterPage() {
                 </p>
               </div>
               <div className="pt-3 space-y-2">
-                <Link
-                  href="/client"
-                  className="inline-flex items-center justify-center w-full py-3 px-4 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs shadow-md shadow-cyan-500/25 transition-all gap-2"
-                >
-                  <HeartPulse className="w-4 h-4" />
-                  <span>Launch Tailored Mobile Portal Now →</span>
-                </Link>
                 <a
                   href="/solace-client.apk"
                   download="solace-client.apk"
-                  className="inline-flex items-center justify-center w-full py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-xs border border-white/10 transition-all gap-2"
+                  className="inline-flex items-center justify-center w-full py-3 px-4 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs shadow-md shadow-cyan-500/25 transition-all gap-2"
                 >
                   <Download className="w-4 h-4" />
-                  <span>Download Solace Patient APK</span>
+                  <span>Download Solace Patient APK →</span>
                 </a>
                 <Link
                   href="/download"
-                  className="inline-flex items-center justify-center w-full py-2 px-3 text-xs text-slate-400 hover:text-white transition"
+                  className="inline-flex items-center justify-center w-full py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-xs border border-white/10 transition-all gap-2"
                 >
-                  <span>View Installation Guide →</span>
+                  <span>View Installation Guide &amp; App Details →</span>
                 </Link>
               </div>
             </div>
