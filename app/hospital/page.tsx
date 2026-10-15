@@ -4,16 +4,45 @@ import { HospitalCards } from "@/components/HospitalCards";
 import { requireProfile } from "@/lib/auth";
 import { fetchRequests, fetchTransitionRules } from "@/lib/queries";
 import type { EmergencyRequest, TransitionRule } from "@/lib/types";
-import { Building2, ShieldAlert } from "lucide-react";
+import { Building2, ShieldAlert, Eye } from "lucide-react";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export default async function HospitalPage() {
-  // Strict role isolation: Only authorized hospital staff can access ER Intake Desk
-  const { supabase, profile } = await requireProfile("hospital");
+export default async function HospitalPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ facilityId?: string }> | { facilityId?: string };
+}) {
+  // Allow verified hospital staff as well as admin/dispatcher supervisors
+  const { supabase, profile } = await requireProfile(["hospital", "admin", "dispatcher"]);
 
-  const hospitalId = profile.hospital_id;
+  const resolvedParams = searchParams ? await searchParams : {};
+  const isSupervisor = profile.role === "admin" || profile.role === "dispatcher";
+
+  // Strict role isolation:
+  // - Hospital clinical staff are ALWAYS bound to their accredited profile.hospital_id (cannot inspect others)
+  // - Supervisors (Admin/Dispatcher) can inspect any facility via ?facilityId=... in Read-Only Monitor Mode
+  let hospitalId: string | null = null;
+  let readOnly = false;
+
+  if (isSupervisor) {
+    readOnly = true;
+    hospitalId = resolvedParams.facilityId || profile.hospital_id || null;
+    if (!hospitalId) {
+      const { data: firstHosp } = await supabase
+        .from("hospitals")
+        .select("id")
+        .limit(1)
+        .maybeSingle();
+      hospitalId = firstHosp?.id || null;
+    }
+  } else {
+    // Hospital role
+    hospitalId = profile.hospital_id || null;
+    readOnly = false;
+  }
 
   if (!hospitalId) {
     return (
@@ -23,21 +52,36 @@ export default async function HospitalPage() {
             <Building2 className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-[var(--foreground)]">Unassigned Hospital Facility Profile</h1>
+            <h1 className="text-lg font-bold text-[var(--foreground)]">
+              {isSupervisor ? "No Hospital Facilities Configured" : "Unassigned Hospital Facility Profile"}
+            </h1>
             <p className="text-xs text-[var(--muted)] mt-1.5 leading-relaxed">
-              Your account (<strong className="text-[var(--foreground)]">{profile.display_name || profile.email}</strong>) is verified with the <strong>hospital</strong> clinical role, but has not yet been bound to an accredited partner facility.
+              {isSupervisor ? (
+                "There are currently no accredited partner hospitals in the system database to monitor."
+              ) : (
+                <>
+                  Your account (<strong className="text-[var(--foreground)]">{profile.display_name || profile.email}</strong>) is verified with the <strong>hospital</strong> clinical role, but has not yet been bound to an accredited partner facility.
+                </>
+              )}
             </p>
           </div>
           <div className="p-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] text-xs text-[var(--muted)] flex items-center gap-2 text-left">
             <ShieldAlert className="w-4 h-4 text-amber-500 shrink-0" />
             <span>Under Solace clinical governance, hospital desks cannot view intake telemetry or alter capacity until linked by the System Administrator.</span>
           </div>
+          {isSupervisor && (
+            <div className="pt-2">
+              <Link href="/admin/hospitals" className="btn btn-primary text-xs px-4 py-2">
+                Manage Hospital Facilities →
+              </Link>
+            </div>
+          )}
         </div>
       </AppShell>
     );
   }
 
-  // Fetch the accredited hospital linked to this authenticated profile
+  // Fetch the accredited hospital
   const { data: currentHospital } = await supabase
     .from("hospitals")
     .select("id, name, address, available_capacity")
@@ -64,8 +108,37 @@ export default async function HospitalPage() {
 
   return (
     <AppShell profile={profile}>
+      {isSupervisor && (
+        <div className="mb-4 p-4 rounded-xl bg-blue-500/10 border-2 border-blue-500/30 text-blue-900 dark:text-blue-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+              <Eye className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="font-bold text-sm flex items-center gap-2">
+                <span>Supervisor Desk Monitor (Read-Only)</span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-black bg-blue-200 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300">
+                  AUDIT MODE
+                </span>
+              </div>
+              <p className="text-[11px] text-[var(--muted)] mt-0.5">
+                Inspecting incoming ambulance queue &amp; capacity for <strong className="text-[var(--foreground)]">{currentHospital?.name || "Facility"}</strong>. Bed alterations, admissions, and shift verifications are locked to hospital staff.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/admin/hospitals"
+            className="btn btn-ghost text-xs px-3 py-1.5 font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/60 border border-blue-300 dark:border-blue-800 shrink-0 self-start sm:self-center"
+          >
+            ← Back to Facilities
+          </Link>
+        </div>
+      )}
+
       <div className="mb-4">
-        <h1 className="text-xl font-bold">ER Intake &amp; Triage Desk</h1>
+        <h1 className="text-xl font-bold">
+          {currentHospital?.name ? `${currentHospital.name} — ` : ""}ER Intake &amp; Triage Desk
+        </h1>
         <p className="text-xs text-[var(--muted)]">
           {currentHospital?.name ? (
             <span>
@@ -81,11 +154,13 @@ export default async function HospitalPage() {
           hospitalId={hospitalId}
           value={capacity}
           hospitalName={currentHospital?.name}
+          readOnly={readOnly}
         />
         <HospitalCards
           requests={requests}
           rules={rules}
           availableCapacity={capacity}
+          readOnly={readOnly}
         />
       </div>
     </AppShell>
