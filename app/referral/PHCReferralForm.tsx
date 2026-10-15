@@ -596,7 +596,11 @@ export function PHCReferralForm({
         </div>
 
         <div className="grid sm:grid-cols-2 gap-3 text-xs">
-          <label className="p-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] flex items-start gap-2.5 cursor-pointer">
+          <label className={`p-3.5 rounded-xl border transition-all flex items-start gap-2.5 cursor-pointer ${
+            mgso4Given
+              ? "border-purple-500 bg-purple-500/10 shadow-xs ring-1 ring-purple-500/20"
+              : "border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-raised)]"
+          }`}>
             <input
               type="checkbox"
               checked={mgso4Given}
@@ -604,16 +608,25 @@ export function PHCReferralForm({
               className="mt-0.5 rounded text-purple-600 focus:ring-purple-500"
             />
             <div>
-              <div className="font-bold text-[var(--foreground)]">
-                Magnesium Sulphate (MgSO4) Loading Dose Given
+              <div className="font-bold text-[var(--foreground)] flex items-center gap-1.5">
+                <span>Magnesium Sulphate (MgSO4) Loading Dose Given</span>
+                {mgso4Given && (
+                  <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-purple-600 text-white">
+                    GIVEN
+                  </span>
+                )}
               </div>
-              <p className="text-[11px] text-[var(--muted)]">
+              <p className="text-[11px] text-[var(--muted)] mt-0.5">
                 4g IV slow + 10g IM (5g in each buttock) for severe pre-eclampsia/eclampsia
               </p>
             </div>
           </label>
 
-          <label className="p-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] flex items-start gap-2.5 cursor-pointer">
+          <label className={`p-3.5 rounded-xl border transition-all flex items-start gap-2.5 cursor-pointer ${
+            oxytocinGiven
+              ? "border-cyan-500 bg-cyan-500/10 shadow-xs ring-1 ring-cyan-500/20"
+              : "border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-raised)]"
+          }`}>
             <input
               type="checkbox"
               checked={oxytocinGiven}
@@ -621,16 +634,25 @@ export function PHCReferralForm({
               className="mt-0.5 rounded text-cyan-600 focus:ring-cyan-500"
             />
             <div>
-              <div className="font-bold text-[var(--foreground)]">
-                Oxytocin Administered (10 IU IM/IV)
+              <div className="font-bold text-[var(--foreground)] flex items-center gap-1.5">
+                <span>Oxytocin Administered (10 IU IM/IV)</span>
+                {oxytocinGiven && (
+                  <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-cyan-600 text-white">
+                    GIVEN
+                  </span>
+                )}
               </div>
-              <p className="text-[11px] text-[var(--muted)]">
+              <p className="text-[11px] text-[var(--muted)] mt-0.5">
                 Administered for active postpartum hemorrhage / uterine atony
               </p>
             </div>
           </label>
 
-          <label className="p-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] flex items-start gap-2.5 cursor-pointer">
+          <label className={`p-3.5 rounded-xl border transition-all flex items-start gap-2.5 cursor-pointer ${
+            ivFluidsRunning
+              ? "border-emerald-500 bg-emerald-500/10 shadow-xs ring-1 ring-emerald-500/20"
+              : "border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-raised)]"
+          }`}>
             <input
               type="checkbox"
               checked={ivFluidsRunning}
@@ -638,16 +660,25 @@ export function PHCReferralForm({
               className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500"
             />
             <div>
-              <div className="font-bold text-[var(--foreground)]">
-                IV Line Secured & Fluids Running
+              <div className="font-bold text-[var(--foreground)] flex items-center gap-1.5">
+                <span>IV Line Secured & Fluids Running</span>
+                {ivFluidsRunning && (
+                  <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-emerald-600 text-white">
+                    RUNNING
+                  </span>
+                )}
               </div>
-              <p className="text-[11px] text-[var(--muted)]">
+              <p className="text-[11px] text-[var(--muted)] mt-0.5">
                 16G / 18G cannula in place with Normal Saline or Ringer&apos;s Lactate
               </p>
             </div>
           </label>
 
-          <label className="p-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] flex items-start gap-2.5 cursor-pointer">
+          <label className={`p-3.5 rounded-xl border transition-all flex items-start gap-2.5 cursor-pointer ${
+            catheterized
+              ? "border-amber-500 bg-amber-500/10 shadow-xs ring-1 ring-amber-500/20"
+              : "border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-raised)]"
+          }`}>
             <input
               type="checkbox"
               checked={catheterized}
@@ -655,10 +686,15 @@ export function PHCReferralForm({
               className="mt-0.5 rounded text-amber-600 focus:ring-amber-500"
             />
             <div>
-              <div className="font-bold text-[var(--foreground)]">
-                Urinary Catheter in Place
+              <div className="font-bold text-[var(--foreground)] flex items-center gap-1.5">
+                <span>Urinary Catheter in Place</span>
+                {catheterized && (
+                  <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-amber-600 text-white">
+                    PLACED
+                  </span>
+                )}
               </div>
-              <p className="text-[11px] text-[var(--muted)]">
+              <p className="text-[11px] text-[var(--muted)] mt-0.5">
                 Foley catheter placed with urine bag attached for output monitoring
               </p>
             </div>
