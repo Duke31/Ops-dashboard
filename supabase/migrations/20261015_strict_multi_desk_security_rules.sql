@@ -12,11 +12,28 @@
 -- 4. Role Isolation:
 --    - Hospital desk: strictly scoped to requests directed to hospital_id = current_user_hospital_id()
 --    - Driver console: strictly scoped to requests where driver_id = current_driver_id()
---    - Client app: strictly scoped to requests where user_id = auth.uid()
+--    - Client app: strictly scoped to requests where client_user_id or reported_by_user_id = auth.uid()
 --    - Dispatcher & Admin: full dispatch overview, but blocked from clinical sign-offs
 -- 5. Anti-Privilege Escalation: BEFORE UPDATE trigger on public.profiles blocks
 --    any self-update of 'role' or 'hospital_id'.
 -- ==============================================================================
+
+-- ------------------------------------------------------------------------------
+-- 0. Ensure Safe Columns Exist on Target Tables
+-- ------------------------------------------------------------------------------
+alter table if exists public.emergency_requests
+  add column if not exists client_user_id uuid,
+  add column if not exists reported_by_user_id uuid,
+  add column if not exists hospital_id uuid,
+  add column if not exists driver_id uuid;
+
+alter table if exists public.hospitals
+  add column if not exists available_capacity integer default 10,
+  add column if not exists last_shift_verified_at timestamptz,
+  add column if not exists shift_officer_name text,
+  add column if not exists shift_officer_cadre text,
+  add column if not exists theater_ready boolean default true,
+  add column if not exists blood_bank_ready boolean default true;
 
 -- ------------------------------------------------------------------------------
 -- 1. Ensure Audit & Security Helper Functions Exist
@@ -252,8 +269,6 @@ for select
 to authenticated, anon
 using (true);
 
--- Hospital table update: Admins can update metadata (address, coords, phone),
--- but clinical bed count updates MUST go through hospital_verify_shift RPC or hospital staff
 drop policy if exists "hospitals_capacity_update" on public.hospitals;
 drop policy if exists "hospitals_admin_manage" on public.hospitals;
 
@@ -283,12 +298,15 @@ drop policy if exists "emergency_requests_strict_update" on public.emergency_req
 drop policy if exists "emergency_requests_strict_insert" on public.emergency_requests;
 drop policy if exists "emergency_requests_select_policy" on public.emergency_requests;
 drop policy if exists "emergency_requests_authenticated_select" on public.emergency_requests;
+drop policy if exists "emergency_requests_desk_isolated_select" on public.emergency_requests;
+drop policy if exists "emergency_requests_desk_isolated_insert" on public.emergency_requests;
+drop policy if exists "emergency_requests_desk_isolated_update" on public.emergency_requests;
 
 -- A. Strict SELECT Policy:
 -- - Dispatcher & Admin: Full network visibility
 -- - Hospital: STRICTLY requests routed to their assigned facility
 -- - Driver: STRICTLY requests assigned to their vehicle unit
--- - Patient / Client: STRICTLY their own requests
+-- - Patient / Client: STRICTLY their own requests (client_user_id or reported_by_user_id)
 create policy "emergency_requests_desk_isolated_select"
 on public.emergency_requests
 for select
@@ -298,7 +316,7 @@ using (
   or public.current_profile_role() in ('admin', 'dispatcher')
   or (public.current_profile_role() = 'hospital' and hospital_id = public.current_user_hospital_id())
   or (public.current_profile_role() = 'driver' and driver_id = public.current_driver_id())
-  or (auth.uid() = user_id)
+  or (client_user_id = auth.uid() or reported_by_user_id = auth.uid())
 );
 
 -- B. Strict INSERT Policy:
@@ -311,13 +329,17 @@ to authenticated
 with check (
   auth.role() = 'service_role'
   or public.current_profile_role() in ('admin', 'dispatcher')
-  or (auth.uid() = user_id and coalesce(status, 'Requested') in ('Requested', 'Draft'))
+  or (
+    (client_user_id = auth.uid() or reported_by_user_id = auth.uid())
+    and coalesce(status::text, 'Requested') in ('Requested', 'Draft')
+  )
 );
 
 -- C. Strict UPDATE Policy:
 -- - Dispatcher & Admin: Full dispatch routing, assigning ambulances and triage
 -- - Hospital: Can ONLY update requests assigned to their facility
 -- - Driver: Can ONLY update requests assigned to their driver ID
+-- - Client: Can ONLY update initial status or notes before transport
 create policy "emergency_requests_desk_isolated_update"
 on public.emergency_requests
 for update
@@ -327,14 +349,20 @@ using (
   or public.current_profile_role() in ('admin', 'dispatcher')
   or (public.current_profile_role() = 'hospital' and hospital_id = public.current_user_hospital_id())
   or (public.current_profile_role() = 'driver' and driver_id = public.current_driver_id())
-  or (auth.uid() = user_id and status in ('Requested', 'Draft'))
+  or (
+    (client_user_id = auth.uid() or reported_by_user_id = auth.uid())
+    and status::text in ('Requested', 'Draft')
+  )
 )
 with check (
   auth.role() = 'service_role'
   or public.current_profile_role() in ('admin', 'dispatcher')
   or (public.current_profile_role() = 'hospital' and hospital_id = public.current_user_hospital_id())
   or (public.current_profile_role() = 'driver' and driver_id = public.current_driver_id())
-  or (auth.uid() = user_id and status in ('Requested', 'Draft'))
+  or (
+    (client_user_id = auth.uid() or reported_by_user_id = auth.uid())
+    and status::text in ('Requested', 'Draft')
+  )
 );
 
 -- ------------------------------------------------------------------------------
