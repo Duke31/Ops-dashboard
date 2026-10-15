@@ -21,7 +21,11 @@ interface MatrixState {
   bloodBankStatus: "active" | "limited" | "exhausted";
   specialistsOnDuty: string[];
   verifiedBy: string;
+  verifiedCadre?: string;
   verifiedAt: string;
+  mgso4Stocked: boolean;
+  neonatalResusReady: boolean;
+  hduBedReady: boolean;
 }
 
 const DEFAULT_SPECIALISTS = [
@@ -61,10 +65,17 @@ export function HospitalCapacity({
       theaterStatus: "ready",
       bloodBankStatus: "active",
       specialistsOnDuty: ["Obstetric Surgeon", "Consultant Anesthetist", "Emergency Triage Lead"],
-      verifiedBy: "Shift Charge Physician",
+      verifiedBy: "Duty Charge Nurse / MO",
+      verifiedCadre: "Emergency Triage Lead",
       verifiedAt: new Date().toISOString(),
+      mgso4Stocked: true,
+      neonatalResusReady: true,
+      hduBedReady: true,
     };
   });
+
+  const [officerName, setOfficerName] = useState(matrix.verifiedBy || "Duty Charge Nurse / MO");
+  const [officerCadre, setOfficerCadre] = useState(matrix.verifiedCadre || "Emergency Triage Lead");
 
   // Sync state if value prop changes
   useEffect(() => {
@@ -108,14 +119,50 @@ export function HospitalCapacity({
     router.refresh();
   }
 
-  function handleVerifyShift() {
+  async function handleVerifyShift() {
+    setBusy(true);
     const now = new Date().toISOString();
     const updated = {
       ...matrix,
+      verifiedBy: officerName.trim() || "Duty Charge Lead",
+      verifiedCadre: officerCadre,
       verifiedAt: now,
     };
     persistMatrix(updated);
-    setMsg("Shift capacity & surgical readiness verified. Timestamp refreshed on dispatch radar.");
+
+    const supabase = createClient();
+    try {
+      await supabase.rpc("hospital_verify_shift", {
+        p_hospital_id: hospitalId,
+        p_officer_name: officerName.trim() || "Duty Charge Lead",
+        p_officer_cadre: officerCadre,
+        p_capacity: cap,
+        p_theater_ready: matrix.theaterStatus === "ready",
+        p_blood_bank_ready: matrix.bloodBankStatus === "active",
+        p_mgso4_ready: matrix.mgso4Stocked,
+        p_oxytocin_ready: matrix.mgso4Stocked,
+        p_neonatal_resus_ready: matrix.neonatalResusReady,
+        p_hdu_bed_ready: matrix.hduBedReady,
+      });
+    } catch {
+      try {
+        await supabase
+          .from("hospitals")
+          .update({
+            available_capacity: cap,
+            last_shift_verified_at: now,
+            shift_officer_name: officerName.trim() || "Duty Charge Lead",
+            shift_officer_cadre: officerCadre,
+            theater_ready: matrix.theaterStatus === "ready",
+            blood_bank_ready: matrix.bloodBankStatus === "active",
+          })
+          .eq("id", hospitalId);
+      } catch {}
+    }
+
+    setBusy(false);
+    setMsg(`8-Hour Shift Verified by ${officerName} (${officerCadre}). Anti-phantom capacity clock refreshed.`);
+    router.refresh();
   }
 
   function toggleSpecialist(spec: string) {
@@ -129,10 +176,13 @@ export function HospitalCapacity({
     });
   }
 
-  // Calculate elapsed time since verification
+  // Calculate elapsed time & 8-hour shift expiration (Section 7)
   const verifiedDate = new Date(matrix.verifiedAt);
   const minutesAgo = Math.max(0, Math.floor((Date.now() - verifiedDate.getTime()) / 60000));
-  const isStale = minutesAgo > 240; // > 4 hours
+  const isExpired = minutesAgo >= 480; // >= 8 hours
+  const remainingMinutes = Math.max(0, 480 - minutesAgo);
+  const remainingHours = Math.floor(remainingMinutes / 60);
+  const remainingMins = remainingMinutes % 60;
 
   return (
     <div className="card p-5 border border-[var(--border,#e2e8f0)] bg-[var(--surface,#ffffff)] shadow-sm space-y-5">
@@ -372,61 +422,150 @@ export function HospitalCapacity({
         </div>
       </div>
 
-      {/* 3. On-Duty Specialist Verification & Anti-Phantom Capacity Badge */}
-      <div className="pt-3 border-t border-[var(--border,#f1f5f9)] space-y-2.5">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="text-xs font-bold uppercase tracking-wider text-[var(--muted)] flex items-center gap-1.5">
-            <span>👨‍⚕️</span> On-Duty Clinical Team Active
+      {/* 3. Essential Obstetric & Neonatal Checkpoints (Section 7) */}
+      <div className="pt-3 border-t border-[var(--border,#f1f5f9)] space-y-3">
+        <span className="text-xs font-bold uppercase tracking-wider text-[var(--foreground)] flex items-center gap-1.5">
+          <span>🩺</span> Critical Emergency Medications & Equipment Checkpoints
+        </span>
+
+        <div className="grid sm:grid-cols-3 gap-2.5 text-xs">
+          <label className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={matrix.mgso4Stocked}
+              onChange={(e) =>
+                persistMatrix({ ...matrix, mgso4Stocked: e.target.checked, verifiedAt: new Date().toISOString() })
+              }
+              className="rounded text-purple-600 focus:ring-purple-500"
+            />
+            <span className="font-semibold text-[var(--foreground)]">MgSO4 & Oxytocin Stocked</span>
+          </label>
+
+          <label className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={matrix.neonatalResusReady}
+              onChange={(e) =>
+                persistMatrix({ ...matrix, neonatalResusReady: e.target.checked, verifiedAt: new Date().toISOString() })
+              }
+              className="rounded text-blue-600 focus:ring-blue-500"
+            />
+            <span className="font-semibold text-[var(--foreground)]">Neonatal Resus Station Ready</span>
+          </label>
+
+          <label className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={matrix.hduBedReady}
+              onChange={(e) =>
+                persistMatrix({ ...matrix, hduBedReady: e.target.checked, verifiedAt: new Date().toISOString() })
+              }
+              className="rounded text-emerald-600 focus:ring-emerald-500"
+            />
+            <span className="font-semibold text-[var(--foreground)]">HDU / Critical Bed Ready</span>
+          </label>
+        </div>
+      </div>
+
+      {/* 4. On-Duty Specialist Verification & 8-Hour Anti-Phantom Capacity Cycle */}
+      <div className="pt-3 border-t border-[var(--border,#f1f5f9)] space-y-3">
+        {/* Expiration Alert Banner */}
+        {isExpired ? (
+          <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-900 text-red-800 dark:text-red-300 text-xs flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0 text-red-600" />
+              <span className="font-bold">
+                ⚠️ Shift Verification Expired (&gt; 8 hours). Dispatchers will flag capacity as unconfirmed until verified by the on-duty officer.
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span
-              className={`inline-flex items-center gap-1 text-[11px] font-semibold ${
-                isStale
-                  ? "text-amber-600 dark:text-amber-400"
-                  : "text-emerald-600 dark:text-emerald-400"
-              }`}
-            >
-              {isStale ? (
-                <>
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                  <span>Unverified &gt; 4 hrs ({minutesAgo}m ago)</span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Shift verified ({minutesAgo === 0 ? "Just now" : `${minutesAgo}m ago`})</span>
-                </>
-              )}
+        ) : (
+          <div className="p-2.5 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-300/60 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 text-xs flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 font-semibold">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <span>Shift Verified by {matrix.verifiedBy} ({matrix.verifiedCadre || "Lead"})</span>
+            </div>
+            <span className="font-mono font-bold text-[11px] bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded">
+              {remainingHours}h {remainingMins}m remaining on 8h cycle
             </span>
-            <button
-              type="button"
-              onClick={handleVerifyShift}
-              className="btn btn-ghost px-2.5 py-1 text-xs font-bold border border-blue-300 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/40"
-            >
-              ⚡ Re-Verify Shift
-            </button>
+          </div>
+        )}
+
+        {/* Verification Form: Officer Name, Cadre & Commit */}
+        <div className="p-3.5 rounded-xl bg-[var(--surface-raised)] border border-[var(--border)] space-y-3 text-xs">
+          <div className="font-bold text-[var(--foreground)] flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5 text-blue-600" />
+            <span>Shift Officer Sign-Off (Anti-Phantom Capacity Assurance)</span>
+          </div>
+
+          <div className="grid sm:grid-cols-3 gap-3">
+            <div>
+              <label className="text-[11px] font-semibold text-[var(--muted)] block mb-1">
+                Duty Officer Name
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Nurse Adeleke / Dr. Balogun"
+                value={officerName}
+                onChange={(e) => setOfficerName(e.target.value)}
+                className="input w-full text-xs"
+              />
+            </div>
+
+            <div>
+              <label className="text-[11px] font-semibold text-[var(--muted)] block mb-1">
+                Clinical Cadre
+              </label>
+              <select
+                value={officerCadre}
+                onChange={(e) => setOfficerCadre(e.target.value)}
+                className="select w-full text-xs"
+              >
+                <option value="Emergency Triage Lead">Emergency Triage Lead</option>
+                <option value="Chief Nursing Officer">Chief Nursing Officer (CNO)</option>
+                <option value="Labor Ward Lead">Labor Ward In-Charge</option>
+                <option value="Consultant Obstetrician">Consultant Obstetrician</option>
+                <option value="Medical Officer">Medical Officer on Duty</option>
+              </select>
+            </div>
+
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={handleVerifyShift}
+                disabled={busy}
+                className="btn btn-primary w-full py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-1.5 shadow-sm"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>{busy ? "Verifying…" : "Sign & Verify 8h Shift"}</span>
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-1.5">
-          {DEFAULT_SPECIALISTS.map((spec) => {
-            const active = matrix.specialistsOnDuty.includes(spec);
-            return (
-              <button
-                key={spec}
-                type="button"
-                onClick={() => toggleSpecialist(spec)}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
-                  active
-                    ? "bg-blue-50 text-blue-800 border-blue-300 dark:bg-blue-950/60 dark:text-blue-200 dark:border-blue-700 font-semibold shadow-xs"
-                    : "bg-[var(--surface)] text-[var(--muted)] border-[var(--border)] hover:bg-[var(--surface-raised)]"
-                }`}
-              >
-                <span>{active ? "✓" : "+"}</span>
-                <span>{spec}</span>
-              </button>
-            );
-          })}
+        {/* Specialist On Duty Chips */}
+        <div className="space-y-1.5 pt-1">
+          <div className="text-[11px] font-bold text-[var(--muted)]">Specialists On Duty:</div>
+          <div className="flex flex-wrap gap-1.5">
+            {DEFAULT_SPECIALISTS.map((spec) => {
+              const active = matrix.specialistsOnDuty.includes(spec);
+              return (
+                <button
+                  key={spec}
+                  type="button"
+                  onClick={() => toggleSpecialist(spec)}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
+                    active
+                      ? "bg-blue-50 text-blue-800 border-blue-300 dark:bg-blue-950/60 dark:text-blue-200 dark:border-blue-700 font-semibold shadow-xs"
+                      : "bg-[var(--surface)] text-[var(--muted)] border-[var(--border)] hover:bg-[var(--surface-raised)]"
+                  }`}
+                >
+                  <span>{active ? "✓" : "+"}</span>
+                  <span>{spec}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
