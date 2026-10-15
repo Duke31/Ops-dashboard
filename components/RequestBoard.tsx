@@ -108,6 +108,7 @@ export function RequestBoard({
   // Regional Cluster & Specialty Filters
   const [selectedCluster, setSelectedCluster] = useState<RegionClusterKey>("all");
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>("all");
+  const [selectedStage, setSelectedStage] = useState<"all" | "stage_a" | "stage_b">("all");
 
   // SBAR Clinical Modal
   const [activeSbar, setActiveSbar] = useState<{
@@ -450,7 +451,7 @@ export function RequestBoard({
     }
   }
 
-  // Filter requests by cluster and specialty
+  // Filter requests by cluster, specialty, and stage
   const filteredRequests = useMemo(() => {
     return requests.filter((r) => {
       if (selectedCluster !== "all") {
@@ -469,9 +470,18 @@ export function RequestBoard({
           if (!type.includes("pediatric")) return false;
         }
       }
+      if (selectedStage !== "all") {
+        const isStageA =
+          r.stage === "stage_a" ||
+          r.origin === "phc_referral" ||
+          (r.notes || "").includes("PHC_TRANSFER") ||
+          (r.patient_address || "").includes("PHC Transfer");
+        if (selectedStage === "stage_a" && !isStageA) return false;
+        if (selectedStage === "stage_b" && isStageA) return false;
+      }
       return true;
     });
-  }, [requests, selectedCluster, selectedSpecialty]);
+  }, [requests, selectedCluster, selectedSpecialty, selectedStage]);
 
   return (
     <>
@@ -543,6 +553,44 @@ export function RequestBoard({
               <option value="Cardiac">🟠 Cardiac & Stroke</option>
               <option value="Pediatric">🔵 Pediatric & NICU</option>
             </select>
+          </div>
+
+          {/* Stage A (PHC Referral) vs Stage B (Home SOS) Toggle */}
+          <div className="flex items-center gap-1.5 text-xs pt-2 border-t border-[var(--border)]/60 w-full">
+            <span className="font-bold text-[var(--muted)]">Pilot Flow:</span>
+            <button
+              type="button"
+              onClick={() => setSelectedStage("all")}
+              className={`px-2.5 py-1 rounded-md font-semibold transition-all ${
+                selectedStage === "all"
+                  ? "bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900"
+                  : "text-[var(--muted)] hover:bg-[var(--surface)]"
+              }`}
+            >
+              All Dispatches
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedStage("stage_a")}
+              className={`px-2.5 py-1 rounded-md font-semibold transition-all flex items-center gap-1 ${
+                selectedStage === "stage_a"
+                  ? "bg-purple-700 text-white shadow-xs"
+                  : "text-[var(--muted)] hover:bg-purple-50 dark:hover:bg-purple-950/30"
+              }`}
+            >
+              <span>🏥 Stage A: PHC Transfers</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedStage("stage_b")}
+              className={`px-2.5 py-1 rounded-md font-semibold transition-all flex items-center gap-1 ${
+                selectedStage === "stage_b"
+                  ? "bg-pink-700 text-white shadow-xs"
+                  : "text-[var(--muted)] hover:bg-pink-50 dark:hover:bg-pink-950/30"
+              }`}
+            >
+              <span>🏡 Stage B: Home SOS</span>
+            </button>
           </div>
         </div>
       </div>
@@ -638,7 +686,7 @@ export function RequestBoard({
 
                   {/* Column 2: Triage & SBAR Clinical Note */}
                   <td className="max-w-[280px]">
-                    <div className="font-semibold text-sm flex items-center gap-1.5">
+                    <div className="font-semibold text-sm flex items-center gap-1.5 flex-wrap">
                       <span>{r.emergency_type || "Emergency"}</span>
                       {r.priority && (
                         <span
@@ -657,6 +705,28 @@ export function RequestBoard({
                         </span>
                       )}
                     </div>
+
+                    {/* Stage & Referral Pathway Tag */}
+                    {(() => {
+                      const isStageA =
+                        r.stage === "stage_a" ||
+                        r.origin === "phc_referral" ||
+                        (r.notes || "").includes("PHC_TRANSFER") ||
+                        (r.patient_address || "").includes("PHC Transfer");
+                      return (
+                        <div className="mt-1 flex items-center gap-1">
+                          {isStageA ? (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-purple-100 text-purple-900 dark:bg-purple-950 dark:text-purple-200 border border-purple-300 dark:border-purple-800">
+                              🏥 STAGE A: PHC TRANSFER
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                              🏡 STAGE B: HOME SOS
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {/* SBAR Button & Summary */}
                     <div className="mt-1.5 p-2 rounded-lg bg-[var(--surface-raised,#f8fafc)] border border-[var(--border,#e2e8f0)] space-y-1 text-xs">
@@ -927,6 +997,17 @@ export function RequestBoard({
                           );
                         })}
                       </div>
+
+                      {/* Figure 1 OSEMSAS 112 Fallback Escalation Button */}
+                      <button
+                        type="button"
+                        onClick={() => triggerEscalation(r, 3, "OSEMSAS Central Command (112)")}
+                        className="btn btn-ghost w-full py-1 text-[11px] font-bold text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/60 bg-red-50/50 dark:bg-red-950/20 hover:bg-red-100 flex items-center justify-center gap-1.5 mt-1"
+                        title="Figure 1 Fallback: Escalate immediately to Osun State EMS Central (112)"
+                      >
+                        <ShieldAlert className="w-3.5 h-3.5" />
+                        <span>Escalate to OSEMSAS (112)</span>
+                      </button>
                     </div>
                   </td>
                 </tr>
