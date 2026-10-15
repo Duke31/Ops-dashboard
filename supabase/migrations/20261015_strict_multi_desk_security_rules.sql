@@ -27,6 +27,9 @@ alter table if exists public.emergency_requests
   add column if not exists hospital_id uuid,
   add column if not exists driver_id uuid;
 
+-- Ensure full payload replication for instantaneous real-time desk synchronisation
+alter table if exists public.emergency_requests replica identity full;
+
 alter table if exists public.hospitals
   add column if not exists available_capacity integer default 10,
   add column if not exists last_shift_verified_at timestamptz,
