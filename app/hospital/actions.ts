@@ -28,7 +28,16 @@ export type AdmitPatientResult =
 export async function admitHospitalPatientAction(
   input: AdmitPatientInput,
 ): Promise<AdmitPatientResult> {
-  const { profile } = await requireProfile(["hospital", "admin", "dispatcher"]);
+  // Strict Role Check: ONLY hospital clinical staff can admit incoming transfers
+  const { profile } = await requireProfile("hospital");
+
+  // Strict Facility Check: Hospital staff can ONLY admit into their own assigned hospital
+  if (!profile.hospital_id || profile.hospital_id !== input.hospitalId) {
+    return {
+      ok: false,
+      error: "Unauthorized: You may only admit patients into your verified assigned facility.",
+    };
+  }
 
   const admin = createServiceClient(getSupabaseUrl(), serviceRoleKey(), {
     auth: { autoRefreshToken: false, persistSession: false },
@@ -55,22 +64,34 @@ export async function admitHospitalPatientAction(
       }
     }
 
-    // 2. Fetch existing request notes and append the admission bay stamp
+    // 2. Fetch existing request notes and append the admission bay stamp with staff identification
     const { data: req } = await admin
       .from("emergency_requests")
-      .select("notes")
+      .select("notes, hospital_id")
       .eq("id", input.requestId)
       .maybeSingle();
 
+    if (!req) {
+      return { ok: false, error: "Emergency request not found." };
+    }
+
+    // Ensure the emergency request is assigned to this hospital
+    if (req.hospital_id !== input.hospitalId) {
+      return {
+        ok: false,
+        error: "Unauthorized: This emergency request is not routed to your hospital facility.",
+      };
+    }
+
     const admissionStamp = `[Admitted to ${input.assignedBay} at ${new Date().toLocaleTimeString()} by ${
-      profile.display_name || "ER Desk"
+      profile.display_name || "ER Desk Officer"
     }]${input.notes?.trim() ? ` Notes: ${input.notes.trim()}` : ""}`;
 
     const updatedNotes = req?.notes
       ? `${req.notes}\n${admissionStamp}`
       : admissionStamp;
 
-    // 3. Mark the emergency request as Completed and save notes
+    // 3. Mark the emergency request as Completed and record timestamp
     const { error: reqErr } = await admin
       .from("emergency_requests")
       .update({
@@ -96,7 +117,16 @@ export async function updateHospitalCapacityAction(
   hospitalId: string,
   capacity: number,
 ): Promise<{ ok: boolean; error?: string }> {
-  await requireProfile(["hospital", "admin", "dispatcher"]);
+  // Strict Role Check: ONLY verified hospital staff can update facility bed capacity
+  const { profile } = await requireProfile("hospital");
+
+  // Strict Facility Check: Hospital staff can ONLY update capacity for their assigned hospital
+  if (!profile.hospital_id || profile.hospital_id !== hospitalId) {
+    return {
+      ok: false,
+      error: "Unauthorized: You may only adjust bed capacity for your verified assigned facility.",
+    };
+  }
 
   const admin = createServiceClient(getSupabaseUrl(), serviceRoleKey(), {
     auth: { autoRefreshToken: false, persistSession: false },
@@ -104,7 +134,7 @@ export async function updateHospitalCapacityAction(
 
   const { error } = await admin
     .from("hospitals")
-    .update({ available_capacity: capacity })
+    .update({ available_capacity: Math.max(0, capacity) })
     .eq("id", hospitalId);
 
   if (error) {
