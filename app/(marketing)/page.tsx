@@ -67,15 +67,6 @@ export default function MarketingPage() {
           {/* Primary CTA Buttons */}
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
-              href="/client"
-              className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-black text-sm shadow-xl shadow-cyan-500/25 transition-all flex items-center justify-center gap-2 active:scale-95"
-            >
-              <Heart className="w-4 h-4 fill-slate-950 text-slate-950" />
-              <span>📱 Open Client Mobile App</span>
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-
-            <Link
               href="/signup"
               className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-300 hover:to-teal-300 text-black font-black text-sm shadow-xl shadow-emerald-500/25 transition-all flex items-center justify-center gap-2 active:scale-95"
             >
