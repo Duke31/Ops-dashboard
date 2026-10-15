@@ -30,6 +30,7 @@ import {
   ShieldAlert,
   Flame,
   FileText,
+  Eye,
 } from "lucide-react";
 
 const PRESET_BAYS = [
@@ -48,11 +49,13 @@ export function HospitalCards({
   historyRequests = [],
   rules,
   availableCapacity = null,
+  readOnly = false,
 }: {
   requests: EmergencyRequest[];
   historyRequests?: EmergencyRequest[];
   rules: TransitionRule[];
   availableCapacity?: number | null;
+  readOnly?: boolean;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
@@ -199,11 +202,14 @@ export function HospitalCards({
           ) : (
             <div className="grid gap-3">
               {requests.map((r) => {
-                const targets = allowedTargets(rules, r.status, "hospital").filter(
-                  (t) => t !== "Completed",
-                );
+                const targets = readOnly
+                  ? []
+                  : allowedTargets(rules, r.status, "hospital").filter(
+                      (t) => t !== "Completed",
+                    );
                 const showAdmitButton =
-                  r.status === "Arrived / intake" || r.status === "En route to hospital";
+                  !readOnly &&
+                  (r.status === "Arrived / intake" || r.status === "En route to hospital");
                 const isHighlighted = highlightedRequestId === r.id;
                 const clusterKey = detectCluster(r);
                 const clusterInfo = REGION_CLUSTERS[clusterKey];
@@ -351,43 +357,52 @@ export function HospitalCards({
                     </div>
 
                     {/* Action buttons */}
-                    <div className="pt-2 border-t border-[var(--border,#e5e7eb)] flex flex-wrap items-center gap-2">
-                      {targets.map((to) => {
-                        const isDecline = to.toLowerCase().includes("declin");
-                        const isDisabled = busy === r.id || (!isDecline && isFacilityFull);
-                        return (
-                          <button
-                            key={to}
-                            className={`btn text-xs font-semibold ${
-                              isDecline
-                                ? "btn-ghost text-red-600 dark:text-red-400 border border-red-300 dark:border-red-800"
-                                : "btn-primary"
-                            }`}
-                            disabled={isDisabled}
-                            onClick={() => go(r.id, to)}
-                          >
-                            {busy === r.id ? "Updating…" : to}
-                          </button>
-                        );
-                      })}
+                    <div className="pt-2 border-t border-[var(--border,#e5e7eb)] flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {targets.map((to) => {
+                          const isDecline = to.toLowerCase().includes("declin");
+                          const isDisabled = busy === r.id || (!isDecline && isFacilityFull);
+                          return (
+                            <button
+                              key={to}
+                              className={`btn text-xs font-semibold ${
+                                isDecline
+                                  ? "btn-ghost text-red-600 dark:text-red-400 border border-red-300 dark:border-red-800"
+                                  : "btn-primary"
+                              }`}
+                              disabled={isDisabled}
+                              onClick={() => go(r.id, to)}
+                            >
+                              {busy === r.id ? "Updating…" : to}
+                            </button>
+                          );
+                        })}
 
-                      {showAdmitButton && (
-                        <button
-                          type="button"
-                          className="btn btn-primary text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm flex items-center gap-1.5"
-                          disabled={busy === r.id || isFacilityFull}
-                          onClick={() => {
-                            setAdmittingReq(r);
-                            if (isObstetric) {
-                              setSelectedBay("Obstetric Delivery Suite 1");
-                            } else {
-                              setSelectedBay("Trauma Bay 1 (Resuscitation)");
-                            }
-                          }}
-                        >
-                          <Bed className="w-3.5 h-3.5" />
-                          <span>Admit to Bay / Ward…</span>
-                        </button>
+                        {showAdmitButton && (
+                          <button
+                            type="button"
+                            className="btn btn-primary text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm flex items-center gap-1.5"
+                            disabled={busy === r.id || isFacilityFull}
+                            onClick={() => {
+                              setAdmittingReq(r);
+                              if (isObstetric) {
+                                setSelectedBay("Obstetric Delivery Suite 1");
+                              } else {
+                                setSelectedBay("Trauma Bay 1 (Resuscitation)");
+                              }
+                            }}
+                          >
+                            <Bed className="w-3.5 h-3.5" />
+                            <span>Admit to Bay / Ward…</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {readOnly && (
+                        <div className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 font-medium bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1 rounded-md border border-blue-200 dark:border-blue-800">
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Supervisor Monitor · Triage Inspection</span>
+                        </div>
                       )}
                     </div>
                   </article>
@@ -501,17 +516,19 @@ export function HospitalCards({
                     📞 Call Paramedic
                   </a>
                 )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const r = activeSbar.request;
-                    setActiveSbar(null);
-                    setAdmittingReq(r);
-                  }}
-                  className="btn btn-primary text-xs px-4 py-1.5 font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
-                >
-                  Confirm Bay Admission →
-                </button>
+                {!readOnly && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const r = activeSbar.request;
+                      setActiveSbar(null);
+                      setAdmittingReq(r);
+                    }}
+                    className="btn btn-primary text-xs px-4 py-1.5 font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    Confirm Bay Admission →
+                  </button>
+                )}
               </div>
             </div>
           </div>
