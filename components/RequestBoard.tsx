@@ -556,41 +556,43 @@ export function RequestBoard({
           </div>
 
           {/* Stage A (PHC Referral) vs Stage B (Home SOS) Toggle */}
-          <div className="flex items-center gap-1.5 text-xs pt-2 border-t border-[var(--border)]/60 w-full">
-            <span className="font-bold text-[var(--muted)]">Pilot Flow:</span>
-            <button
-              type="button"
-              onClick={() => setSelectedStage("all")}
-              className={`px-2.5 py-1 rounded-md font-semibold transition-all ${
-                selectedStage === "all"
-                  ? "bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900"
-                  : "text-[var(--muted)] hover:bg-[var(--surface)]"
-              }`}
-            >
-              All Dispatches
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedStage("stage_a")}
-              className={`px-2.5 py-1 rounded-md font-semibold transition-all flex items-center gap-1 ${
-                selectedStage === "stage_a"
-                  ? "bg-purple-700 text-white shadow-xs"
-                  : "text-[var(--muted)] hover:bg-purple-50 dark:hover:bg-purple-950/30"
-              }`}
-            >
-              <span>🏥 Stage A: PHC Transfers</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedStage("stage_b")}
-              className={`px-2.5 py-1 rounded-md font-semibold transition-all flex items-center gap-1 ${
-                selectedStage === "stage_b"
-                  ? "bg-pink-700 text-white shadow-xs"
-                  : "text-[var(--muted)] hover:bg-pink-50 dark:hover:bg-pink-950/30"
-              }`}
-            >
-              <span>🏡 Stage B: Home SOS</span>
-            </button>
+          <div className="flex flex-wrap items-center gap-2 text-xs pt-3 border-t border-[var(--border)]/70 w-full">
+            <span className="font-bold text-[var(--muted)] text-[11px] uppercase tracking-wider">Pilot Pathway:</span>
+            <div className="inline-flex p-1 rounded-xl bg-[var(--surface-raised)] border border-[var(--border)] gap-1">
+              <button
+                type="button"
+                onClick={() => setSelectedStage("all")}
+                className={`px-3 py-1 rounded-lg font-bold text-xs transition-all ${
+                  selectedStage === "all"
+                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs"
+                    : "text-[var(--muted)] hover:text-[var(--foreground)]"
+                }`}
+              >
+                All Dispatches
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedStage("stage_a")}
+                className={`px-3 py-1 rounded-lg font-bold text-xs transition-all flex items-center gap-1.5 ${
+                  selectedStage === "stage_a"
+                    ? "bg-purple-600 text-white shadow-xs"
+                    : "text-purple-700 dark:text-purple-300 hover:bg-purple-500/10"
+                }`}
+              >
+                <span>🏥 Stage A: PHC Transfers</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedStage("stage_b")}
+                className={`px-3 py-1 rounded-lg font-bold text-xs transition-all flex items-center gap-1.5 ${
+                  selectedStage === "stage_b"
+                    ? "bg-pink-600 text-white shadow-xs"
+                    : "text-pink-700 dark:text-pink-300 hover:bg-pink-500/10"
+                }`}
+              >
+                <span>🏡 Stage B: Home SOS</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
