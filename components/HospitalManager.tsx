@@ -18,14 +18,12 @@ import {
   Phone,
   ShieldCheck,
   Plus,
-  ExternalLink,
   UserPlus,
   Users,
   CheckCircle2,
   AlertCircle,
   X,
 } from "lucide-react";
-import Link from "next/link";
 import { createStaffAccount } from "@/app/admin/staff/actions";
 
 type FormState = {
@@ -655,15 +653,6 @@ export function HospitalManager({
 
                     <td>
                       <div className="flex items-center gap-1.5 justify-end">
-                        <Link
-                          href={`/hospital?facilityId=${h.id}`}
-                          className="btn btn-ghost text-xs px-2.5 py-1 font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1"
-                          title="Open Hospital Desk view as this facility"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                          <span>Desk View</span>
-                        </Link>
-
                         <button
                           className="btn btn-ghost text-xs px-2 py-1 font-semibold"
                           type="button"
