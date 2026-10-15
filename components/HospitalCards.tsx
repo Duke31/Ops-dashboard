@@ -244,7 +244,28 @@ export function HospitalCards({
                               ⚡ Fast-Track Maternal Transit
                             </span>
                           )}
+                          {(r.stage === "stage_a" || r.origin === "phc_referral" || (r.notes || "").includes("PHC_TRANSFER") || (r.patient_address || "").includes("PHC Transfer")) && (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-black bg-purple-100 text-purple-900 dark:bg-purple-950 dark:text-purple-200 border border-purple-300 dark:border-purple-800">
+                              🏥 STAGE A: PHC TRANSFER
+                            </span>
+                          )}
                         </div>
+
+                        {/* Pre-referral medications highlight */}
+                        {((r.notes || "").includes("Magnesium Sulphate") || (r.notes || "").includes("Oxytocin")) && (
+                          <div className="flex flex-wrap gap-1.5 pt-1">
+                            {(r.notes || "").includes("Magnesium Sulphate") && (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-900/60 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
+                                💊 MgSO4 Loading Dose Given at PHC
+                              </span>
+                            )}
+                            {(r.notes || "").includes("Oxytocin") && (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-100 text-cyan-800 dark:bg-cyan-900/60 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-800">
+                                💊 Oxytocin Given at PHC
+                              </span>
+                            )}
+                          </div>
+                        )}
 
                         <div className="text-xs text-[var(--muted)]">
                           {formatLocation(r)} · Reported {timeSince(r.created_at)}
