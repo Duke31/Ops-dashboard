@@ -125,6 +125,11 @@ export function AppShell({
   const items = NAV[profile.role] ?? [];
   const [open, setOpen] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPendingHref(null);
+  }, [pathname]);
 
   useEffect(() => {
     const currentTheme =
@@ -219,22 +224,38 @@ export function AppShell({
       </div>
       <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto">
         {items.map((item) => {
+          const isPending = pendingHref === item.href;
           const active =
+            isPending ||
             pathname === item.href ||
             (item.href !== `/${profile.role}` && pathname.startsWith(item.href));
           return (
             <Link
               key={item.href}
               href={item.href}
-              onClick={() => setOpen(false)}
-              className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[14px] md:text-[12.5px] font-medium transition-all ${
+              prefetch={true}
+              onClick={() => {
+                setOpen(false);
+                if (pathname !== item.href) {
+                  setPendingHref(item.href);
+                }
+              }}
+              className={`flex items-center justify-between gap-2.5 rounded-lg px-3 py-2 text-[14px] md:text-[12.5px] font-medium transition-all ${
                 active
                   ? "bg-white/15 text-white font-semibold shadow-xs ring-1 ring-white/20"
                   : "text-white/70 hover:bg-white/10 hover:text-white"
               }`}
             >
-              {getNavIcon(item.href)}
-              <span className="truncate">{item.label}</span>
+              <div className="flex items-center gap-2.5 min-w-0">
+                {getNavIcon(item.href)}
+                <span className="truncate">{item.label}</span>
+              </div>
+              {isPending && (
+                <span className="relative flex h-2 w-2 shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
+                </span>
+              )}
             </Link>
           );
         })}
@@ -274,6 +295,9 @@ export function AppShell({
 
   return (
     <DeskAlertProvider profile={profile} driverUnitId={driverUnitId}>
+      {pendingHref && (
+        <div className="fixed top-0 left-0 right-0 h-[3px] z-[100] bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400 animate-pulse shadow-sm" />
+      )}
       <div className="min-h-dvh md:grid md:grid-cols-[220px_1fr]">
         <aside className="hidden md:flex bg-[#0b0f19] border-r border-slate-800/80 text-white flex-col min-h-dvh">
           {nav}
