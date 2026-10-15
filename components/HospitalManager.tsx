@@ -23,7 +23,9 @@ import {
   CheckCircle2,
   AlertCircle,
   X,
+  Eye,
 } from "lucide-react";
+import Link from "next/link";
 import { createStaffAccount } from "@/app/admin/staff/actions";
 
 type FormState = {
@@ -653,6 +655,15 @@ export function HospitalManager({
 
                     <td>
                       <div className="flex items-center gap-1.5 justify-end">
+                        <Link
+                          href={`/hospital?facilityId=${h.id}`}
+                          className="btn btn-ghost text-xs px-2.5 py-1 font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/50 flex items-center gap-1"
+                          title="Inspect incoming triage queue in Read-Only Supervisor Monitor Mode"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Desk View</span>
+                        </Link>
+
                         <button
                           className="btn btn-ghost text-xs px-2 py-1 font-semibold"
                           type="button"
