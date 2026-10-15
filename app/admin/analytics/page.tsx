@@ -1,8 +1,6 @@
-import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { requireProfile } from "@/lib/auth";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Sparkles, ArrowRight, BarChart3 } from "lucide-react";
 
 function avgMinutes(rows: { created_at: string; completed_at: string | null }[]) {
   const usable = rows.filter((r) => r.completed_at);
@@ -45,27 +43,6 @@ export default async function AnalyticsPage() {
 
   return (
     <AppShell profile={profile}>
-      {/* Pilot Cockpit Callout Banner */}
-      <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-emerald-600/10 via-teal-600/10 to-blue-600/10 border border-emerald-500/30 flex flex-wrap items-center justify-between gap-3">
-        <div className="space-y-0.5">
-          <div className="flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-            <span className="font-bold text-sm text-[var(--foreground)]">
-              Regional Pilot & Partner Metrics Cockpit (Proposal Page 12)
-            </span>
-          </div>
-          <p className="text-xs text-[var(--muted)]">
-            Explore the 9 state-benchmarked KPIs, Ibadan Private Network SLAs, and multi-specialty breakdown.
-          </p>
-        </div>
-        <Link
-          href="/admin/pilot-metrics"
-          className="btn btn-primary text-xs font-bold px-4 py-2 flex items-center gap-1.5 shadow-sm"
-        >
-          <span>Open Pilot Cockpit</span>
-          <ArrowRight className="w-3.5 h-3.5" />
-        </Link>
-      </div>
 
       <div className="mb-4">
         <h1 className="text-lg font-semibold">Standard System Analytics</h1>
