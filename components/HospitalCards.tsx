@@ -64,6 +64,13 @@ export function HospitalCards({
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
+  // Local liveRequests state for 0ms optimistic updates and real-time merges
+  const [liveRequests, setLiveRequests] = useState<EmergencyRequest[]>(requests);
+
+  useEffect(() => {
+    setLiveRequests(requests);
+  }, [requests]);
+
   // SBAR Clinical Handover Modal State
   const [activeSbar, setActiveSbar] = useState<{
     request: EmergencyRequest;
@@ -77,15 +84,37 @@ export function HospitalCards({
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "emergency_requests" },
-        () => {
-          router.refresh();
+        (payload: any) => {
+          if (payload.eventType === "UPDATE" && payload.new) {
+            setLiveRequests((prev) =>
+              prev.map((item) =>
+                item.id === payload.new.id
+                  ? {
+                      ...item,
+                      ...payload.new,
+                      driver: item.driver,
+                      hospital: item.hospital,
+                    }
+                  : item
+              )
+            );
+          } else if (payload.eventType === "INSERT" && payload.new) {
+            setLiveRequests((prev) => {
+              if (prev.some((item) => item.id === payload.new.id)) return prev;
+              return [payload.new as EmergencyRequest, ...prev];
+            });
+          } else if (payload.eventType === "DELETE" && payload.old) {
+            setLiveRequests((prev) => prev.filter((item) => item.id !== payload.old.id));
+          }
         },
       )
       .subscribe();
 
     const interval = setInterval(() => {
-      router.refresh();
-    }, 4000);
+      if (!document.hidden) {
+        router.refresh();
+      }
+    }, 20000);
 
     return () => {
       supabase.removeChannel(channel);
@@ -115,9 +144,14 @@ export function HospitalCards({
       return;
     }
 
+    // 0ms Optimistic UI Update
+    const prevRequests = [...liveRequests];
+    setLiveRequests((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, status: to } : r))
+    );
+    setOk(`Status moved to ${to}`);
     setBusy(id);
     setError(null);
-    setOk(null);
 
     const { error: rpcErr } = await supabase.rpc("transition_emergency_state", {
       request_id: id,
@@ -127,11 +161,11 @@ export function HospitalCards({
 
     setBusy(null);
     if (rpcErr) {
+      setLiveRequests(prevRequests);
       setError(rpcMessage(rpcErr) || "Failed to update status.");
       return;
     }
 
-    setOk(`Status moved to ${to}`);
     router.refresh();
   }
 
@@ -145,25 +179,29 @@ export function HospitalCards({
       return;
     }
 
-    setBusy(admittingReq.id);
+    const prevRequests = [...liveRequests];
+    const admittedId = admittingReq.id;
+
+    // 0ms Optimistic Admission
+    setLiveRequests((prev) => prev.filter((r) => r.id !== admittedId));
+    setOk(`Patient admitted to ${effectiveBay}. Capacity updated.`);
+    setBusy(admittedId);
     setError(null);
-    setOk(null);
+    setAdmittingReq(null);
+    setCustomBay("");
+    setAdmitNotes("");
 
     try {
       const { error: rpcErr } = await supabase.rpc("hospital_admit_patient", {
-        p_request_id: admittingReq.id,
+        p_request_id: admittedId,
         p_assigned_bay: effectiveBay,
         p_notes: admitNotes.trim() || null,
       });
 
       if (rpcErr) throw rpcErr;
-
-      setOk(`Patient admitted to ${effectiveBay}. Capacity updated.`);
-      setAdmittingReq(null);
-      setCustomBay("");
-      setAdmitNotes("");
       router.refresh();
     } catch (e: unknown) {
+      setLiveRequests(prevRequests);
       setError(rpcMessage(e) || "Admission failed. Please try again.");
     } finally {
       setBusy(null);
@@ -178,7 +216,7 @@ export function HospitalCards({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--muted)]">
-                Incoming Clinical Transfers ({requests.length})
+                Incoming Clinical Transfers ({liveRequests.length})
               </h2>
               <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
                 Pre-Arrival SBAR Enabled
@@ -195,13 +233,13 @@ export function HospitalCards({
             </div>
           )}
 
-          {!requests.length ? (
+          {!liveRequests.length ? (
             <div className="card p-6 text-center text-sm text-[var(--muted)]">
               No active incoming patient transfers at this time.
             </div>
           ) : (
             <div className="grid gap-3">
-              {requests.map((r) => {
+              {liveRequests.map((r) => {
                 const targets = readOnly
                   ? []
                   : allowedTargets(rules, r.status, "hospital").filter(
