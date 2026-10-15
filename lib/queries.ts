@@ -151,10 +151,19 @@ export async function fetchHospitalHistory(
   }
 }
 
+const RULES_CACHE_TTL_MS = 5 * 60 * 1000;
+const rulesCache: Record<string, { rules: TransitionRule[]; expiresAt: number }> = {};
+
 export async function fetchTransitionRules(
   supabase: SupabaseClient,
   actorRole: string,
 ): Promise<TransitionRule[]> {
+  const now = Date.now();
+  const cached = rulesCache[actorRole];
+  if (cached && now < cached.expiresAt && cached.rules.length > 0) {
+    return cached.rules;
+  }
+
   try {
     const { data, error } = await supabase
       .from("emergency_transition_rules")
@@ -162,12 +171,16 @@ export async function fetchTransitionRules(
       .eq("actor_role", actorRole);
     if (error) {
       console.warn(`fetchTransitionRules notice for ${actorRole}:`, error.message);
-      return [];
+      return cached?.rules ?? [];
     }
-    return (data ?? []) as TransitionRule[];
+    const rules = (data ?? []) as TransitionRule[];
+    if (rules.length > 0) {
+      rulesCache[actorRole] = { rules, expiresAt: now + RULES_CACHE_TTL_MS };
+    }
+    return rules;
   } catch (err) {
     console.error(`fetchTransitionRules catch for ${actorRole}:`, err);
-    return [];
+    return cached?.rules ?? [];
   }
 }
 
