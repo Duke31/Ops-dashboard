@@ -41,10 +41,12 @@ export function HospitalCapacity({
   hospitalId,
   value,
   hospitalName = "Facility",
+  readOnly = false,
 }: {
   hospitalId: string;
   value: number | null;
   hospitalName?: string;
+  readOnly?: boolean;
 }) {
   const [cap, setCap] = useState(value ?? 0);
   const [busy, setBusy] = useState(false);
@@ -219,61 +221,69 @@ export function HospitalCapacity({
         </div>
 
         {/* Quick Increment / Decrement Controls */}
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className="btn btn-ghost px-3 py-1.5 text-base font-bold border border-[var(--border,#cbd5e1)] hover:bg-red-50 dark:hover:bg-red-950/30"
-            disabled={busy || cap <= 0}
-            onClick={() => adjust(-1)}
-            title="Minus 1 Bed"
-          >
-            − 1
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost px-3 py-1.5 text-base font-bold border border-[var(--border,#cbd5e1)] hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
-            disabled={busy}
-            onClick={() => adjust(1)}
-            title="Plus 1 Bed"
-          >
-            + 1
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary px-4 py-2 text-xs font-bold shadow-sm"
-            disabled={busy}
-            onClick={() => saveValue(cap)}
-          >
-            {busy ? "Saving…" : "Save Live Beds"}
-          </button>
-        </div>
+        {readOnly ? (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/25 text-xs font-semibold text-blue-600 dark:text-blue-400">
+            <span>👁️ Supervisor Oversight Mode (Live Bed Telemetry)</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="btn btn-ghost px-3 py-1.5 text-base font-bold border border-[var(--border,#cbd5e1)] hover:bg-red-50 dark:hover:bg-red-950/30"
+              disabled={busy || cap <= 0}
+              onClick={() => adjust(-1)}
+              title="Minus 1 Bed"
+            >
+              − 1
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost px-3 py-1.5 text-base font-bold border border-[var(--border,#cbd5e1)] hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+              disabled={busy}
+              onClick={() => adjust(1)}
+              title="Plus 1 Bed"
+            >
+              + 1
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary px-4 py-2 text-xs font-bold shadow-sm"
+              disabled={busy}
+              onClick={() => saveValue(cap)}
+            >
+              {busy ? "Saving…" : "Save Live Beds"}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Bed Slider */}
-      <div className="pt-2 border-t border-[var(--border,#f1f5f9)] flex items-center gap-4">
-        <input
-          type="range"
-          min={0}
-          max={40}
-          value={cap}
-          onChange={(e) => setCap(Number(e.target.value))}
-          onMouseUp={() => saveValue(cap)}
-          onTouchEnd={() => saveValue(cap)}
-          className="flex-1 cursor-pointer accent-emerald-600"
-        />
-        <div className="flex items-center gap-1.5">
+      {!readOnly && (
+        <div className="pt-2 border-t border-[var(--border,#f1f5f9)] flex items-center gap-4">
           <input
-            type="number"
-            className="input w-20 text-center font-bold text-sm"
+            type="range"
             min={0}
-            max={999}
+            max={40}
             value={cap}
             onChange={(e) => setCap(Number(e.target.value))}
-            onBlur={() => saveValue(cap)}
+            onMouseUp={() => saveValue(cap)}
+            onTouchEnd={() => saveValue(cap)}
+            className="flex-1 cursor-pointer accent-emerald-600"
           />
-          <span className="text-xs text-[var(--muted,#64748b)]">beds</span>
+          <div className="flex items-center gap-1.5">
+            <input
+              type="number"
+              className="input w-20 text-center font-bold text-sm"
+              min={0}
+              max={999}
+              value={cap}
+              onChange={(e) => setCap(Number(e.target.value))}
+              onBlur={() => saveValue(cap)}
+            />
+            <span className="text-xs text-[var(--muted,#64748b)]">beds</span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 2. Clinical Readiness Matrix: Theater & Blood Bank */}
       <div className="pt-3 border-t border-[var(--border,#f1f5f9)] grid sm:grid-cols-2 gap-4">
@@ -303,10 +313,13 @@ export function HospitalCapacity({
           <div className="grid grid-cols-3 gap-1.5 pt-1">
             <button
               type="button"
+              disabled={readOnly}
               onClick={() =>
                 persistMatrix({ ...matrix, theaterStatus: "ready", verifiedAt: new Date().toISOString() })
               }
               className={`px-2 py-1.5 rounded text-xs font-semibold border transition-all text-center ${
+                readOnly ? "cursor-default" : ""
+              } ${
                 matrix.theaterStatus === "ready"
                   ? "bg-emerald-600 text-white border-emerald-700 shadow-sm"
                   : "bg-[var(--surface)] text-[var(--muted)] border-[var(--border)] hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
@@ -316,10 +329,13 @@ export function HospitalCapacity({
             </button>
             <button
               type="button"
+              disabled={readOnly}
               onClick={() =>
                 persistMatrix({ ...matrix, theaterStatus: "standby", verifiedAt: new Date().toISOString() })
               }
               className={`px-2 py-1.5 rounded text-xs font-semibold border transition-all text-center ${
+                readOnly ? "cursor-default" : ""
+              } ${
                 matrix.theaterStatus === "standby"
                   ? "bg-amber-600 text-white border-amber-700 shadow-sm"
                   : "bg-[var(--surface)] text-[var(--muted)] border-[var(--border)] hover:bg-amber-50 dark:hover:bg-amber-950/30"
@@ -329,10 +345,13 @@ export function HospitalCapacity({
             </button>
             <button
               type="button"
+              disabled={readOnly}
               onClick={() =>
                 persistMatrix({ ...matrix, theaterStatus: "in_use", verifiedAt: new Date().toISOString() })
               }
               className={`px-2 py-1.5 rounded text-xs font-semibold border transition-all text-center ${
+                readOnly ? "cursor-default" : ""
+              } ${
                 matrix.theaterStatus === "in_use"
                   ? "bg-red-600 text-white border-red-700 shadow-sm"
                   : "bg-[var(--surface)] text-[var(--muted)] border-[var(--border)] hover:bg-red-50 dark:hover:bg-red-950/30"
@@ -372,10 +391,13 @@ export function HospitalCapacity({
           <div className="grid grid-cols-3 gap-1.5 pt-1">
             <button
               type="button"
+              disabled={readOnly}
               onClick={() =>
                 persistMatrix({ ...matrix, bloodBankStatus: "active", verifiedAt: new Date().toISOString() })
               }
               className={`px-2 py-1.5 rounded text-xs font-semibold border transition-all text-center ${
+                readOnly ? "cursor-default" : ""
+              } ${
                 matrix.bloodBankStatus === "active"
                   ? "bg-emerald-600 text-white border-emerald-700 shadow-sm"
                   : "bg-[var(--surface)] text-[var(--muted)] border-[var(--border)] hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
@@ -385,10 +407,13 @@ export function HospitalCapacity({
             </button>
             <button
               type="button"
+              disabled={readOnly}
               onClick={() =>
                 persistMatrix({ ...matrix, bloodBankStatus: "limited", verifiedAt: new Date().toISOString() })
               }
               className={`px-2 py-1.5 rounded text-xs font-semibold border transition-all text-center ${
+                readOnly ? "cursor-default" : ""
+              } ${
                 matrix.bloodBankStatus === "limited"
                   ? "bg-amber-600 text-white border-amber-700 shadow-sm"
                   : "bg-[var(--surface)] text-[var(--muted)] border-[var(--border)] hover:bg-amber-50 dark:hover:bg-amber-950/30"
@@ -398,10 +423,13 @@ export function HospitalCapacity({
             </button>
             <button
               type="button"
+              disabled={readOnly}
               onClick={() =>
                 persistMatrix({ ...matrix, bloodBankStatus: "exhausted", verifiedAt: new Date().toISOString() })
               }
               className={`px-2 py-1.5 rounded text-xs font-semibold border transition-all text-center ${
+                readOnly ? "cursor-default" : ""
+              } ${
                 matrix.bloodBankStatus === "exhausted"
                   ? "bg-red-600 text-white border-red-700 shadow-sm"
                   : "bg-[var(--surface)] text-[var(--muted)] border-[var(--border)] hover:bg-red-50 dark:hover:bg-red-950/30"
@@ -423,21 +451,23 @@ export function HospitalCapacity({
         </span>
 
         <div className="grid sm:grid-cols-3 gap-2.5 text-xs">
-          <label className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center gap-2 cursor-pointer">
+          <label className={`p-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center gap-2 ${readOnly ? "cursor-default" : "cursor-pointer"}`}>
             <input
               type="checkbox"
+              disabled={readOnly}
               checked={matrix.mgso4Stocked}
               onChange={(e) =>
                 persistMatrix({ ...matrix, mgso4Stocked: e.target.checked, verifiedAt: new Date().toISOString() })
               }
               className="rounded text-purple-600 focus:ring-purple-500"
             />
-            <span className="font-semibold text-[var(--foreground)]">MgSO4 & Oxytocin Stocked</span>
+            <span className="font-semibold text-[var(--foreground)]">MgSO4 &amp; Oxytocin Stocked</span>
           </label>
 
-          <label className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center gap-2 cursor-pointer">
+          <label className={`p-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center gap-2 ${readOnly ? "cursor-default" : "cursor-pointer"}`}>
             <input
               type="checkbox"
+              disabled={readOnly}
               checked={matrix.neonatalResusReady}
               onChange={(e) =>
                 persistMatrix({ ...matrix, neonatalResusReady: e.target.checked, verifiedAt: new Date().toISOString() })
@@ -447,9 +477,10 @@ export function HospitalCapacity({
             <span className="font-semibold text-[var(--foreground)]">Neonatal Resus Station Ready</span>
           </label>
 
-          <label className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center gap-2 cursor-pointer">
+          <label className={`p-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center gap-2 ${readOnly ? "cursor-default" : "cursor-pointer"}`}>
             <input
               type="checkbox"
+              disabled={readOnly}
               checked={matrix.hduBedReady}
               onChange={(e) =>
                 persistMatrix({ ...matrix, hduBedReady: e.target.checked, verifiedAt: new Date().toISOString() })
@@ -486,56 +517,70 @@ export function HospitalCapacity({
         )}
 
         {/* Verification Form: Officer Name, Cadre & Commit */}
-        <div className="p-3.5 rounded-xl bg-[var(--surface-raised)] border border-[var(--border)] space-y-3 text-xs">
-          <div className="font-bold text-[var(--foreground)] flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5 text-blue-600" />
-            <span>Shift Officer Sign-Off (Anti-Phantom Capacity Assurance)</span>
+        {readOnly ? (
+          <div className="p-3.5 rounded-xl bg-[var(--surface-raised)] border border-[var(--border)] flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+              <span className="text-[var(--foreground)]">
+                On-Duty Sign-Off: <strong>{matrix.verifiedBy || "Duty Clinical Lead"}</strong> ({matrix.verifiedCadre || "Triage Lead"})
+              </span>
+            </div>
+            <span className="text-[11px] font-mono text-[var(--muted)] px-2.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-[var(--border)]">
+              Shift Sign-Off: Hospital Health Staff Only
+            </span>
           </div>
-
-          <div className="grid sm:grid-cols-3 gap-3">
-            <div>
-              <label className="text-[11px] font-semibold text-[var(--muted)] block mb-1">
-                Duty Officer Name
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Nurse Adeleke / Dr. Balogun"
-                value={officerName}
-                onChange={(e) => setOfficerName(e.target.value)}
-                className="input w-full text-xs"
-              />
+        ) : (
+          <div className="p-3.5 rounded-xl bg-[var(--surface-raised)] border border-[var(--border)] space-y-3 text-xs">
+            <div className="font-bold text-[var(--foreground)] flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-blue-600" />
+              <span>Shift Officer Sign-Off (Anti-Phantom Capacity Assurance)</span>
             </div>
 
-            <div>
-              <label className="text-[11px] font-semibold text-[var(--muted)] block mb-1">
-                Clinical Cadre
-              </label>
-              <select
-                value={officerCadre}
-                onChange={(e) => setOfficerCadre(e.target.value)}
-                className="select w-full text-xs"
-              >
-                <option value="Emergency Triage Lead">Emergency Triage Lead</option>
-                <option value="Chief Nursing Officer">Chief Nursing Officer (CNO)</option>
-                <option value="Labor Ward Lead">Labor Ward In-Charge</option>
-                <option value="Consultant Obstetrician">Consultant Obstetrician</option>
-                <option value="Medical Officer">Medical Officer on Duty</option>
-              </select>
-            </div>
+            <div className="grid sm:grid-cols-3 gap-3">
+              <div>
+                <label className="text-[11px] font-semibold text-[var(--muted)] block mb-1">
+                  Duty Officer Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Nurse Adeleke / Dr. Balogun"
+                  value={officerName}
+                  onChange={(e) => setOfficerName(e.target.value)}
+                  className="input w-full text-xs"
+                />
+              </div>
 
-            <div className="flex items-end">
-              <button
-                type="button"
-                onClick={handleVerifyShift}
-                disabled={busy}
-                className="btn btn-primary w-full py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-1.5 shadow-sm"
-              >
-                <ShieldCheck className="w-4 h-4" />
-                <span>{busy ? "Verifying…" : "Sign & Verify 8h Shift"}</span>
-              </button>
+              <div>
+                <label className="text-[11px] font-semibold text-[var(--muted)] block mb-1">
+                  Clinical Cadre
+                </label>
+                <select
+                  value={officerCadre}
+                  onChange={(e) => setOfficerCadre(e.target.value)}
+                  className="select w-full text-xs"
+                >
+                  <option value="Emergency Triage Lead">Emergency Triage Lead</option>
+                  <option value="Chief Nursing Officer">Chief Nursing Officer (CNO)</option>
+                  <option value="Labor Ward Lead">Labor Ward In-Charge</option>
+                  <option value="Consultant Obstetrician">Consultant Obstetrician</option>
+                  <option value="Medical Officer">Medical Officer on Duty</option>
+                </select>
+              </div>
+
+              <div className="flex items-end">
+                <button
+                  type="button"
+                  onClick={handleVerifyShift}
+                  disabled={busy}
+                  className="btn btn-primary w-full py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-1.5 shadow-sm"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>{busy ? "Verifying…" : "Sign & Verify 8h Shift"}</span>
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Specialist On Duty Chips */}
         <div className="space-y-1.5 pt-1">
@@ -547,8 +592,11 @@ export function HospitalCapacity({
                 <button
                   key={spec}
                   type="button"
+                  disabled={readOnly}
                   onClick={() => toggleSpecialist(spec)}
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
+                    readOnly ? "cursor-default" : ""
+                  } ${
                     active
                       ? "bg-blue-50 text-blue-800 border-blue-300 dark:bg-blue-950/60 dark:text-blue-200 dark:border-blue-700 font-semibold shadow-xs"
                       : "bg-[var(--surface)] text-[var(--muted)] border-[var(--border)] hover:bg-[var(--surface-raised)]"
