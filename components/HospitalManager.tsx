@@ -611,7 +611,7 @@ export function HospitalManager({
                           {deskProfiles.map((dp) => (
                             <div
                               key={dp.user_id}
-                              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/50"
+                              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25"
                             >
                               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                               <span className="font-bold">{dp.display_name}</span>
@@ -625,7 +625,7 @@ export function HospitalManager({
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/50">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/25">
                             <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                             <span>No desk profile</span>
                           </span>
@@ -645,8 +645,8 @@ export function HospitalManager({
                       <span
                         className={`px-2 py-0.5 rounded text-xs font-bold ${
                           (h.available_capacity ?? 0) === 0
-                            ? "bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300"
-                            : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                            ? "bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/25"
+                            : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25"
                         }`}
                       >
                         {h.available_capacity ?? 0} beds
@@ -657,7 +657,7 @@ export function HospitalManager({
                       <div className="flex items-center gap-1.5 justify-end">
                         <Link
                           href={`/hospital?facilityId=${h.id}`}
-                          className="btn btn-ghost text-xs px-2.5 py-1 font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/50 flex items-center gap-1"
+                          className="btn btn-ghost text-xs px-2.5 py-1 font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-500/10 flex items-center gap-1"
                           title="Inspect incoming triage queue in Read-Only Supervisor Monitor Mode"
                         >
                           <Eye className="w-3.5 h-3.5" />
