@@ -238,7 +238,7 @@ export function HospitalCapacity({
             </button>
             <button
               type="button"
-              className="btn btn-ghost px-3 py-1.5 text-base font-bold border border-[var(--border,#cbd5e1)] hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+              className="btn btn-ghost px-3 py-1.5 text-base font-bold border border-[var(--border,#cbd5e1)] hover:bg-[var(--surface-raised)]"
               disabled={busy}
               onClick={() => adjust(1)}
               title="Plus 1 Bed"
@@ -322,7 +322,7 @@ export function HospitalCapacity({
               } ${
                 matrix.theaterStatus === "ready"
                   ? "bg-emerald-600 text-white border-emerald-700 shadow-sm"
-                  : "bg-[var(--surface)] text-[var(--muted)] border-[var(--border)] hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                  : "bg-[var(--surface)] text-[var(--muted)] border-[var(--border)] hover:bg-[var(--surface-raised)] hover:text-[var(--foreground)]"
               }`}
             >
               🟢 Ready
@@ -338,7 +338,7 @@ export function HospitalCapacity({
               } ${
                 matrix.theaterStatus === "standby"
                   ? "bg-amber-600 text-white border-amber-700 shadow-sm"
-                  : "bg-[var(--surface)] text-[var(--muted)] border-[var(--border)] hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                  : "bg-[var(--surface)] text-[var(--muted)] border-[var(--border)] hover:bg-[var(--surface-raised)] hover:text-[var(--foreground)]"
               }`}
             >
               🟡 Standby
@@ -400,7 +400,7 @@ export function HospitalCapacity({
               } ${
                 matrix.bloodBankStatus === "active"
                   ? "bg-emerald-600 text-white border-emerald-700 shadow-sm"
-                  : "bg-[var(--surface)] text-[var(--muted)] border-[var(--border)] hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                  : "bg-[var(--surface)] text-[var(--muted)] border-[var(--border)] hover:bg-[var(--surface-raised)] hover:text-[var(--foreground)]"
               }`}
             >
               🟢 Active
@@ -416,7 +416,7 @@ export function HospitalCapacity({
               } ${
                 matrix.bloodBankStatus === "limited"
                   ? "bg-amber-600 text-white border-amber-700 shadow-sm"
-                  : "bg-[var(--surface)] text-[var(--muted)] border-[var(--border)] hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                  : "bg-[var(--surface)] text-[var(--muted)] border-[var(--border)] hover:bg-[var(--surface-raised)] hover:text-[var(--foreground)]"
               }`}
             >
               🟡 Limited
@@ -496,21 +496,21 @@ export function HospitalCapacity({
       <div className="pt-3 border-t border-[var(--border,#f1f5f9)] space-y-3">
         {/* Expiration Alert Banner */}
         {isExpired ? (
-          <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-900 text-red-800 dark:text-red-300 text-xs flex items-center justify-between gap-2">
+          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/25 text-rose-700 dark:text-rose-300 text-xs flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 shrink-0 text-red-600" />
+              <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
               <span className="font-bold">
                 ⚠️ Shift Verification Expired (&gt; 8 hours). Dispatchers will flag capacity as unconfirmed until verified by the on-duty officer.
               </span>
             </div>
           </div>
         ) : (
-          <div className="p-2.5 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-300/60 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 text-xs flex items-center justify-between gap-2">
+          <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-800 dark:text-emerald-300 text-xs flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 font-semibold">
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
               <span>Shift Verified by {matrix.verifiedBy} ({matrix.verifiedCadre || "Lead"})</span>
             </div>
-            <span className="font-mono font-bold text-[11px] bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded">
+            <span className="font-mono font-bold text-[11px] bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/25 px-2 py-0.5 rounded">
               {remainingHours}h {remainingMins}m remaining on 8h cycle
             </span>
           </div>
@@ -598,7 +598,7 @@ export function HospitalCapacity({
                     readOnly ? "cursor-default" : ""
                   } ${
                     active
-                      ? "bg-blue-50 text-blue-800 border-blue-300 dark:bg-blue-950/60 dark:text-blue-200 dark:border-blue-700 font-semibold shadow-xs"
+                      ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30 font-semibold shadow-xs"
                       : "bg-[var(--surface)] text-[var(--muted)] border-[var(--border)] hover:bg-[var(--surface-raised)]"
                   }`}
                 >
