@@ -343,7 +343,7 @@ export function HospitalCards({
                           <button
                             type="button"
                             onClick={() => setActiveSbar({ request: r, data: sbarData })}
-                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded font-bold text-[11px] bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800 hover:bg-blue-100 transition-colors"
+                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded font-bold text-[11px] bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/25 hover:bg-blue-500/20 transition-colors"
                           >
                             <FileText className="w-3 h-3" />
                             <span>View SBAR Handover</span>
@@ -437,7 +437,7 @@ export function HospitalCards({
                       </div>
 
                       {readOnly && (
-                        <div className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 font-medium bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1 rounded-md border border-blue-200 dark:border-blue-800">
+                        <div className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 font-medium bg-blue-500/10 px-2.5 py-1 rounded-md border border-blue-500/25">
                           <Eye className="w-3.5 h-3.5" />
                           <span>Supervisor Monitor · Triage Inspection</span>
                         </div>
@@ -481,8 +481,8 @@ export function HospitalCards({
             {/* SBAR 4-Quadrant Display */}
             <div className="space-y-3 text-xs">
               {/* Situation */}
-              <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60">
-                <div className="font-bold text-blue-900 dark:text-blue-200 uppercase tracking-wider text-[11px] mb-1">
+              <div className="p-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] border-l-4 border-l-blue-500">
+                <div className="font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider text-[11px] mb-1">
                   S — Situation (Primary Emergency)
                 </div>
                 <p className="text-[var(--foreground)] leading-relaxed">
@@ -491,7 +491,7 @@ export function HospitalCards({
               </div>
 
               {/* Background */}
-              <div className="p-3 rounded-lg bg-[var(--surface-raised,#f8fafc)] border border-[var(--border,#e2e8f0)]">
+              <div className="p-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] border-l-4 border-l-slate-400 dark:border-l-slate-600">
                 <div className="font-bold text-[var(--muted)] uppercase tracking-wider text-[11px] mb-1">
                   B — Background & Patient Context
                 </div>
@@ -508,19 +508,19 @@ export function HospitalCards({
               </div>
 
               {/* Assessment */}
-              <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60">
-                <div className="font-bold text-emerald-900 dark:text-emerald-200 uppercase tracking-wider text-[11px] mb-1">
+              <div className="p-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] border-l-4 border-l-emerald-500">
+                <div className="font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider text-[11px] mb-1">
                   A — Assessment & En Route Interventions
                 </div>
                 <p className="text-[var(--foreground)] leading-relaxed">
                   {activeSbar.data.assessment}
                 </p>
                 {activeSbar.data.preReferralMedications.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-emerald-200 dark:border-emerald-900/60">
-                    <span className="font-semibold text-emerald-800 dark:text-emerald-300">
+                  <div className="mt-2 pt-2 border-t border-[var(--border)]">
+                    <span className="font-semibold text-emerald-700 dark:text-emerald-400">
                       Pre-Referral Medications Given:
                     </span>
-                    <ul className="list-disc list-inside mt-1 space-y-0.5 text-[11px] text-emerald-900 dark:text-emerald-200">
+                    <ul className="list-disc list-inside mt-1 space-y-0.5 text-[11px] text-[var(--foreground)]">
                       {activeSbar.data.preReferralMedications.map((m, idx) => (
                         <li key={idx}>{m}</li>
                       ))}
@@ -530,8 +530,8 @@ export function HospitalCards({
               </div>
 
               {/* Recommendation */}
-              <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60">
-                <div className="font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wider text-[11px] mb-1">
+              <div className="p-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] border-l-4 border-l-amber-500">
+                <div className="font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider text-[11px] mb-1">
                   R — Recommendation & Hospital Prep
                 </div>
                 <p className="text-[var(--foreground)] leading-relaxed">
