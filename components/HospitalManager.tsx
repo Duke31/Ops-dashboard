@@ -83,7 +83,7 @@ const empty: FormState = {
   lat: "",
   lng: "",
   intake_phone: "",
-  cluster: "ibadan_private",
+  cluster: "osun_pilot",
 };
 
 export function HospitalManager({
@@ -551,21 +551,21 @@ export function HospitalManager({
           </div>
         </div>
 
-        <div className="table-wrap">
-          <table className="data">
+        <div className="overflow-x-auto w-full">
+          <table className="data w-full text-left" style={{ minWidth: "960px" }}>
             <thead>
               <tr>
-                <th>Hospital & Cluster</th>
-                <th>Address & Phone</th>
-                <th>Assigned Hospital Desk Profiles</th>
-                <th>Capacity</th>
-                <th className="text-right">Actions</th>
+                <th className="px-4 py-3 min-w-[260px] text-left">Hospital &amp; Cluster</th>
+                <th className="px-4 py-3 min-w-[240px] text-left">Address &amp; Phone</th>
+                <th className="px-4 py-3 min-w-[240px] text-left">Assigned Hospital Desk Profiles</th>
+                <th className="px-4 py-3 min-w-[120px] text-left">Capacity</th>
+                <th className="px-4 py-3 min-w-[200px] text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredRows.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="text-[var(--muted)] text-center py-6">
+                  <td colSpan={5} className="text-[var(--muted)] text-center py-6 px-4">
                     No hospitals found in this regional cluster.
                   </td>
                 </tr>
@@ -577,9 +577,9 @@ export function HospitalManager({
                 const hasDesk = deskProfiles.length > 0;
 
                 return (
-                  <tr key={h.id}>
-                    <td>
-                      <div className="font-bold text-sm text-[var(--foreground)]">{h.name}</div>
+                  <tr key={h.id} className="hover:bg-[var(--surface-raised)] transition-colors">
+                    <td className="px-4 py-3.5 align-top">
+                      <div className="font-bold text-sm text-[var(--foreground)] leading-tight">{h.name}</div>
                       <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                         <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
                           {clusterInfo.badge}
@@ -592,7 +592,7 @@ export function HospitalManager({
                       </div>
                     </td>
 
-                    <td className="text-xs max-w-[240px]">
+                    <td className="px-4 py-3.5 align-top text-xs max-w-[240px]">
                       <div className="text-[var(--muted)] truncate">{h.address || "—"}</div>
                       {(h as Hospital & { intake_phone?: string }).intake_phone && (
                         <a
@@ -605,7 +605,7 @@ export function HospitalManager({
                       )}
                     </td>
 
-                    <td>
+                    <td className="px-4 py-3.5 align-top">
                       {hasDesk ? (
                         <div className="space-y-1">
                           {deskProfiles.map((dp) => (
@@ -641,7 +641,7 @@ export function HospitalManager({
                       )}
                     </td>
 
-                    <td>
+                    <td className="px-4 py-3.5 align-top">
                       <span
                         className={`px-2 py-0.5 rounded text-xs font-bold ${
                           (h.available_capacity ?? 0) === 0
@@ -653,19 +653,19 @@ export function HospitalManager({
                       </span>
                     </td>
 
-                    <td>
-                      <div className="flex items-center gap-1.5 justify-end">
+                    <td className="px-4 py-3.5 align-top text-right">
+                      <div className="flex items-center gap-1.5 justify-end whitespace-nowrap">
                         <Link
                           href={`/hospital?facilityId=${h.id}`}
-                          className="btn btn-ghost text-xs px-2.5 py-1 font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-500/10 flex items-center gap-1"
+                          className="btn btn-ghost text-xs px-2.5 py-1 font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-500/10 inline-flex items-center gap-1 whitespace-nowrap"
                           title="Inspect incoming triage queue in Read-Only Supervisor Monitor Mode"
                         >
-                          <Eye className="w-3.5 h-3.5" />
+                          <Eye className="w-3.5 h-3.5 shrink-0" />
                           <span>Desk View</span>
                         </Link>
 
                         <button
-                          className="btn btn-ghost text-xs px-2 py-1 font-semibold"
+                          className="btn btn-ghost text-xs px-2 py-1 font-semibold shrink-0"
                           type="button"
                           disabled={busy}
                           onClick={() => openCreateDeskModal(h)}
@@ -675,7 +675,7 @@ export function HospitalManager({
                         </button>
 
                         <button
-                          className="btn btn-ghost text-xs px-2.5 py-1 font-semibold"
+                          className="btn btn-ghost text-xs px-2.5 py-1 font-semibold shrink-0"
                           type="button"
                           disabled={busy}
                           onClick={() => fill(h)}
@@ -684,7 +684,7 @@ export function HospitalManager({
                         </button>
 
                         <button
-                          className="btn btn-ghost text-xs px-2.5 py-1 text-red-600 dark:text-red-400 font-semibold"
+                          className="btn btn-ghost text-xs px-2.5 py-1 text-red-600 dark:text-red-400 font-semibold shrink-0"
                           type="button"
                           disabled={busy}
                           onClick={() => onDelete(h)}
