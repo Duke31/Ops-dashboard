@@ -1,11 +1,28 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { EmergencyRequest } from "@/lib/types";
 import { formatLocation, resolvePatientAgeBand } from "@/lib/queries";
 import { formatDateTime, timeSince } from "@/lib/format";
 import { StatusBadge } from "@/components/StatusBadge";
 import { getCleanMedicalNotes, parsePatientReview } from "@/lib/patientReview";
+import {
+  Download,
+  Search,
+  FileText,
+  CheckCircle2,
+  AlertTriangle,
+  Building2,
+  Phone,
+  MapPin,
+  X,
+  Star,
+  ShieldCheck,
+  Clock,
+  Activity,
+  BedDouble,
+  User,
+} from "lucide-react";
 
 interface ParsedHospitalNotes {
   admittedBay: string | null;
@@ -27,7 +44,6 @@ function parseHospitalAdmissionDetails(notes: string | null | undefined): Parsed
     const trimmed = line.trim();
     if (!trimmed) continue;
 
-    // Check for ADMITTED TO bay notation
     const bayMatch = trimmed.match(/\[(?:ADMITTED TO|ADMITTED|BAY|BED):\s*([^\]]+)\]/i);
     if (bayMatch) {
       admittedBay = bayMatch[1].trim();
@@ -35,7 +51,6 @@ function parseHospitalAdmissionDetails(notes: string | null | undefined): Parsed
       continue;
     }
 
-    // Check for handover / clinical note block
     const handoverMatch = trimmed.match(/\[(?:HANDOVER|CLINICAL NOTE|TRIAGE NOTE):\s*([^\]]+)\]/i);
     if (handoverMatch) {
       clinicalHandover = handoverMatch[1].trim();
@@ -43,7 +58,7 @@ function parseHospitalAdmissionDetails(notes: string | null | undefined): Parsed
     }
 
     if (trimmed.startsWith("[PATIENT REVIEW")) {
-      continue; // Handled separately by review parser
+      continue;
     }
 
     if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
@@ -51,7 +66,6 @@ function parseHospitalAdmissionDetails(notes: string | null | undefined): Parsed
     }
   }
 
-  // Fallback: check inline notes text if no brackets used
   if (!admittedBay) {
     const inlineBay = notes.match(/admitted to\s+([A-Za-z0-9\s\-\/]+?)(?:\.|\n|$)/i);
     if (inlineBay) admittedBay = inlineBay[1].trim();
@@ -69,11 +83,14 @@ export function HospitalAuditHistoryView({
 }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [nowTimestamp, setNowTimestamp] = useState<number>(0);
-  useEffect(() => { setNowTimestamp(Date.now()); }, []);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [triageFilter, setTriageFilter] = useState<string>("all");
   const [dateRangeFilter, setDateRangeFilter] = useState<string>("all");
   const [selectedCase, setSelectedCase] = useState<EmergencyRequest | null>(null);
+
+  useEffect(() => {
+    setNowTimestamp(Date.now());
+  }, []);
 
   // Derived KPI Auditing Stats
   const auditStats = useMemo(() => {
@@ -124,7 +141,7 @@ export function HospitalAuditHistoryView({
 
   // Filtered requests for auditing table
   const filtered = useMemo(() => {
-    const now = nowTimestamp || 0;
+    const now = nowTimestamp || Date.now();
     return requests.filter((r) => {
       // 1. Status Filter
       if (statusFilter !== "all") {
@@ -246,7 +263,7 @@ export function HospitalAuditHistoryView({
     <div className="space-y-6">
       {/* 1. Hospital Executive Auditing KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <div className="card p-3.5 bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-sm">
+        <div className="card p-3.5 bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-xs">
           <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">
             Total Handled Cases
           </div>
@@ -256,7 +273,7 @@ export function HospitalAuditHistoryView({
           <div className="text-[11px] text-[var(--muted)] mt-0.5">Facility lifetime intake</div>
         </div>
 
-        <div className="card p-3.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl shadow-sm">
+        <div className="card p-3.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl shadow-xs">
           <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
             Admitted / Closed
           </div>
@@ -268,7 +285,7 @@ export function HospitalAuditHistoryView({
           </div>
         </div>
 
-        <div className="card p-3.5 bg-rose-500/10 border border-rose-500/30 rounded-xl shadow-sm">
+        <div className="card p-3.5 bg-rose-500/10 border border-rose-500/30 rounded-xl shadow-xs">
           <div className="text-[10px] font-bold uppercase tracking-wider text-rose-800 dark:text-rose-300">
             Priority 1 Trauma
           </div>
@@ -280,7 +297,7 @@ export function HospitalAuditHistoryView({
           </div>
         </div>
 
-        <div className="card p-3.5 bg-slate-500/10 border border-[var(--border)] rounded-xl shadow-sm">
+        <div className="card p-3.5 bg-slate-500/10 border border-[var(--border)] rounded-xl shadow-xs">
           <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">
             Diverted / Cancelled
           </div>
@@ -290,7 +307,7 @@ export function HospitalAuditHistoryView({
           <div className="text-[11px] text-[var(--muted)] mt-0.5">Redirected or retracted</div>
         </div>
 
-        <div className="card p-3.5 bg-blue-500/10 border border-blue-500/30 rounded-xl shadow-sm col-span-2 md:col-span-1">
+        <div className="card p-3.5 bg-blue-500/10 border border-blue-500/30 rounded-xl shadow-xs col-span-2 md:col-span-1">
           <div className="text-[10px] font-bold uppercase tracking-wider text-blue-800 dark:text-blue-300">
             Avg Turnaround Time
           </div>
@@ -304,7 +321,7 @@ export function HospitalAuditHistoryView({
       </div>
 
       {/* 2. Audit Filter Toolbar & Compliance Actions */}
-      <div className="card p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-sm space-y-3">
+      <div className="card p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-xs space-y-3">
         <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
           {/* Search Box */}
           <div className="flex-1 relative">
@@ -315,7 +332,7 @@ export function HospitalAuditHistoryView({
               onChange={(e) => setSearchTerm(e.target.value)}
               className="input w-full text-xs py-2 pl-8 rounded-lg"
             />
-            <span className="absolute left-2.5 top-2.5 text-xs text-[var(--muted)]">🔍</span>
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-3 text-[var(--muted)]" />
           </div>
 
           {/* Filters & Actions */}
@@ -374,10 +391,11 @@ export function HospitalAuditHistoryView({
               type="button"
               onClick={exportAuditCSV}
               disabled={filtered.length === 0}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition disabled:opacity-50 disabled:cursor-not-allowed"
               title="Download hospital auditing spreadsheet"
             >
-              <span>📥 Export CSV</span>
+              <Download className="w-3.5 h-3.5" />
+              <span>Export CSV</span>
             </button>
           </div>
         </div>
@@ -387,8 +405,9 @@ export function HospitalAuditHistoryView({
             Showing <strong className="text-[var(--foreground)]">{filtered.length}</strong> audited records (from{" "}
             {requests.length} lifetime facility admissions)
           </span>
-          <span className="text-[11px] flex items-center gap-1">
-            <span>🔒 Confidential Hospital Audit Trail</span>
+          <span className="text-[11px] flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>Confidential Hospital Audit Archive</span>
           </span>
         </div>
       </div>
@@ -399,174 +418,135 @@ export function HospitalAuditHistoryView({
           <div className="text-3xl mb-2">📋</div>
           <p className="text-base font-semibold text-[var(--foreground)]">No audit logs matching query</p>
           <p className="text-xs text-[var(--muted)] mt-1">
-            {requests.length === 0
-              ? "No emergency admissions or handovers have been registered under this hospital yet."
-              : "Try adjusting your search keywords, triage criteria, or date range."}
+            Try adjusting your search query, outcome status, or date range filter.
           </p>
         </div>
       ) : (
-        <div className="table-wrap card overflow-hidden border border-[var(--border)] rounded-xl bg-[var(--surface)] shadow-sm">
-          <table className="data w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-[var(--border)] bg-[var(--surface-raised)] text-[11px] uppercase tracking-wider text-[var(--muted)]">
-                <th className="py-3 px-3.5 font-bold">Audit Ref & Triage Code</th>
-                <th className="py-3 px-3.5 font-bold">Patient Details</th>
-                <th className="py-3 px-3.5 font-bold">Outcome & State</th>
-                <th className="py-3 px-3.5 font-bold">EMS Unit / Driver</th>
-                <th className="py-3 px-3.5 font-bold">Timeline & Duration</th>
-                <th className="py-3 px-3.5 font-bold">Bed / Bay & Handover</th>
-                <th className="py-3 px-3.5 font-bold text-right">Audit Detail</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--border)] text-[var(--foreground)]">
-              {filtered.map((r) => {
-                const parsedNotes = parseHospitalAdmissionDetails(r.notes);
-                const cleanNotes = getCleanMedicalNotes(r.notes);
-                const review = parsePatientReview(r.notes);
-                const locationStr = formatLocation(r);
-                const age = resolvePatientAgeBand(r);
+        <div className="card overflow-hidden border border-[var(--border)] rounded-xl bg-[var(--surface)]">
+          <div className="overflow-x-auto w-full">
+            <table className="data w-full text-left" style={{ minWidth: "980px" }}>
+              <thead>
+                <tr>
+                  <th className="min-w-[180px]">Case ID &amp; Time</th>
+                  <th className="min-w-[160px]">Triage Classification</th>
+                  <th className="min-w-[140px]">Outcome Status</th>
+                  <th className="min-w-[200px]">Admitted Bay &amp; SBAR</th>
+                  <th className="min-w-[180px]">Transport Unit</th>
+                  <th className="min-w-[100px] text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((req) => {
+                  const parsedNotes = parseHospitalAdmissionDetails(req.notes);
+                  const cleanNotes = getCleanMedicalNotes(req.notes);
+                  const review = parsePatientReview(req.notes);
 
-                // Compute transit turnaround
-                let durationStr: string | null = null;
-                if (r.completed_at && r.created_at) {
-                  const diffMinutes = Math.round(
-                    (new Date(r.completed_at).getTime() - new Date(r.created_at).getTime()) / (1000 * 60),
-                  );
-                  if (diffMinutes >= 0) {
-                    const hrs = Math.floor(diffMinutes / 60);
-                    const mins = diffMinutes % 60;
-                    durationStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
-                  }
-                }
+                  return (
+                    <tr key={req.id} className="hover:bg-[var(--surface-raised)] transition-colors">
+                      {/* 1. Case ID & Time */}
+                      <td>
+                        <div className="font-mono text-xs font-bold text-[var(--foreground)]">
+                          #{req.id.slice(0, 8)}
+                        </div>
+                        <div className="text-[11px] text-[var(--muted)] mt-0.5">
+                          {formatDateTime(req.created_at)}
+                        </div>
+                        <div className="text-[10px] text-[var(--muted)] mt-0.5 flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-slate-400" />
+                          <span>{timeSince(req.created_at)}</span>
+                        </div>
+                      </td>
 
-                return (
-                  <tr key={r.id} className="hover:bg-[var(--surface-raised)] transition-colors">
-                    {/* Audit Ref & Triage */}
-                    <td className="py-3.5 px-3.5 align-top">
-                      <div className="font-bold text-sm text-[var(--foreground)] flex items-center gap-1.5">
-                        <span>{r.emergency_type || "Emergency"}</span>
-                        {r.priority && (
+                      {/* 2. Triage Classification */}
+                      <td>
+                        <div className="font-bold text-xs text-[var(--foreground)]">
+                          {req.emergency_type || "Emergency Incident"}
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-1">
                           <span
-                            className={`px-1.5 py-0.2 rounded font-black text-[9px] ${
-                              r.priority === 1 || r.priority === "1"
-                                ? "bg-red-600 text-white animate-pulse"
-                                : "bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20"
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                              req.priority === 1 || req.priority === "1"
+                                ? "bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30"
+                                : "bg-blue-500/10 text-blue-600 dark:text-blue-400"
                             }`}
                           >
-                            P{r.priority}
+                            P{req.priority || "Standard"}
+                          </span>
+                          <span className="text-[11px] text-[var(--muted)]">
+                            {resolvePatientAgeBand(req)}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* 3. Outcome Status */}
+                      <td>
+                        <StatusBadge status={req.status} />
+                        {req.completed_at && (
+                          <div className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1 font-mono font-medium">
+                            Admitted {formatDateTime(req.completed_at).slice(11)}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* 4. Admitted Bay & SBAR */}
+                      <td className="max-w-[240px]">
+                        {parsedNotes.admittedBay ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 mb-1">
+                            <BedDouble className="w-3.5 h-3.5" />
+                            <span>{parsedNotes.admittedBay}</span>
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-[var(--muted)] italic block mb-1">
+                            Direct intake
                           </span>
                         )}
-                      </div>
-                      <div className="font-mono text-[10px] text-[var(--muted)] mt-1 tracking-tight">
-                        ID: {r.id.substring(0, 8)}…
-                      </div>
-                    </td>
 
-                    {/* Patient Details */}
-                    <td className="py-3.5 px-3.5 align-top max-w-[200px]">
-                      <div className="font-semibold text-xs text-[var(--foreground)] truncate" title={locationStr}>
-                        📍 {locationStr}
-                      </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px]">
-                        {r.contact_phone && (
-                          <a
-                            href={`tel:${r.contact_phone}`}
-                            className="font-bold text-[10px] text-emerald-700 dark:text-emerald-300 hover:underline flex items-center gap-0.5"
-                          >
-                            <span>📞</span>
-                            <span>{r.contact_phone}</span>
-                          </a>
-                        )}
-                        <span className="px-1.5 py-0.2 rounded bg-[var(--surface-raised)] border border-[var(--border)] text-[10px] text-[var(--muted)]">
-                          {age && age.toLowerCase() !== "unknown" ? `Age: ${age}` : "Age: —"}
-                        </span>
-                      </div>
-                    </td>
+                        {cleanNotes ? (
+                          <p className="text-[11px] text-[var(--muted)] truncate line-clamp-1">
+                            {cleanNotes}
+                          </p>
+                        ) : null}
 
-                    {/* Outcome & State */}
-                    <td className="py-3.5 px-3.5 align-top">
-                      <StatusBadge status={r.status} />
-                      <div className="text-[10px] text-[var(--muted)] mt-1">
-                        {r.status.toLowerCase().includes("admit") || r.status.toLowerCase().includes("complete")
-                          ? "Intake Completed"
-                          : r.status.toLowerCase().includes("cancel")
-                          ? "Cancelled Case"
-                          : "In Progress"}
-                      </div>
-                    </td>
-
-                    {/* Assigned Unit */}
-                    <td className="py-3.5 px-3.5 align-top">
-                      {r.driver ? (
-                        <div>
-                          <div className="font-semibold text-xs flex items-center gap-1">
-                            <span>🚑</span>
-                            <span>{r.driver.display_name || "Ambulance"}</span>
+                        {review && (
+                          <div className="mt-1 flex items-center gap-1 text-[11px] text-amber-600 font-semibold">
+                            <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                            <span>Rated {review.rating}/5</span>
                           </div>
-                          {r.driver.vehicle_label && (
-                            <div className="text-[10px] font-mono text-[var(--muted)] mt-0.5">
-                              {r.driver.vehicle_label}
-                            </div>
-                          )}
+                        )}
+                      </td>
+
+                      {/* 5. Transport Unit */}
+                      <td>
+                        <div className="font-semibold text-xs text-[var(--foreground)]">
+                          {req.driver?.display_name || "Unassigned"}
                         </div>
-                      ) : (
-                        <span className="text-[var(--muted)] italic text-[11px]">Direct Walk-in / Unassigned</span>
-                      )}
-                    </td>
-
-                    {/* Timeline */}
-                    <td className="py-3.5 px-3.5 align-top whitespace-nowrap">
-                      <div className="text-xs font-medium" title={formatDateTime(r.created_at)}>
-                        {formatDateTime(r.created_at)}
-                      </div>
-                      {durationStr && (
-                        <div className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold mt-0.5">
-                          ⏱ Total: {durationStr}
+                        {req.driver?.vehicle_label && (
+                          <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--muted)]">
+                            {req.driver.vehicle_label}
+                          </span>
+                        )}
+                        <div className="text-[11px] text-[var(--muted)] truncate max-w-[180px] mt-0.5">
+                          {formatLocation(req)}
                         </div>
-                      )}
-                      <div className="text-[10px] text-[var(--muted)] mt-0.5">{timeSince(r.created_at)}</div>
-                    </td>
+                      </td>
 
-                    {/* Bed / Handover Notes */}
-                    <td className="py-3.5 px-3.5 align-top max-w-[220px]">
-                      {parsedNotes.admittedBay ? (
-                        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 font-bold text-emerald-800 dark:text-emerald-300 text-[11px]">
-                          <span>🛏️</span>
-                          <span>{parsedNotes.admittedBay}</span>
-                        </div>
-                      ) : (
-                        <span className="text-[var(--muted)] text-[11px] italic">No bay logged</span>
-                      )}
-
-                      {cleanNotes && (
-                        <p className="mt-1 text-[11px] text-[var(--muted)] line-clamp-2 leading-tight" title={cleanNotes}>
-                          {cleanNotes}
-                        </p>
-                      )}
-
-                      {review && (
-                        <div className="mt-1 text-[10px] text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1">
-                          <span>⭐</span>
-                          <span>Patient Rating: {review.rating}/5</span>
-                        </div>
-                      )}
-                    </td>
-
-                    {/* Audit Modal Button */}
-                    <td className="py-3.5 px-3.5 align-top text-right">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedCase(r)}
-                        className="px-2.5 py-1 rounded bg-[var(--surface-raised)] hover:bg-[var(--border)] border border-[var(--border)] text-[var(--foreground)] font-semibold text-[11px] transition"
-                      >
-                        Inspect ↗
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      {/* 6. Action */}
+                      <td className="text-right">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCase(req)}
+                          className="btn btn-ghost text-xs px-2.5 py-1 font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-500/10 inline-flex items-center gap-1"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          <span>Audit Record</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -578,8 +558,8 @@ export function HospitalAuditHistoryView({
             <div className="flex items-start justify-between border-b border-[var(--border)] pb-4">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xl">🏥</span>
-                  <h2 className="text-lg font-bold">Clinical & Operational Audit Record</h2>
+                  <ShieldCheck className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  <h2 className="text-lg font-bold">Clinical &amp; Operational Audit Record</h2>
                 </div>
                 <div className="text-xs text-[var(--muted)] mt-0.5 font-mono">
                   Full Case Identifier: {selectedCase.id}
@@ -588,9 +568,9 @@ export function HospitalAuditHistoryView({
               <button
                 type="button"
                 onClick={() => setSelectedCase(null)}
-                className="text-[var(--muted)] hover:text-[var(--foreground)] text-lg px-2 py-1"
+                className="text-[var(--muted)] hover:text-[var(--foreground)] text-lg p-1 rounded-lg hover:bg-[var(--surface-raised)]"
               >
-                ✕
+                <X className="w-5 h-5" />
               </button>
             </div>
 
@@ -674,7 +654,7 @@ export function HospitalAuditHistoryView({
                         Assigned Receiving Bay / Bed
                       </span>
                       <span className="text-base font-black text-emerald-700 dark:text-emerald-400 mt-0.5 block">
-                        🛏️ {notesParsed.admittedBay}
+                        🛌 {notesParsed.admittedBay}
                       </span>
                     </div>
                   )}
@@ -682,7 +662,7 @@ export function HospitalAuditHistoryView({
                   {cleanNotes && (
                     <div className="p-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] text-xs">
                       <span className="text-[10px] uppercase font-bold text-[var(--muted)] block mb-1">
-                        Triage & Handover Notes
+                        Triage &amp; Handover Notes
                       </span>
                       <p className="text-[var(--foreground)] whitespace-pre-wrap leading-relaxed">{cleanNotes}</p>
                     </div>
@@ -691,10 +671,13 @@ export function HospitalAuditHistoryView({
                   {review && (
                     <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs space-y-1">
                       <span className="text-[10px] uppercase font-bold text-amber-800 dark:text-amber-300 block">
-                        Direct Patient Review & Rating
+                        Direct Patient Review &amp; Rating
                       </span>
-                      <div className="text-amber-600 font-bold">
-                        {"⭐".repeat(review.rating)} ({review.rating}/5)
+                      <div className="text-amber-600 font-bold flex items-center gap-1">
+                        {Array.from({ length: review.rating }).map((_, i) => (
+                          <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                        ))}
+                        <span className="ml-1">({review.rating}/5)</span>
                       </div>
                       <p className="italic text-amber-950 dark:text-amber-100">&ldquo;{review.remark}&rdquo;</p>
                       {review.tags.length > 0 && (
