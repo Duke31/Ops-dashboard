@@ -19,6 +19,12 @@ export const requireProfile = cache(async (expected?: AppRole | AppRole[]) => {
 
   if (error || !profile) redirect("/login?error=no-role");
 
+  // Strict role isolation: Mobile clients cannot access staff operations dashboard
+  if (profile.role === "client") {
+    await supabase.auth.signOut();
+    redirect("/login?error=client-unauthorized");
+  }
+
   profile.email = user.email ?? null;
 
   if (expected) {
