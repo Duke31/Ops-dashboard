@@ -44,5 +44,13 @@ export async function loginAction(
     };
   }
 
+  // Strict role boundary: Revoke client accounts from staff operations portal
+  if (profile.role === "client") {
+    await supabase.auth.signOut();
+    return {
+      error: "Access Denied: Client accounts cannot sign into the Staff Operations Dashboard. Please use the Solace Emergency mobile application.",
+    };
+  }
+
   redirect(homeForRole(String(profile.role)));
 }
