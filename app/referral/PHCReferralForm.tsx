@@ -94,6 +94,7 @@ export function PHCReferralForm({
   const [patientAgeBand, setPatientAgeBand] = useState("18-39");
   const [gestationalWeeks, setGestationalWeeks] = useState("36");
   const [parity, setParity] = useState("G2P1");
+  const [coverageScheme, setCoverageScheme] = useState("O'HIS Enrolled (Free via 5% BHCPF Emergency Fund)");
 
   // Obstetric Emergency Category
   const [selectedCategory, setSelectedCategory] = useState(OBSTETRIC_CATEGORIES[0].key);
@@ -187,7 +188,7 @@ export function PHCReferralForm({
         const sbarAssessment = `BP: ${systolicBp}/${diastolicBp}, FHT: ${fetalHeartSound}. Pre-transfer: MgSO4: ${mgso4Given ? "YES (Loading Dose Given)" : "NO"} | Oxytocin: ${oxytocinGiven ? "YES" : "NO"} | IV Fluids: ${ivFluidsRunning ? "YES" : "NO"} | Catheter: ${catheterized ? "YES" : "NO"}. ${clinicalNotes.trim()}`;
         const sbarRecommendation = "Expedite direct admission to Labor Ward / C-Section Theater. Immediate curb reception.";
 
-        const formattedNotes = `[SBAR HANDOVER | S: ${sbarSituation} | B: ${sbarBackground} | A: ${sbarAssessment} | R: ${sbarRecommendation}]\n[PHC_TRANSFER: ${effectiveFacility} | OFFICER: ${officerName} (${officerPhone})]${mgso4Given ? "\n[PRE_REFERRAL_MEDICATION: Magnesium Sulphate (MgSO4) Loading Dose Administered]" : ""}${oxytocinGiven ? "\n[PRE_REFERRAL_MEDICATION: Oxytocin Administered]" : ""}`;
+        const formattedNotes = `[SBAR HANDOVER | S: ${sbarSituation} | B: ${sbarBackground} | A: ${sbarAssessment} | R: ${sbarRecommendation}]\n[PHC_TRANSFER: ${effectiveFacility} | OFFICER: ${officerName} (${officerPhone})]\n[COVERAGE: ${coverageScheme}]${mgso4Given ? "\n[PRE_REFERRAL_MEDICATION: Magnesium Sulphate (MgSO4) Loading Dose Administered]" : ""}${oxytocinGiven ? "\n[PRE_REFERRAL_MEDICATION: Oxytocin Administered]" : ""}`;
 
         const { data: inserted, error: insertErr } = await supabase
           .from("emergency_requests")
@@ -483,6 +484,22 @@ export function PHCReferralForm({
               onChange={(e) => setParity(e.target.value)}
               className="input w-full text-xs"
             />
+          </div>
+
+          <div>
+            <label className="font-semibold text-[var(--foreground)] block mb-1">
+              Coverage / Reimbursement Scheme
+            </label>
+            <select
+              value={coverageScheme}
+              onChange={(e) => setCoverageScheme(e.target.value)}
+              className="select w-full text-xs font-medium"
+            >
+              <option value="O'HIS Enrolled (Free via 5% BHCPF Emergency Fund)">O'HIS Enrolled (Free via 5% BHCPF Emergency Fund)</option>
+              <option value="NHIA / State Vulnerable Group Fund">NHIA / State Vulnerable Group Fund</option>
+              <option value="Private HMO Partner Enrollee">Private HMO Partner Enrollee</option>
+              <option value="Community Emergency Self-Pay (Subsidized)">Community Emergency Self-Pay (Subsidized)</option>
+            </select>
           </div>
         </div>
       </div>
