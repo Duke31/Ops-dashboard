@@ -85,7 +85,7 @@ export function haversineDistanceKm(lat1: number, lon1: number, lat2: number, lo
  * Matches coordinates to closest regional cluster using Haversine algorithm
  */
 export function classifyClusterByCoordinates(lat: number, lng: number): Exclude<RegionClusterKey, "all"> {
-  let closestCluster: Exclude<RegionClusterKey, "all"> = "ibadan_private";
+  let closestCluster: Exclude<RegionClusterKey, "all"> = "osun_pilot";
   let minDistance = Infinity;
 
   for (const [key, centroid] of Object.entries(CLUSTER_CENTROIDS)) {
@@ -243,8 +243,8 @@ export function detectCluster(item: {
     return classifyClusterByCoordinates(lat, lng);
   }
 
-  // Default to Ibadan Private cluster since drivers and current expansion are centered in Ibadan
-  return "ibadan_private";
+  // Default to Osun State Pilot cluster
+  return "osun_pilot";
 }
 
 export interface SbarHandoverData {
