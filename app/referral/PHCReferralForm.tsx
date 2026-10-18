@@ -522,7 +522,7 @@ export function PHCReferralForm({
                 key={cat.key}
                 className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-start gap-3 ${
                   isSelected
-                    ? "border-purple-600 bg-purple-50/60 dark:bg-purple-950/40 shadow-xs"
+                    ? "border-purple-600 bg-purple-500/15 dark:bg-purple-950/70 shadow-sm ring-1 ring-purple-500"
                     : "border-[var(--border)] bg-[var(--surface-raised)] hover:bg-[var(--border)]/30"
                 }`}
               >
@@ -535,9 +535,29 @@ export function PHCReferralForm({
                   className="mt-1 text-purple-600 focus:ring-purple-500"
                 />
                 <div className="min-w-0">
-                  <div className="font-bold text-[var(--foreground)]">{cat.label}</div>
-                  <p className="text-[11px] text-[var(--muted)] mt-0.5 leading-snug">{cat.desc}</p>
-                  <span className="inline-block mt-1.5 px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-900/60 dark:text-purple-300">
+                  <div
+                    className={`font-bold ${
+                      isSelected ? "text-purple-950 dark:text-purple-100" : "text-[var(--foreground)]"
+                    }`}
+                  >
+                    {cat.label}
+                  </div>
+                  <p
+                    className={`text-[11px] mt-0.5 leading-snug font-medium ${
+                      isSelected
+                        ? "text-purple-900 dark:text-purple-200"
+                        : "text-slate-600 dark:text-slate-400"
+                    }`}
+                  >
+                    {cat.desc}
+                  </p>
+                  <span
+                    className={`inline-block mt-1.5 px-2 py-0.5 rounded text-[10px] font-bold ${
+                      isSelected
+                        ? "bg-purple-600 text-white dark:bg-purple-600 dark:text-white shadow-xs"
+                        : "bg-purple-100 text-purple-800 dark:bg-purple-900/60 dark:text-purple-300"
+                    }`}
+                  >
                     {cat.urgency}
                   </span>
                 </div>
