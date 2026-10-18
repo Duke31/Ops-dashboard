@@ -132,19 +132,38 @@ export function AppShell({
   }, [pathname]);
 
   useEffect(() => {
-    const currentTheme =
-      document.documentElement.getAttribute("data-theme") === "dark" ||
-      (!document.documentElement.hasAttribute("data-theme") &&
-        window.matchMedia("(prefers-color-scheme: dark)").matches)
-        ? "dark"
-        : "light";
+    let currentTheme: "light" | "dark" = "light";
+    try {
+      const saved = localStorage.getItem("ops_theme") as "light" | "dark" | null;
+      if (saved) {
+        currentTheme = saved;
+      } else if (
+        document.documentElement.getAttribute("data-theme") === "dark" ||
+        window.matchMedia("(prefers-color-scheme: dark)").matches
+      ) {
+        currentTheme = "dark";
+      }
+    } catch {
+      currentTheme = "dark";
+    }
     setTheme(currentTheme);
+    document.documentElement.setAttribute("data-theme", currentTheme);
+    if (currentTheme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
   }, []);
 
   function toggleTheme() {
     const next = theme === "dark" ? "light" : "dark";
     setTheme(next);
     document.documentElement.setAttribute("data-theme", next);
+    if (next === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
     try {
       localStorage.setItem("ops_theme", next);
     } catch {}
