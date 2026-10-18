@@ -1037,14 +1037,14 @@ export function RequestBoard({
                             }
                           }}
                         >
-                          <option value="">Select Ambulance Unit</option>
+                          <option value="">Select Response Unit (ALS / BLS / Rapid Transit)</option>
                           {drivers.map((d) => {
                             const isOffDuty = d.duty_status === "off_duty" || d.active === false;
                             return (
                               <option key={d.id} value={d.id}>
                                 {isOffDuty ? "⚪ [OFF DUTY] " : "🟢 [ON DUTY] "}
                                 {d.display_name || "Driver"}
-                                {d.vehicle_label ? ` · ${d.vehicle_label}` : ""}
+                                {d.vehicle_label ? ` · ${d.vehicle_label}` : " · Rapid Transit Unit"}
                               </option>
                             );
                           })}
