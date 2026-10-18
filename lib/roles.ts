@@ -11,7 +11,7 @@ export function homeForRole(role: string | null | undefined): string {
     return `/${role}`;
   }
   if (role === "client") {
-    return "/download";
+    return "/login?error=client-unauthorized";
   }
   return "/no-access";
 }
@@ -33,6 +33,7 @@ export function roleFromPath(pathname: string): AppRole | null {
 }
 
 export function canAccessPath(role: AppRole, pathname: string): boolean {
+  if (role === "client") return false;
   const required = roleFromPath(pathname);
   if (!required) return true;
   if (role === "admin") return true;
