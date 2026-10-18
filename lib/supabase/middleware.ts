@@ -72,6 +72,14 @@ export async function updateSession(request: NextRequest) {
 
     const role = profile?.role as AppRole | undefined;
 
+    // Strict role isolation: Mobile clients cannot access staff operations dashboard
+    if (role === "client") {
+      const dest = request.nextUrl.clone();
+      dest.pathname = "/login";
+      dest.searchParams.set("error", "client-unauthorized");
+      return NextResponse.redirect(dest);
+    }
+
     if (isLogin) {
       const dest = request.nextUrl.clone();
       dest.pathname = role ? homeForRole(role) : "/no-access";
