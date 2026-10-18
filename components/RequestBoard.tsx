@@ -576,18 +576,7 @@ export function RequestBoard({
             >
               All Clusters ({liveRequests.length})
             </button>
-            <button
-              type="button"
-              onClick={() => setSelectedCluster("ibadan_private")}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all inline-flex items-center gap-1.5 ${
-                selectedCluster === "ibadan_private"
-                  ? "bg-[var(--foreground)] text-[var(--background)] shadow-xs"
-                  : "bg-[var(--surface)] text-[var(--muted)] border border-[var(--border)] hover:text-[var(--foreground)] hover:bg-[var(--surface-raised)]"
-              }`}
-            >
-              <span className="w-2 h-2 rounded-full bg-blue-500 inline-block shrink-0" />
-              <span>Ibadan Private Network</span>
-            </button>
+
             <button
               type="button"
               onClick={() => setSelectedCluster("osun_pilot")}
