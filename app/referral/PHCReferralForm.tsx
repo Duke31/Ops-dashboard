@@ -305,25 +305,28 @@ export function PHCReferralForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* 1. Header Banner */}
-      <div className="p-5 rounded-2xl bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white shadow-lg space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-xs font-bold bg-white/10 text-purple-200 border border-white/20">
-            <Building2 className="w-3.5 h-3.5" />
+      <div className="p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white border border-slate-700/60 shadow-lg space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
+            <Building2 className="w-3.5 h-3.5 text-emerald-400" />
             <span>Osun State OSEMSAS Pilot · Stage A Health Worker Portal</span>
           </div>
-          <span className="text-xs font-semibold text-purple-300">Priority 1 Maternal Triage</span>
+          <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            Priority 1 Maternal Triage
+          </span>
         </div>
         <h1 className="text-2xl font-black tracking-tight text-white">
           Primary Healthcare Emergency Referral Intake
         </h1>
-        <p className="text-xs text-purple-200/90 leading-relaxed max-w-2xl">
+        <p className="text-xs text-slate-300 leading-relaxed max-w-2xl">
           For midwives, CHEWs, and nurses at rural PHCs. Directly requests an OSEMSAS / Solace ambulance and transmits structured SBAR clinical notes to pre-alert the receiving hospital ER.
         </p>
       </div>
 
       {error && (
-        <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-900 text-red-800 dark:text-red-300 text-xs flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 shrink-0" />
+        <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-700 dark:text-red-300 text-xs flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0 text-red-500" />
           <span>{error}</span>
         </div>
       )}
@@ -331,7 +334,7 @@ export function PHCReferralForm({
       {/* Block 1: Referring PHC Facility & Health Worker */}
       <div className="card p-5 border border-[var(--border)] space-y-4">
         <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2 text-sm font-bold text-[var(--foreground)]">
-          <Building2 className="w-4 h-4 text-purple-600" />
+          <Building2 className="w-4 h-4 text-emerald-500" />
           <span>Block 1: Referring PHC Facility & Health Worker</span>
         </div>
 
@@ -505,61 +508,80 @@ export function PHCReferralForm({
       </div>
 
       {/* Block 3: Obstetric Emergency Category (6 In-Scope Conditions) */}
-      <div className="card p-5 border border-[var(--border)] space-y-3">
-        <div className="flex items-center justify-between border-b border-[var(--border)] pb-2 text-sm font-bold text-[var(--foreground)]">
+      <div className="card p-5 border border-[var(--border)] space-y-4">
+        <div className="flex flex-wrap items-center justify-between border-b border-[var(--border)] pb-3 gap-2">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-600" />
-            <span>Block 3: Obstetric Emergency Category (6 In-Scope Pilot Conditions)</span>
+            <AlertTriangle className="w-4 h-4 text-emerald-500" />
+            <span className="font-bold text-sm text-[var(--foreground)]">
+              Block 3: Obstetric Emergency Category (6 In-Scope Pilot Conditions)
+            </span>
           </div>
-          <span className="text-xs font-semibold text-purple-600">Select Primary Reason for Transfer</span>
+          <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[var(--surface-raised)] text-[var(--foreground)] border border-[var(--border)]">
+            Select 1 Primary Reason for Transfer
+          </span>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-3 text-xs">
+        <div className="grid md:grid-cols-2 gap-3.5">
           {OBSTETRIC_CATEGORIES.map((cat) => {
             const isSelected = selectedCategory === cat.key;
             return (
               <label
                 key={cat.key}
-                className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-start gap-3 ${
+                className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-3.5 relative ${
                   isSelected
-                    ? "border-purple-600 bg-purple-500/15 dark:bg-purple-950/70 shadow-sm ring-1 ring-purple-500"
-                    : "border-[var(--border)] bg-[var(--surface-raised)] hover:bg-[var(--border)]/30"
+                    ? "border-emerald-500 bg-emerald-500/10 shadow-lg shadow-emerald-950/20 ring-1 ring-emerald-500/40"
+                    : "border-[var(--border)] bg-[var(--surface-raised)] hover:border-slate-500/50 hover:bg-[var(--surface-raised)]/90"
                 }`}
               >
-                <input
-                  type="radio"
-                  name="obstetricCategory"
-                  value={cat.key}
-                  checked={isSelected}
-                  onChange={() => setSelectedCategory(cat.key)}
-                  className="mt-1 text-purple-600 focus:ring-purple-500"
-                />
-                <div className="min-w-0">
-                  <div
-                    className={`font-bold ${
-                      isSelected ? "text-purple-950 dark:text-purple-100" : "text-[var(--foreground)]"
-                    }`}
-                  >
-                    {cat.label}
+                <div className="pt-0.5 shrink-0">
+                  <input
+                    type="radio"
+                    name="obstetricCategory"
+                    value={cat.key}
+                    checked={isSelected}
+                    onChange={() => setSelectedCategory(cat.key)}
+                    className="w-4 h-4 text-emerald-500 focus:ring-emerald-500 cursor-pointer"
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <span
+                      className={`text-sm leading-snug ${
+                        isSelected
+                          ? "text-emerald-400 font-black"
+                          : "text-[var(--foreground)] font-bold"
+                      }`}
+                    >
+                      {cat.label}
+                    </span>
+                    {isSelected && (
+                      <span className="shrink-0 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-500 text-slate-950 shadow-xs">
+                        Selected
+                      </span>
+                    )}
                   </div>
                   <p
-                    className={`text-[11px] mt-0.5 leading-snug font-medium ${
+                    className={`text-xs mt-1.5 leading-relaxed ${
                       isSelected
-                        ? "text-purple-900 dark:text-purple-200"
-                        : "text-slate-600 dark:text-slate-400"
+                        ? "text-slate-100 font-medium"
+                        : "text-[var(--muted)]"
                     }`}
                   >
                     {cat.desc}
                   </p>
-                  <span
-                    className={`inline-block mt-1.5 px-2 py-0.5 rounded text-[10px] font-bold ${
-                      isSelected
-                        ? "bg-purple-600 text-white dark:bg-purple-600 dark:text-white shadow-xs"
-                        : "bg-purple-100 text-purple-800 dark:bg-purple-900/60 dark:text-purple-300"
-                    }`}
-                  >
-                    {cat.urgency}
-                  </span>
+                  <div className="mt-2.5 flex items-center gap-2">
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded text-[10px] font-bold ${
+                        cat.urgency.toLowerCase().includes("immediate")
+                          ? "bg-rose-500/20 text-rose-300 border border-rose-500/40"
+                          : cat.urgency.toLowerCase().includes("theater")
+                          ? "bg-purple-500/20 text-purple-300 border border-purple-500/40"
+                          : "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                      }`}
+                    >
+                      {cat.urgency}
+                    </span>
+                  </div>
                 </div>
               </label>
             );
@@ -621,117 +643,127 @@ export function PHCReferralForm({
       </div>
 
       {/* Block 5: Pre-Referral Interventions Given at PHC */}
-      <div className="card p-5 border border-[var(--border)] space-y-3 bg-indigo-50/20 dark:bg-indigo-950/10">
-        <div className="flex items-center justify-between border-b border-[var(--border)] pb-2 text-sm font-bold text-[var(--foreground)]">
+      <div className="card p-5 border border-[var(--border)] space-y-4">
+        <div className="flex flex-wrap items-center justify-between border-b border-[var(--border)] pb-3 gap-2">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-indigo-600" />
-            <span>Block 5: Pre-Referral Interventions Given at PHC (Clinical Governance)</span>
+            <ShieldCheck className="w-4 h-4 text-emerald-500" />
+            <span className="font-bold text-sm text-[var(--foreground)]">
+              Block 5: Pre-Referral Interventions Given at PHC (Clinical Governance)
+            </span>
           </div>
-          <span className="text-[11px] font-bold text-indigo-700 dark:text-indigo-300">
+          <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[var(--surface-raised)] text-[var(--foreground)] border border-[var(--border)]">
             Mandatory Protocol Tracking
           </span>
         </div>
 
-        <div className="grid sm:grid-cols-2 gap-3 text-xs">
-          <label className={`p-3.5 rounded-xl border transition-all flex items-start gap-2.5 cursor-pointer ${
+        <div className="grid sm:grid-cols-2 gap-3.5">
+          <label className={`p-4 rounded-xl border-2 transition-all flex items-start gap-3 cursor-pointer ${
             mgso4Given
-              ? "border-purple-500 bg-purple-500/10 shadow-xs ring-1 ring-purple-500/20"
-              : "border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-raised)]"
+              ? "border-emerald-500 bg-emerald-500/10 shadow-sm ring-1 ring-emerald-500/30"
+              : "border-[var(--border)] bg-[var(--surface-raised)] hover:border-slate-500/50"
           }`}>
             <input
               type="checkbox"
               checked={mgso4Given}
               onChange={(e) => setMgso4Given(e.target.checked)}
-              className="mt-0.5 rounded text-purple-600 focus:ring-purple-500"
+              className="mt-0.5 w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 cursor-pointer"
             />
-            <div>
-              <div className="font-bold text-[var(--foreground)] flex items-center gap-1.5">
-                <span>Magnesium Sulphate (MgSO4) Loading Dose Given</span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-1.5">
+                <span className={`text-xs font-bold leading-tight ${mgso4Given ? "text-emerald-400 font-extrabold" : "text-[var(--foreground)]"}`}>
+                  MgSO4 Loading Dose Given
+                </span>
                 {mgso4Given && (
-                  <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-purple-600 text-white">
+                  <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-500 text-slate-950 shrink-0">
                     GIVEN
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-[var(--muted)] mt-0.5">
+              <p className={`text-xs mt-1 leading-relaxed ${mgso4Given ? "text-slate-100 font-medium" : "text-[var(--muted)]"}`}>
                 4g IV slow + 10g IM (5g in each buttock) for severe pre-eclampsia/eclampsia
               </p>
             </div>
           </label>
 
-          <label className={`p-3.5 rounded-xl border transition-all flex items-start gap-2.5 cursor-pointer ${
+          <label className={`p-4 rounded-xl border-2 transition-all flex items-start gap-3 cursor-pointer ${
             oxytocinGiven
-              ? "border-cyan-500 bg-cyan-500/10 shadow-xs ring-1 ring-cyan-500/20"
-              : "border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-raised)]"
+              ? "border-emerald-500 bg-emerald-500/10 shadow-sm ring-1 ring-emerald-500/30"
+              : "border-[var(--border)] bg-[var(--surface-raised)] hover:border-slate-500/50"
           }`}>
             <input
               type="checkbox"
               checked={oxytocinGiven}
               onChange={(e) => setOxytocinGiven(e.target.checked)}
-              className="mt-0.5 rounded text-cyan-600 focus:ring-cyan-500"
+              className="mt-0.5 w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 cursor-pointer"
             />
-            <div>
-              <div className="font-bold text-[var(--foreground)] flex items-center gap-1.5">
-                <span>Oxytocin Administered (10 IU IM/IV)</span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-1.5">
+                <span className={`text-xs font-bold leading-tight ${oxytocinGiven ? "text-emerald-400 font-extrabold" : "text-[var(--foreground)]"}`}>
+                  Oxytocin Administered (10 IU)
+                </span>
                 {oxytocinGiven && (
-                  <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-cyan-600 text-white">
+                  <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-500 text-slate-950 shrink-0">
                     GIVEN
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-[var(--muted)] mt-0.5">
+              <p className={`text-xs mt-1 leading-relaxed ${oxytocinGiven ? "text-slate-100 font-medium" : "text-[var(--muted)]"}`}>
                 Administered for active postpartum hemorrhage / uterine atony
               </p>
             </div>
           </label>
 
-          <label className={`p-3.5 rounded-xl border transition-all flex items-start gap-2.5 cursor-pointer ${
+          <label className={`p-4 rounded-xl border-2 transition-all flex items-start gap-3 cursor-pointer ${
             ivFluidsRunning
-              ? "border-emerald-500 bg-emerald-500/10 shadow-xs ring-1 ring-emerald-500/20"
-              : "border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-raised)]"
+              ? "border-emerald-500 bg-emerald-500/10 shadow-sm ring-1 ring-emerald-500/30"
+              : "border-[var(--border)] bg-[var(--surface-raised)] hover:border-slate-500/50"
           }`}>
             <input
               type="checkbox"
               checked={ivFluidsRunning}
               onChange={(e) => setIvFluidsRunning(e.target.checked)}
-              className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500"
+              className="mt-0.5 w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 cursor-pointer"
             />
-            <div>
-              <div className="font-bold text-[var(--foreground)] flex items-center gap-1.5">
-                <span>IV Line Secured & Fluids Running</span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-1.5">
+                <span className={`text-xs font-bold leading-tight ${ivFluidsRunning ? "text-emerald-400 font-extrabold" : "text-[var(--foreground)]"}`}>
+                  IV Line Secured &amp; Running
+                </span>
                 {ivFluidsRunning && (
-                  <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-emerald-600 text-white">
+                  <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-500 text-slate-950 shrink-0">
                     RUNNING
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-[var(--muted)] mt-0.5">
+              <p className={`text-xs mt-1 leading-relaxed ${ivFluidsRunning ? "text-slate-100 font-medium" : "text-[var(--muted)]"}`}>
                 16G / 18G cannula in place with Normal Saline or Ringer&apos;s Lactate
               </p>
             </div>
           </label>
 
-          <label className={`p-3.5 rounded-xl border transition-all flex items-start gap-2.5 cursor-pointer ${
+          <label className={`p-4 rounded-xl border-2 transition-all flex items-start gap-3 cursor-pointer ${
             catheterized
-              ? "border-amber-500 bg-amber-500/10 shadow-xs ring-1 ring-amber-500/20"
-              : "border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-raised)]"
+              ? "border-emerald-500 bg-emerald-500/10 shadow-sm ring-1 ring-emerald-500/30"
+              : "border-[var(--border)] bg-[var(--surface-raised)] hover:border-slate-500/50"
           }`}>
             <input
               type="checkbox"
               checked={catheterized}
               onChange={(e) => setCatheterized(e.target.checked)}
-              className="mt-0.5 rounded text-amber-600 focus:ring-amber-500"
+              className="mt-0.5 w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 cursor-pointer"
             />
-            <div>
-              <div className="font-bold text-[var(--foreground)] flex items-center gap-1.5">
-                <span>Urinary Catheter in Place</span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-1.5">
+                <span className={`text-xs font-bold leading-tight ${catheterized ? "text-emerald-400 font-extrabold" : "text-[var(--foreground)]"}`}>
+                  Urinary Catheter Placed
+                </span>
                 {catheterized && (
-                  <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-amber-600 text-white">
+                  <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-500 text-slate-950 shrink-0">
                     PLACED
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-[var(--muted)] mt-0.5">
+              <p className={`text-xs mt-1 leading-relaxed ${catheterized ? "text-slate-100 font-medium" : "text-[var(--muted)]"}`}>
                 Foley catheter placed with urine bag attached for output monitoring
               </p>
             </div>
@@ -792,7 +824,7 @@ export function PHCReferralForm({
         <button
           type="submit"
           disabled={submitting}
-          className="btn btn-primary w-full py-3.5 text-sm font-bold bg-purple-700 hover:bg-purple-800 text-white flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
+          className="btn w-full py-3.5 text-sm font-black bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/30 disabled:opacity-50 transition-all rounded-xl"
         >
           {submitting ? (
             <>
