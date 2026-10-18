@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-
 import { useActionState, Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { loginAction } from "./actions";
+import { ShieldAlert, ArrowLeft } from "lucide-react";
 
 function LoginForm() {
   const searchParams = useSearchParams();
@@ -13,7 +13,11 @@ function LoginForm() {
 
   const urlError = searchParams.get("error");
   useEffect(() => {
-    if (urlError === "no-role" || urlError === "unauthorized") {
+    if (urlError === "client-unauthorized") {
+      setLocalError(
+        "Access Denied: Client accounts cannot sign into the Staff Operations Dashboard. Please use the Solace Emergency mobile application on your mobile device.",
+      );
+    } else if (urlError === "no-role" || urlError === "unauthorized") {
       setLocalError("Unauthorized: Access restricted to authorized operational staff only.");
     } else if (urlError) {
       setLocalError("Unauthorized: Access restricted to authorized operational staff only.");
@@ -22,7 +26,7 @@ function LoginForm() {
 
   // Silently clear existing session if arriving via staff sign in with ?reauth=1
   useEffect(() => {
-    const shouldReauth = searchParams.get("reauth") === "1";
+    const shouldReauth = searchParams.get("reauth") === "1" || urlError === "client-unauthorized";
     if (shouldReauth) {
       const clearExisting = async () => {
         try {
@@ -35,7 +39,7 @@ function LoginForm() {
       };
       clearExisting();
     }
-  }, [searchParams]);
+  }, [searchParams, urlError]);
 
   const activeError = state?.error || localError;
 
@@ -80,13 +84,14 @@ function LoginForm() {
       </label>
 
       {activeError && (
-        <div className="text-xs text-red-700 dark:text-red-300 bg-red-500/10 border border-red-500/30 rounded-md px-3 py-2 leading-relaxed">
-          {activeError}
+        <div className="text-xs text-red-700 dark:text-red-300 bg-red-500/10 border border-red-500/30 rounded-lg p-3 leading-relaxed flex items-start gap-2">
+          <ShieldAlert className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+          <span>{activeError}</span>
         </div>
       )}
 
       <button className="btn btn-primary w-full py-2" disabled={isPending}>
-        {isPending ? "Signing in…" : "Sign in"}
+        {isPending ? "Signing in..." : "Sign in"}
       </button>
 
       <div className="pt-2 flex flex-col items-center gap-2.5">
@@ -101,7 +106,7 @@ function LoginForm() {
             href="/"
             className="hover:underline text-[var(--muted)]"
           >
-            ← Public Site
+            Public Site
           </Link>
         </div>
       </div>
