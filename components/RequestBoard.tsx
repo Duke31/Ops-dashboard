@@ -1272,9 +1272,13 @@ export function RequestBoard({
                 <div className="p-3.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] border-l-4 border-l-emerald-500">
                   <div className="font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider text-[11px] mb-1 flex items-center justify-between">
                     <span>A — Assessment & En Route Interventions</span>
-                    <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5 rounded">
-                      Fetal Doppler Viable (~142 bpm)
+                    <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-800">
+                      {activeSbar.data.assessmentBadge || (activeSbar.data.stage === "stage_a" ? "Verified PHC Clinical Intake" : "Standing Triage Verification")}
                     </span>
+                  </div>
+                  <div className="text-[10px] text-[var(--muted)] mb-2 flex items-center gap-1.5 font-medium">
+                    <span>📋 Protocol Source:</span>
+                    <strong className="text-[var(--foreground)]">{activeSbar.data.assessmentSource || "Standing Triage Verification"}</strong>
                   </div>
                   <p className="text-[var(--foreground)] leading-relaxed">
                     {activeSbar.data.assessment}
@@ -1283,7 +1287,11 @@ export function RequestBoard({
                     <div className="mt-2.5 pt-2.5 border-t border-[var(--border)]">
                       <span className="font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
                         <span>💊</span>
-                        <span>Medications Administered En Route:</span>
+                        <span>
+                          {activeSbar.data.stage === "stage_a"
+                            ? "Pre-Referral Medications Given at PHC:"
+                            : "Equipment & Clinical Protocols on Response Unit:"}
+                        </span>
                       </span>
                       <ul className="list-disc list-inside mt-1 space-y-0.5 text-[11px] text-[var(--foreground)]">
                         {activeSbar.data.preReferralMedications.map((m, idx) => (
