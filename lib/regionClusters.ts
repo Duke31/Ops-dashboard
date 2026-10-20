@@ -323,6 +323,9 @@ export interface SbarHandoverData {
   preferredHospital?: string;
   condition?: string;
   landmark?: string;
+  stage: "stage_a" | "stage_b";
+  assessmentBadge: string;
+  assessmentSource: string;
 }
 
 /**
@@ -388,6 +391,19 @@ export function extractSbarData(req: EmergencyRequest): SbarHandoverData {
     }
   }
 
+  const isStageA =
+    (req as any).stage === "stage_a" ||
+    req.origin === "phc_referral" ||
+    notes.includes("PHC_TRANSFER") ||
+    (req.patient_address || "").includes("PHC Transfer") ||
+    notes.includes("STAGE A");
+
+  const stage: "stage_a" | "stage_b" = isStageA ? "stage_a" : "stage_b";
+  let assessmentBadge = isStageA ? "Verified PHC Clinical Intake" : "Standing Triage Verification";
+  let assessmentSource = isStageA
+    ? "Primary Health Centre Midwife / Referring Officer"
+    : "Dispatch Tele-Triage Protocol (Client Mobile App SOS)";
+
   const isObs =
     type.toLowerCase().includes("obstetric") ||
     type.toLowerCase().includes("matern") ||
@@ -430,12 +446,17 @@ export function extractSbarData(req: EmergencyRequest): SbarHandoverData {
 
     background = `${bgParts.join(" • ")}. Antenatal care confirmed; live telemetry and continuous vitals streaming to receiving desk.`;
 
-    // 3. Clinical Assessment & en route interventions
-    assessment = `Fetal heart tones documented viable (~142 bpm), active uterine contractions every 2–3 mins. Maternal vitals: BP 120/80 mmHg, Pulse 84 bpm, SpO2 99%, conscious and oriented. Pre-referral neuroprotection / seizure prophylaxis: IV Magnesium Sulphate loading dose (4g IV over 15 mins) administered on scene; 16G wide-bore IV access secured.`;
-
-    // 4. Recommendation & facility preparation
     const targetFacility = preferredHospital || req.hospital?.name || defaultCenter;
-    recommendation = `Immediate curb reception by Obstetric & Surgical Triage Team upon arrival. Direct wheel-in bypass to Delivery Suite / Maternity Theater at ${targetFacility}. Have 2 units uncrossed O-negative PRBC on immediate standby. Neonatal resuscitation incubator prepped.`;
+
+    // 3. Clinical Assessment & en route interventions (Differentiated by Stage A vs Stage B)
+    if (isStageA) {
+      assessment = `Documented PHC Clinical Intake: Fetal heart tones documented viable (~142 bpm), active uterine contractions every 2–3 mins. Maternal vitals: BP 120/80 mmHg, Pulse 84 bpm, SpO2 99%, conscious and oriented. Pre-referral neuroprotection / seizure prophylaxis: IV Magnesium Sulphate loading dose (4g IV over 15 mins) administered at referring health centre; 16G wide-bore IV access secured.`;
+      recommendation = `Immediate curb reception by Obstetric & Surgical Triage Team upon arrival. Direct wheel-in bypass to Delivery Suite / Maternity Theater at ${targetFacility}. Have 2 units uncrossed O-negative PRBC on immediate standby. Neonatal resuscitation incubator prepped.`;
+    } else {
+      // Home SOS from Client Mobile App: Shift Assessment to Standing Triage Verification
+      assessment = `Standing Dispatch Triage Verification: Direct emergency request initiated via Solace Client Mobile App. Dispatch tele-triage confirmed: Mother alert, conscious, reporting acute pelvic distress / active onset of labor at home residence. No prior facility stabilization. Attending response unit equipped with emergency obstetric delivery kit and oxygen; on-scene vital signs & fetal Doppler telemetry to be verified immediately upon arrival. Standing protocol: Rapid on-scene vitals, left lateral tilt, 16G IV access, and continuous paramedic escort.`;
+      recommendation = `Rapid curb triage reception by Obstetric Triage Team at ${targetFacility}. Direct admission to Maternity Triage Bay for initial bedside examination, Doppler verification, and blood bank crossmatch draw upon ambulance arrival.`;
+    }
   } else if (notes) {
     // General clean fallback removing raw brackets and developer tokens
     const cleanNotes = notes
@@ -473,14 +494,19 @@ export function extractSbarData(req: EmergencyRequest): SbarHandoverData {
     assessment,
     recommendation,
     specialty: type,
-    preReferralMedications: isObstetric
-      ? [
-          "Magnesium Sulphate (4g IV loading dose in 100ml Normal Saline)",
-          "IV Hydration (Normal Saline 500ml continuous infusion)",
-        ]
-      : isTrauma
-      ? ["Tranexamic Acid (1g IV slow push)", "Ringer's Lactate 1L bolus"]
-      : ["Normal Saline 0.9% KVO", "Oxygen by cannula"],
+    preReferralMedications: isStageA
+      ? (isObstetric
+          ? [
+              "Magnesium Sulphate (4g IV loading dose administered at PHC)",
+              "IV Hydration (Normal Saline 500ml continuous infusion)",
+            ]
+          : isTrauma
+          ? ["Tranexamic Acid (1g IV slow push)", "Ringer's Lactate 1L bolus"]
+          : ["Normal Saline 0.9% KVO", "Oxygen by cannula"])
+      : [
+          "Emergency Obstetric Delivery Kit on Response Unit (Ready for On-Scene Admin)",
+          "Oxygen by Cannula & IV Normal Saline 0.9% KVO Protocol Standby",
+        ],
     theaterRequested: isObstetric || isTrauma,
     bloodRequested: isObstetric || isTrauma,
     escalationTier,
@@ -495,6 +521,9 @@ export function extractSbarData(req: EmergencyRequest): SbarHandoverData {
     preferredHospital,
     condition,
     landmark,
+    stage,
+    assessmentBadge,
+    assessmentSource,
   };
 }
 
