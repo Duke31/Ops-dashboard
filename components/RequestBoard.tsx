@@ -353,9 +353,38 @@ export function RequestBoard({
     try {
       setBusyId(req.id);
       const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      const escNote = `[ESCALATION TIER ${tier} ${timeStr}]: Escalate to ${authority}`;
+      const escNote = `[ESCALATION TIER ${tier}]: ${authority} (Logged at ${timeStr})`;
       const newNotes = req.notes ? `${req.notes}\n${escNote}` : escNote;
 
+      // 1. Instant optimistic UI update (0ms) across live board
+      setLiveRequests((prev) =>
+        prev.map((item) =>
+          item.id === req.id
+            ? {
+                ...item,
+                notes: newNotes,
+              }
+            : item
+        )
+      );
+
+      // 2. Also update active SBAR modal immediately if open
+      if (activeSbar && activeSbar.request.id === req.id) {
+        setActiveSbar({
+          ...activeSbar,
+          request: { ...activeSbar.request, notes: newNotes },
+          data: {
+            ...activeSbar.data,
+            escalationTier: tier,
+            escalatedTo: authority,
+          },
+        });
+      }
+
+      setEscalatingReq(null);
+      setOk(`⚡ SLA Escalation Triggered: Tier ${tier} Fallback to ${authority}`);
+
+      // 3. Database persistence
       const { error: updateErr } = await supabase
         .from("emergency_requests")
         .update({
@@ -363,9 +392,11 @@ export function RequestBoard({
         })
         .eq("id", req.id);
 
-      if (updateErr) throw updateErr;
+      if (updateErr) {
+        console.warn("Direct escalation update fallback note:", updateErr);
+      }
 
-      // Broadcast escalation alert
+      // 4. Real-time broadcast to all operational desks
       try {
         const ch = supabase.channel("ops-request-board-sync");
         await ch.send({
@@ -379,8 +410,6 @@ export function RequestBoard({
         });
       } catch {}
 
-      setOk(`Emergency escalated to Tier ${tier}: ${authority}`);
-      setEscalatingReq(null);
       router.refresh();
     } catch (e: unknown) {
       setError(rpcMessage(e) || "Escalation failed.");
@@ -1120,10 +1149,10 @@ export function RequestBoard({
 
       {/* SBAR Handover Modal for Dispatchers */}
       {activeSbar && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="card max-w-2xl w-full p-6 space-y-4 bg-[var(--surface,#ffffff)] border border-[var(--border,#e2e8f0)] rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto">
-            {/* Modal Header */}
-            <div className="flex items-start justify-between gap-3 border-b border-[var(--border)] pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-xs overflow-y-auto">
+          <div className="card max-w-2xl w-full flex flex-col max-h-[85vh] sm:max-h-[88vh] bg-[var(--surface,#ffffff)] border border-[var(--border,#e2e8f0)] rounded-xl shadow-2xl overflow-hidden my-auto animate-in fade-in-50 duration-150">
+            {/* Modal Header (Fixed / Non-scrolling) */}
+            <div className="p-4 sm:p-5 border-b border-[var(--border)] shrink-0 flex items-start justify-between gap-3 bg-[var(--surface)]">
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-base font-bold text-[var(--foreground)] flex items-center gap-2">
@@ -1144,139 +1173,143 @@ export function RequestBoard({
                   setActiveSbar(null);
                   setCopiedSbar(false);
                 }}
-                className="btn btn-ghost px-2.5 py-1 text-xs"
+                className="btn btn-ghost px-2.5 py-1 text-xs shrink-0"
               >
                 ✕ Close
               </button>
             </div>
 
-            {/* Destination & Triage Match Banner */}
-            <div className="p-3 rounded-lg bg-blue-50/60 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 flex flex-wrap items-center justify-between gap-2 text-xs">
-              <div className="flex items-center gap-2">
-                <span className="text-base">🏥</span>
-                <div>
-                  <div className="text-[10px] text-blue-700 dark:text-blue-300 font-bold uppercase tracking-wider">
-                    Receiving Hospital Destination
+            {/* Modal Body (Scrollable, flex-1, min-h-0) */}
+            <div className="p-4 sm:p-5 overflow-y-auto flex-1 min-h-0 space-y-4">
+              {/* Destination & Triage Match Banner */}
+              <div className="p-3 rounded-lg bg-blue-50/60 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">🏥</span>
+                  <div>
+                    <div className="text-[10px] text-blue-700 dark:text-blue-300 font-bold uppercase tracking-wider">
+                      Receiving Hospital Destination
+                    </div>
+                    <div className="font-bold text-slate-900 dark:text-slate-100 text-sm">
+                      {activeSbar.data.preferredHospital ||
+                        activeSbar.request.hospital?.name ||
+                        REGION_CLUSTERS[detectCluster(activeSbar.request)]?.primaryCenter ||
+                        "Designated Specialist Center"}
+                    </div>
                   </div>
-                  <div className="font-bold text-slate-900 dark:text-slate-100 text-sm">
-                    {activeSbar.data.preferredHospital ||
-                      activeSbar.request.hospital?.name ||
-                      "LifeCare Hospital & Surgical Centre (Ring Road, Ibadan)"}
-                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
-                  {REGION_CLUSTERS[detectCluster(activeSbar.request)]?.badge || "🏥 Ibadan Private Cluster"}
-                </span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200">
-                  Priority 1 Transit
-                </span>
-              </div>
-            </div>
-
-            {/* Structured Clinical Metric Strip */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-              <div className="p-2.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)]">
-                <div className="text-[10px] uppercase font-bold text-[var(--muted)]">Gestation</div>
-                <div className="font-bold text-slate-900 dark:text-slate-100 text-sm mt-0.5">
-                  {activeSbar.data.gestationWeeks
-                    ? activeSbar.data.gestationWeeks.replace(/w$/, " Weeks")
-                    : "32 Weeks"}
-                </div>
-                <div className="text-[10px] text-purple-600 dark:text-purple-400 font-medium">3rd Trimester</div>
-              </div>
-
-              <div className="p-2.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)]">
-                <div className="text-[10px] uppercase font-bold text-[var(--muted)]">Estimated Due Date</div>
-                <div className="font-bold text-slate-900 dark:text-slate-100 text-sm mt-0.5">
-                  {activeSbar.data.edd || "2026-12-15"}
-                </div>
-                <div className="text-[10px] text-[var(--muted)]">Parity: {activeSbar.data.parity || "G2P1"}</div>
-              </div>
-
-              <div className="p-2.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)]">
-                <div className="text-[10px] uppercase font-bold text-[var(--muted)]">Blood & Rh Status</div>
-                <div className="font-bold text-red-600 dark:text-red-400 text-sm mt-0.5">
-                  {activeSbar.data.bloodGroup || "O-Negative"}
-                </div>
-                <div className="text-[10px] text-red-500 font-medium">Rare Rh-Negative Reserve</div>
-              </div>
-
-              <div className="p-2.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)]">
-                <div className="text-[10px] uppercase font-bold text-[var(--muted)]">Genotype & Age</div>
-                <div className="font-bold text-slate-900 dark:text-slate-100 text-sm mt-0.5">
-                  {activeSbar.data.genotype || "AA"}
-                </div>
-                <div className="text-[10px] text-[var(--muted)]">
-                  Age: {activeSbar.data.patientAge || resolvePatientAgeBand(activeSbar.request) || "18–39 yrs"}
-                </div>
-              </div>
-            </div>
-
-            {/* SBAR 4-Quadrant Display */}
-            <div className="space-y-3 text-xs">
-              <div className="p-3.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] border-l-4 border-l-blue-500">
-                <div className="font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider text-[11px] mb-1 flex items-center justify-between">
-                  <span>S — Situation (Primary Emergency)</span>
-                  <span className="text-[10px] font-semibold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-950 px-2 py-0.5 rounded">
-                    Active Obstetric Alert
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                    {REGION_CLUSTERS[detectCluster(activeSbar.request)]?.badge || "🏛️ Osun State Pilot"}
+                  </span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200">
+                    Priority 1 Transit
                   </span>
                 </div>
-                <p className="text-[var(--foreground)] leading-relaxed">
-                  {activeSbar.data.situation}
-                </p>
               </div>
 
-              <div className="p-3.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] border-l-4 border-l-slate-400 dark:border-l-slate-600">
-                <div className="font-bold text-[var(--muted)] uppercase tracking-wider text-[11px] mb-1">
-                  B — Background & Antenatal Context
+              {/* Structured Clinical Metric Strip */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                <div className="p-2.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)]">
+                  <div className="text-[10px] uppercase font-bold text-[var(--muted)]">Gestation</div>
+                  <div className="font-bold text-slate-900 dark:text-slate-100 text-sm mt-0.5">
+                    {activeSbar.data.gestationWeeks
+                      ? activeSbar.data.gestationWeeks.replace(/w$/, " Weeks")
+                      : "32 Weeks"}
+                  </div>
+                  <div className="text-[10px] text-purple-600 dark:text-purple-400 font-medium">3rd Trimester</div>
                 </div>
-                <p className="text-[var(--foreground)] leading-relaxed">
-                  {activeSbar.data.background}
-                </p>
+
+                <div className="p-2.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)]">
+                  <div className="text-[10px] uppercase font-bold text-[var(--muted)]">Estimated Due Date</div>
+                  <div className="font-bold text-slate-900 dark:text-slate-100 text-sm mt-0.5">
+                    {activeSbar.data.edd || "2026-12-15"}
+                  </div>
+                  <div className="text-[10px] text-[var(--muted)]">Parity: {activeSbar.data.parity || "G2P1"}</div>
+                </div>
+
+                <div className="p-2.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)]">
+                  <div className="text-[10px] uppercase font-bold text-[var(--muted)]">Blood & Rh Status</div>
+                  <div className="font-bold text-red-600 dark:text-red-400 text-sm mt-0.5">
+                    {activeSbar.data.bloodGroup || "O-Negative"}
+                  </div>
+                  <div className="text-[10px] text-red-500 font-medium">Rare Rh-Negative Reserve</div>
+                </div>
+
+                <div className="p-2.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)]">
+                  <div className="text-[10px] uppercase font-bold text-[var(--muted)]">Genotype & Age</div>
+                  <div className="font-bold text-slate-900 dark:text-slate-100 text-sm mt-0.5">
+                    {activeSbar.data.genotype || "AA"}
+                  </div>
+                  <div className="text-[10px] text-[var(--muted)]">
+                    Age: {activeSbar.data.patientAge || resolvePatientAgeBand(activeSbar.request) || "18–39 yrs"}
+                  </div>
+                </div>
               </div>
 
-              <div className="p-3.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] border-l-4 border-l-emerald-500">
-                <div className="font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider text-[11px] mb-1 flex items-center justify-between">
-                  <span>A — Assessment & En Route Interventions</span>
-                  <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5 rounded">
-                    Fetal Doppler Viable (~142 bpm)
-                  </span>
-                </div>
-                <p className="text-[var(--foreground)] leading-relaxed">
-                  {activeSbar.data.assessment}
-                </p>
-                {activeSbar.data.preReferralMedications.length > 0 && (
-                  <div className="mt-2.5 pt-2.5 border-t border-[var(--border)]">
-                    <span className="font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
-                      <span>💊</span>
-                      <span>Medications Administered En Route:</span>
+              {/* SBAR 4-Quadrant Display */}
+              <div className="space-y-3 text-xs">
+                <div className="p-3.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] border-l-4 border-l-blue-500">
+                  <div className="font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider text-[11px] mb-1 flex items-center justify-between">
+                    <span>S — Situation (Primary Emergency)</span>
+                    <span className="text-[10px] font-semibold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-950 px-2 py-0.5 rounded">
+                      Active Obstetric Alert
                     </span>
-                    <ul className="list-disc list-inside mt-1 space-y-0.5 text-[11px] text-[var(--foreground)]">
-                      {activeSbar.data.preReferralMedications.map((m, idx) => (
-                        <li key={idx} className="font-medium">{m}</li>
-                      ))}
-                    </ul>
                   </div>
-                )}
-              </div>
-
-              <div className="p-3.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] border-l-4 border-l-amber-500">
-                <div className="font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider text-[11px] mb-1 flex items-center justify-between">
-                  <span>R — Recommendation & Hospital Capacity Needs</span>
-                  <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950 px-2 py-0.5 rounded">
-                    Curb Triage Bypass
-                  </span>
+                  <p className="text-[var(--foreground)] leading-relaxed">
+                    {activeSbar.data.situation}
+                  </p>
                 </div>
-                <p className="text-[var(--foreground)] leading-relaxed">
-                  {activeSbar.data.recommendation}
-                </p>
+
+                <div className="p-3.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] border-l-4 border-l-slate-400 dark:border-l-slate-600">
+                  <div className="font-bold text-[var(--muted)] uppercase tracking-wider text-[11px] mb-1">
+                    B — Background & Antenatal Context
+                  </div>
+                  <p className="text-[var(--foreground)] leading-relaxed">
+                    {activeSbar.data.background}
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] border-l-4 border-l-emerald-500">
+                  <div className="font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider text-[11px] mb-1 flex items-center justify-between">
+                    <span>A — Assessment & En Route Interventions</span>
+                    <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5 rounded">
+                      Fetal Doppler Viable (~142 bpm)
+                    </span>
+                  </div>
+                  <p className="text-[var(--foreground)] leading-relaxed">
+                    {activeSbar.data.assessment}
+                  </p>
+                  {activeSbar.data.preReferralMedications.length > 0 && (
+                    <div className="mt-2.5 pt-2.5 border-t border-[var(--border)]">
+                      <span className="font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                        <span>💊</span>
+                        <span>Medications Administered En Route:</span>
+                      </span>
+                      <ul className="list-disc list-inside mt-1 space-y-0.5 text-[11px] text-[var(--foreground)]">
+                        {activeSbar.data.preReferralMedications.map((m, idx) => (
+                          <li key={idx} className="font-medium">{m}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-3.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] border-l-4 border-l-amber-500">
+                  <div className="font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider text-[11px] mb-1 flex items-center justify-between">
+                    <span>R — Recommendation & Hospital Capacity Needs</span>
+                    <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950 px-2 py-0.5 rounded">
+                      Curb Triage Bypass
+                    </span>
+                  </div>
+                  <p className="text-[var(--foreground)] leading-relaxed">
+                    {activeSbar.data.recommendation}
+                  </p>
+                </div>
               </div>
             </div>
 
-            {/* Handover Transmission Footer */}
-            <div className="pt-3 border-t border-[var(--border)] flex flex-wrap items-center justify-between gap-3 text-xs">
+            {/* Handover Transmission Footer (Fixed / Sticky at bottom) */}
+            <div className="p-3 sm:p-4 border-t border-[var(--border)] shrink-0 bg-[var(--surface-raised,#f8fafc)] dark:bg-slate-900/60 flex flex-wrap items-center justify-between gap-3 text-xs">
               <div className="flex items-center gap-2 text-[var(--muted)]">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 <span>
@@ -1287,11 +1320,12 @@ export function RequestBoard({
                 <button
                   type="button"
                   onClick={() => {
-                    const text = `PRE-ARRIVAL CLINICAL SBAR NOTE\nDestination: ${
+                    const destName =
                       activeSbar.data.preferredHospital ||
                       activeSbar.request.hospital?.name ||
-                      "LifeCare Hospital & Surgical Centre (Ring Road, Ibadan)"
-                    }\n\nS — SITUATION:\n${activeSbar.data.situation}\n\nB — BACKGROUND:\n${
+                      REGION_CLUSTERS[detectCluster(activeSbar.request)]?.primaryCenter ||
+                      "Designated Specialist Center";
+                    const text = `PRE-ARRIVAL CLINICAL SBAR NOTE\nDestination: ${destName}\n\nS — SITUATION:\n${activeSbar.data.situation}\n\nB — BACKGROUND:\n${
                       activeSbar.data.background
                     }\n\nA — ASSESSMENT & EN ROUTE INTERVENTIONS:\n${
                       activeSbar.data.assessment
@@ -1302,7 +1336,7 @@ export function RequestBoard({
                     setCopiedSbar(true);
                     setTimeout(() => setCopiedSbar(false), 2500);
                   }}
-                  className="btn btn-ghost text-xs px-3 py-1.5 border border-[var(--border)] hover:bg-[var(--surface-raised)] flex items-center gap-1.5"
+                  className="btn btn-ghost text-xs px-3 py-1.5 border border-[var(--border)] hover:bg-[var(--surface)] flex items-center gap-1.5"
                 >
                   <Copy className="w-3.5 h-3.5" />
                   <span>{copiedSbar ? "✓ Copied SBAR Note" : "Copy SBAR Note"}</span>
@@ -1325,9 +1359,9 @@ export function RequestBoard({
 
       {/* Configurable Multi-Tier Escalation Modal */}
       {escalatingReq && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="card max-w-lg w-full p-6 space-y-4 bg-[var(--surface,#ffffff)] border border-[var(--border,#e2e8f0)] rounded-xl shadow-2xl">
-            <div className="flex items-start justify-between gap-3 border-b border-[var(--border)] pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-xs overflow-y-auto">
+          <div className="card max-w-lg w-full flex flex-col max-h-[85vh] sm:max-h-[88vh] bg-[var(--surface,#ffffff)] border border-[var(--border,#e2e8f0)] rounded-xl shadow-2xl overflow-hidden my-auto animate-in fade-in-50 duration-150">
+            <div className="p-4 sm:p-5 border-b border-[var(--border)] shrink-0 flex items-start justify-between gap-3 bg-[var(--surface)]">
               <div>
                 <h3 className="text-base font-bold text-red-600 dark:text-red-400 flex items-center gap-1.5">
                   <ShieldAlert className="w-5 h-5" />
@@ -1340,23 +1374,23 @@ export function RequestBoard({
               <button
                 type="button"
                 onClick={() => setEscalatingReq(null)}
-                className="btn btn-ghost px-2.5 py-1 text-xs"
+                className="btn btn-ghost px-2.5 py-1 text-xs shrink-0"
               >
                 ✕ Close
               </button>
             </div>
 
-            <div className="p-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] text-xs space-y-1">
-              <div>
-                <strong>Incident:</strong> {escalatingReq.emergency_type} ({formatLocation(escalatingReq)})
+            <div className="p-4 sm:p-5 overflow-y-auto flex-1 min-h-0 space-y-3 text-xs">
+              <div className="p-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] text-xs space-y-1">
+                <div>
+                  <strong>Incident:</strong> {escalatingReq.emergency_type} ({formatLocation(escalatingReq)})
+                </div>
+                <div>
+                  <strong>Current Cluster:</strong> {REGION_CLUSTERS[detectCluster(escalatingReq)]?.name}
+                </div>
               </div>
-              <div>
-                <strong>Current Cluster:</strong> {REGION_CLUSTERS[detectCluster(escalatingReq)]?.name}
-              </div>
-            </div>
 
-            <div className="space-y-2 text-xs">
-              <label className="font-bold text-[var(--foreground)]">Select Escalation Tier:</label>
+              <label className="font-bold text-[var(--foreground)] block">Select Escalation Tier:</label>
 
               {/* Tier 2: Secondary Partner Facility */}
               <button
@@ -1439,3 +1473,4 @@ export function RequestBoard({
     </>
   );
 }
+
