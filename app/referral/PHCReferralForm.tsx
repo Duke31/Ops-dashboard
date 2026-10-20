@@ -498,7 +498,7 @@ export function PHCReferralForm({
               onChange={(e) => setCoverageScheme(e.target.value)}
               className="select w-full text-xs font-medium"
             >
-              <option value="O'HIS Enrolled (Free via 5% BHCPF Emergency Fund)">O'HIS Enrolled (Free via 5% BHCPF Emergency Fund)</option>
+              <option value="O'HIS Enrolled (Free via 5% BHCPF Emergency Fund)">O&apos;HIS Enrolled (Free via 5% BHCPF Emergency Fund)</option>
               <option value="NHIA / State Vulnerable Group Fund">NHIA / State Vulnerable Group Fund</option>
               <option value="Private HMO Partner Enrollee">Private HMO Partner Enrollee</option>
               <option value="Community Emergency Self-Pay (Subsidized)">Community Emergency Self-Pay (Subsidized)</option>

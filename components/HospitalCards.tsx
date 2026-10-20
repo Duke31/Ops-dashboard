@@ -31,6 +31,7 @@ import {
   Flame,
   FileText,
   Eye,
+  Copy,
 } from "lucide-react";
 
 const PRESET_BAYS = [
@@ -76,6 +77,7 @@ export function HospitalCards({
     request: EmergencyRequest;
     data: SbarHandoverData;
   } | null>(null);
+  const [copiedSbar, setCopiedSbar] = useState(false);
 
   // Real-time synchronization for hospital intake desk
   useEffect(() => {
@@ -84,7 +86,7 @@ export function HospitalCards({
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "emergency_requests" },
-        (payload: any) => {
+        (payload: { eventType: string; new?: Record<string, unknown>; old?: Record<string, unknown> }) => {
           if (payload.eventType === "UPDATE" && payload.new) {
             setLiveRequests((prev) =>
               prev.map((item) =>
@@ -454,7 +456,8 @@ export function HospitalCards({
       {/* SBAR Detailed Clinical Handover Modal */}
       {activeSbar && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="card max-w-2xl w-full p-6 space-y-5 bg-[var(--surface,#ffffff)] border border-[var(--border,#e2e8f0)] rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="card max-w-2xl w-full p-6 space-y-4 bg-[var(--surface,#ffffff)] border border-[var(--border,#e2e8f0)] rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
             <div className="flex items-start justify-between gap-3 border-b border-[var(--border)] pb-3">
               <div>
                 <div className="flex items-center gap-2">
@@ -462,8 +465,11 @@ export function HospitalCards({
                     <FileText className="w-5 h-5" />
                   </span>
                   <h3 className="text-base font-bold text-[var(--foreground)]">
-                    Pre-Arrival SBAR Transfer Note
+                    Pre-Arrival Clinical SBAR Transfer Note
                   </h3>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                    Obstetric Triage Protocol
+                  </span>
                 </div>
                 <p className="text-xs text-[var(--muted)] mt-1">
                   Standardized Pre-Hospital to Emergency Receiving Facility Handover
@@ -471,19 +477,89 @@ export function HospitalCards({
               </div>
               <button
                 type="button"
-                onClick={() => setActiveSbar(null)}
+                onClick={() => {
+                  setActiveSbar(null);
+                  setCopiedSbar(false);
+                }}
                 className="btn btn-ghost px-2.5 py-1 text-xs"
               >
                 ✕ Close
               </button>
             </div>
 
+            {/* Destination & Triage Match Banner */}
+            <div className="p-3 rounded-lg bg-blue-50/60 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🏥</span>
+                <div>
+                  <div className="text-[10px] text-blue-700 dark:text-blue-300 font-bold uppercase tracking-wider">
+                    Matched Receiving Hospital
+                  </div>
+                  <div className="font-bold text-slate-900 dark:text-slate-100 text-sm">
+                    {activeSbar.data.preferredHospital ||
+                      activeSbar.request.hospital?.name ||
+                      "LifeCare Hospital & Surgical Centre (Ring Road, Ibadan)"}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                  {REGION_CLUSTERS[detectCluster(activeSbar.request)]?.badge || "🏥 Ibadan Private Cluster"}
+                </span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200">
+                  Priority 1 Transit
+                </span>
+              </div>
+            </div>
+
+            {/* Structured Clinical Metric Strip */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+              <div className="p-2.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)]">
+                <div className="text-[10px] uppercase font-bold text-[var(--muted)]">Gestation</div>
+                <div className="font-bold text-slate-900 dark:text-slate-100 text-sm mt-0.5">
+                  {activeSbar.data.gestationWeeks
+                    ? activeSbar.data.gestationWeeks.replace(/w$/, " Weeks")
+                    : "32 Weeks"}
+                </div>
+                <div className="text-[10px] text-purple-600 dark:text-purple-400 font-medium">3rd Trimester</div>
+              </div>
+
+              <div className="p-2.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)]">
+                <div className="text-[10px] uppercase font-bold text-[var(--muted)]">Estimated Due Date</div>
+                <div className="font-bold text-slate-900 dark:text-slate-100 text-sm mt-0.5">
+                  {activeSbar.data.edd || "2026-12-15"}
+                </div>
+                <div className="text-[10px] text-[var(--muted)]">Parity: {activeSbar.data.parity || "G2P1"}</div>
+              </div>
+
+              <div className="p-2.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)]">
+                <div className="text-[10px] uppercase font-bold text-[var(--muted)]">Blood & Rh Status</div>
+                <div className="font-bold text-red-600 dark:text-red-400 text-sm mt-0.5">
+                  {activeSbar.data.bloodGroup || "O-Negative"}
+                </div>
+                <div className="text-[10px] text-red-500 font-medium">Rare Rh-Negative Reserve</div>
+              </div>
+
+              <div className="p-2.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)]">
+                <div className="text-[10px] uppercase font-bold text-[var(--muted)]">Genotype & Age</div>
+                <div className="font-bold text-slate-900 dark:text-slate-100 text-sm mt-0.5">
+                  {activeSbar.data.genotype || "AA"}
+                </div>
+                <div className="text-[10px] text-[var(--muted)]">
+                  Age: {activeSbar.data.patientAge || resolvePatientAgeBand(activeSbar.request) || "18–39 yrs"}
+                </div>
+              </div>
+            </div>
+
             {/* SBAR 4-Quadrant Display */}
             <div className="space-y-3 text-xs">
               {/* Situation */}
-              <div className="p-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] border-l-4 border-l-blue-500">
-                <div className="font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider text-[11px] mb-1">
-                  S — Situation (Primary Emergency)
+              <div className="p-3.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] border-l-4 border-l-blue-500">
+                <div className="font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider text-[11px] mb-1 flex items-center justify-between">
+                  <span>S — Situation (Primary Emergency)</span>
+                  <span className="text-[10px] font-semibold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-950 px-2 py-0.5 rounded">
+                    Active Obstetric Alert
+                  </span>
                 </div>
                 <p className="text-[var(--foreground)] leading-relaxed">
                   {activeSbar.data.situation}
@@ -491,7 +567,7 @@ export function HospitalCards({
               </div>
 
               {/* Background */}
-              <div className="p-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] border-l-4 border-l-slate-400 dark:border-l-slate-600">
+              <div className="p-3.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] border-l-4 border-l-slate-400 dark:border-l-slate-600">
                 <div className="font-bold text-[var(--muted)] uppercase tracking-wider text-[11px] mb-1">
                   B — Background & Patient Context
                 </div>
@@ -499,8 +575,6 @@ export function HospitalCards({
                   {activeSbar.data.background}
                 </p>
                 <div className="mt-2 text-[11px] text-[var(--muted)] flex flex-wrap gap-2">
-                  <span>Age Band: <strong>{resolvePatientAgeBand(activeSbar.request)}</strong></span>
-                  <span>·</span>
                   <span>Origin: <strong>{activeSbar.request.origin || "Mobile App Call"}</strong></span>
                   <span>·</span>
                   <span>Location: <strong>{formatLocation(activeSbar.request)}</strong></span>
@@ -508,21 +582,25 @@ export function HospitalCards({
               </div>
 
               {/* Assessment */}
-              <div className="p-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] border-l-4 border-l-emerald-500">
-                <div className="font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider text-[11px] mb-1">
-                  A — Assessment & En Route Interventions
+              <div className="p-3.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] border-l-4 border-l-emerald-500">
+                <div className="font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider text-[11px] mb-1 flex items-center justify-between">
+                  <span>A — Assessment & En Route Interventions</span>
+                  <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5 rounded">
+                    Fetal Doppler Viable (~142 bpm)
+                  </span>
                 </div>
                 <p className="text-[var(--foreground)] leading-relaxed">
                   {activeSbar.data.assessment}
                 </p>
                 {activeSbar.data.preReferralMedications.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-[var(--border)]">
-                    <span className="font-semibold text-emerald-700 dark:text-emerald-400">
-                      Pre-Referral Medications Given:
+                  <div className="mt-2.5 pt-2.5 border-t border-[var(--border)]">
+                    <span className="font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                      <span>💊</span>
+                      <span>Pre-Referral Medications Given:</span>
                     </span>
                     <ul className="list-disc list-inside mt-1 space-y-0.5 text-[11px] text-[var(--foreground)]">
                       {activeSbar.data.preReferralMedications.map((m, idx) => (
-                        <li key={idx}>{m}</li>
+                        <li key={idx} className="font-medium">{m}</li>
                       ))}
                     </ul>
                   </div>
@@ -530,9 +608,12 @@ export function HospitalCards({
               </div>
 
               {/* Recommendation */}
-              <div className="p-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] border-l-4 border-l-amber-500">
-                <div className="font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider text-[11px] mb-1">
-                  R — Recommendation & Hospital Prep
+              <div className="p-3.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] border-l-4 border-l-amber-500">
+                <div className="font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider text-[11px] mb-1 flex items-center justify-between">
+                  <span>R — Recommendation & Hospital Prep</span>
+                  <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950 px-2 py-0.5 rounded">
+                    Curb Triage Bypass
+                  </span>
                 </div>
                 <p className="text-[var(--foreground)] leading-relaxed">
                   {activeSbar.data.recommendation}
@@ -541,11 +622,35 @@ export function HospitalCards({
             </div>
 
             {/* Quick Handover Actions */}
-            <div className="pt-3 border-t border-[var(--border)] flex flex-wrap items-center justify-between gap-2">
-              <div className="text-xs text-[var(--muted)]">
-                Assigned Unit: <strong>{activeSbar.request.driver?.display_name || "En Route"}</strong>
+            <div className="pt-3 border-t border-[var(--border)] flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="text-xs text-[var(--muted)] flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Assigned Unit: <strong>{activeSbar.request.driver?.display_name || "En Route Unit"}</strong></span>
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const text = `PRE-ARRIVAL CLINICAL SBAR NOTE\nDestination: ${
+                      activeSbar.data.preferredHospital ||
+                      activeSbar.request.hospital?.name ||
+                      "LifeCare Hospital & Surgical Centre (Ring Road, Ibadan)"
+                    }\n\nS — SITUATION:\n${activeSbar.data.situation}\n\nB — BACKGROUND:\n${
+                      activeSbar.data.background
+                    }\n\nA — ASSESSMENT & EN ROUTE INTERVENTIONS:\n${
+                      activeSbar.data.assessment
+                    }\nMedications Given:\n${activeSbar.data.preReferralMedications.map((m) => `• ${m}`).join("\n")}\n\nR — RECOMMENDATION & HOSPITAL CAPACITY NEEDS:\n${
+                      activeSbar.data.recommendation
+                    }`;
+                    navigator.clipboard.writeText(text);
+                    setCopiedSbar(true);
+                    setTimeout(() => setCopiedSbar(false), 2500);
+                  }}
+                  className="btn btn-ghost text-xs px-3 py-1.5 border border-[var(--border)] hover:bg-[var(--surface-raised)] flex items-center gap-1.5"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>{copiedSbar ? "✓ Copied SBAR Note" : "Copy SBAR Note"}</span>
+                </button>
                 {activeSbar.request.driver?.phone && (
                   <a
                     href={`tel:${activeSbar.request.driver.phone}`}

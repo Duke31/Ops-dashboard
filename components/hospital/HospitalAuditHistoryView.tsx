@@ -141,7 +141,7 @@ export function HospitalAuditHistoryView({
 
   // Filtered requests for auditing table
   const filtered = useMemo(() => {
-    const now = nowTimestamp || Date.now();
+    const now = nowTimestamp;
     return requests.filter((r) => {
       // 1. Status Filter
       if (statusFilter !== "all") {

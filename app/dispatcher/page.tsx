@@ -14,11 +14,11 @@ export default async function DispatcherPage() {
     fetchTransitionRules(supabase, "dispatcher"),
     supabase
       .from("hospitals")
-      .select("id, name, available_capacity")
+      .select("id, name, address, lat, lng, available_capacity")
       .order("name")
       .then(
         (res) => res,
-        () => ({ data: [] as { id: string; name: string; available_capacity: number | null }[], error: null, count: null, status: 200, statusText: "OK" }),
+        () => ({ data: [] as { id: string; name: string; address?: string | null; lat?: number | null; lng?: number | null; available_capacity: number | null }[], error: null, count: null, status: 200, statusText: "OK" }),
       ),
     supabase
       .from("drivers")

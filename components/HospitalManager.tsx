@@ -83,7 +83,7 @@ const empty: FormState = {
   lat: "",
   lng: "",
   intake_phone: "",
-  cluster: "osun_pilot",
+  cluster: "ibadan_private",
 };
 
 export function HospitalManager({
