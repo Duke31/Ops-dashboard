@@ -297,8 +297,8 @@ export function detectCluster(item: {
     return classifyClusterByCoordinates(lat, lng);
   }
 
-  // Default to Ibadan Private Hospital Network (Primary Focus)
-  return "ibadan_private";
+  // Default to Osun State OSEMSAS Pilot (Primary Cluster)
+  return "osun_pilot";
 }
 
 export interface SbarHandoverData {
@@ -344,10 +344,10 @@ export function extractSbarData(req: EmergencyRequest): SbarHandoverData {
   let escalatedTo = undefined;
 
   // Extract escalation tier if logged
-  const escMatch = notes.match(/\[ESCALATION\s+TIER\s+(\d+)\]:\s*([^|\]\n\r]+)/i);
+  const escMatch = notes.match(/\[ESCALATION\s+TIER\s+(\d+)[^\]]*\]:\s*([^|\n\r]+)/i);
   if (escMatch) {
     escalationTier = parseInt(escMatch[1], 10) || 1;
-    escalatedTo = escMatch[2].trim();
+    escalatedTo = escMatch[2].replace(/^Escalate to\s+/i, "").trim();
   }
 
   // Extract structured parameters across notes
@@ -408,7 +408,10 @@ export function extractSbarData(req: EmergencyRequest): SbarHandoverData {
   } else if (isObs) {
     // 1. Clean, professional Situation
     const clinicalCondition = condition || "Active Labor / Imminent Delivery";
-    const receivingCenter = preferredHospital || "LifeCare Hospital & Surgical Centre (Ring Road, Ibadan)";
+    const clusterKey = detectCluster(req);
+    const clusterInfo = REGION_CLUSTERS[clusterKey];
+    const defaultCenter = clusterInfo?.primaryCenter || "State Specialist Hospital / Designated Partner Center";
+    const receivingCenter = preferredHospital || req.hospital?.name || defaultCenter;
     situation = `Active Obstetric Emergency: ${clinicalCondition}. Patient en route to designated reception at ${receivingCenter}. Priority 1 emergency transit active with live paramedic escort.`;
 
     // 2. Coherent Background with synchronized clinical parameters
@@ -431,7 +434,7 @@ export function extractSbarData(req: EmergencyRequest): SbarHandoverData {
     assessment = `Fetal heart tones documented viable (~142 bpm), active uterine contractions every 2–3 mins. Maternal vitals: BP 120/80 mmHg, Pulse 84 bpm, SpO2 99%, conscious and oriented. Pre-referral neuroprotection / seizure prophylaxis: IV Magnesium Sulphate loading dose (4g IV over 15 mins) administered on scene; 16G wide-bore IV access secured.`;
 
     // 4. Recommendation & facility preparation
-    const targetFacility = preferredHospital || "LifeCare Hospital & Surgical Centre";
+    const targetFacility = preferredHospital || req.hospital?.name || defaultCenter;
     recommendation = `Immediate curb reception by Obstetric & Surgical Triage Team upon arrival. Direct wheel-in bypass to Delivery Suite / Maternity Theater at ${targetFacility}. Have 2 units uncrossed O-negative PRBC on immediate standby. Neonatal resuscitation incubator prepped.`;
   } else if (notes) {
     // General clean fallback removing raw brackets and developer tokens
@@ -536,3 +539,4 @@ export function checkRequestSla(
     remainingHospitalSeconds,
   };
 }
+
